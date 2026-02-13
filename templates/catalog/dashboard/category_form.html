@@ -1,14 +1,34 @@
 {% extends "base.html" %}
 {% block title %}{% if category %}ویرایش دسته{% else %}افزودن دسته{% endif %} | داشبورد{% endblock %}
+{% block extra_head %}
+<style>
+  .drop-zone { border: 2px dashed #cbd5e0; border-radius: 0.5rem; padding: 1.5rem; text-align: center; transition: border-color .2s, background .2s; }
+  .drop-zone.dragover { border-color: #3182ce; background: #ebf8ff; }
+  .drop-zone input[type="file"] { position: absolute; opacity: 0; width: 100%; height: 100%; top: 0; left: 0; cursor: pointer; }
+</style>
+{% endblock %}
 {% block content %}
 <div class="mx-auto max-w-md">
     <h1 class="text-2xl font-bold text-gray-900">{% if category %}ویرایش دسته{% else %}افزودن دسته{% endif %}</h1>
-    <form method="post" class="mt-6 space-y-4">
+    <form method="post" enctype="multipart/form-data" class="mt-6 space-y-4">
         {% csrf_token %}
         {% for field in form %}
-            <div>
+            <div class="{% if field.name == 'image' %}image-field{% endif %}">
                 <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-gray-700">{{ field.label }}</label>
+                {% if field.name == 'image' %}
+                <div class="drop-zone mt-1 relative" id="category-image-drop" data-input-id="id_image">
+                    <input type="file" name="image" id="id_image" accept="image/*" class="input">
+                    {% if form.instance.image %}
+                    <p class="text-sm text-gray-600">تصویر فعلی:</p>
+                    <img src="{{ form.instance.image.url }}" alt="" class="mx-auto mt-2 h-24 object-contain rounded">
+                    <p class="mt-2 text-xs text-gray-500">برای تعویض، فایل بکشید اینجا یا کلیک کنید.</p>
+                    {% else %}
+                    <p class="text-gray-500">تصویر را اینجا بکشید و رها کنید یا کلیک کنید.</p>
+                    {% endif %}
+                </div>
+                {% else %}
                 {{ field }}
+                {% endif %}
                 {% if field.errors %}<p class="mt-1 text-sm text-red-600">{{ field.errors.0 }}</p>{% endif %}
             </div>
         {% endfor %}
@@ -16,4 +36,20 @@
         <a href="{{ store_path_prefix }}{% url 'catalog:dashboard_category_list' %}" class="btn btn-secondary">انصراف</a>
     </form>
 </div>
+<script>
+(function() {
+  var dz = document.getElementById('category-image-drop');
+  if (!dz) return;
+  var input = document.getElementById('id_image');
+  function highlight() { dz.classList.add('dragover'); }
+  function unhighlight() { dz.classList.remove('dragover'); }
+  dz.addEventListener('dragover', function(e) { e.preventDefault(); highlight(); });
+  dz.addEventListener('dragleave', unhighlight);
+  dz.addEventListener('drop', function(e) {
+    e.preventDefault();
+    unhighlight();
+    if (e.dataTransfer.files.length) input.files = e.dataTransfer.files;
+  });
+})();
+</script>
 {% endblock %}

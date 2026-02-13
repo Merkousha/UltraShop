@@ -5,12 +5,13 @@ from .models import Category, Product, ProductVariant
 class CategoryForm(forms.ModelForm):
     class Meta:
         model = Category
-        fields = ("name", "parent", "description", "sort_order", "meta_title", "meta_description")
-        labels = {"name": "نام", "parent": "دسته والد", "description": "توضیح", "sort_order": "ترتیب", "meta_title": "عنوان متا", "meta_description": "توضیح متا"}
+        fields = ("name", "parent", "description", "image", "sort_order", "meta_title", "meta_description")
+        labels = {"name": "نام", "parent": "دسته والد", "description": "توضیح", "image": "تصویر", "sort_order": "ترتیب", "meta_title": "عنوان متا", "meta_description": "توضیح متا"}
         widgets = {
             "name": forms.TextInput(attrs={"class": "input"}),
             "parent": forms.Select(attrs={"class": "input"}),
             "description": forms.Textarea(attrs={"class": "input", "rows": 3}),
+            "image": forms.FileInput(attrs={"class": "input", "accept": "image/*"}),
             "sort_order": forms.NumberInput(attrs={"class": "input"}),
             "meta_title": forms.TextInput(attrs={"class": "input"}),
             "meta_description": forms.Textarea(attrs={"class": "input", "rows": 2}),
@@ -20,13 +21,14 @@ class CategoryForm(forms.ModelForm):
 class ProductForm(forms.ModelForm):
     class Meta:
         model = Product
-        fields = ("name", "description", "status", "categories", "meta_title", "meta_description")
-        labels = {"name": "نام", "description": "توضیح", "status": "وضعیت", "categories": "دسته‌ها", "meta_title": "عنوان متا", "meta_description": "توضیح متا"}
+        fields = ("name", "description", "status", "categories", "image", "meta_title", "meta_description")
+        labels = {"name": "نام", "description": "توضیح", "status": "وضعیت", "categories": "دسته‌ها", "image": "تصویر اصلی", "meta_title": "عنوان متا", "meta_description": "توضیح متا"}
         widgets = {
             "name": forms.TextInput(attrs={"class": "input"}),
             "description": forms.Textarea(attrs={"class": "input", "rows": 4}),
             "status": forms.Select(attrs={"class": "input"}),
             "categories": forms.SelectMultiple(attrs={"class": "input"}),
+            "image": forms.FileInput(attrs={"class": "input", "accept": "image/*"}),
             "meta_title": forms.TextInput(attrs={"class": "input"}),
             "meta_description": forms.Textarea(attrs={"class": "input", "rows": 2}),
         }

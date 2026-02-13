@@ -1,7 +1,7 @@
 from django.shortcuts import redirect, get_object_or_404, render
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, View
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.urls import reverse_lazy
+from django.urls import reverse_lazy, reverse
 from django.http import HttpResponseForbidden, HttpResponseBadRequest
 from django.contrib import messages
 from django.views.decorators.http import require_POST
@@ -10,7 +10,7 @@ from django.utils.decorators import method_decorator
 from stores.models import user_can_access_store
 from stores.mixins import StoreAccessMixin
 
-from .models import Category, Product, ProductVariant
+from .models import Category, Product, ProductImage, ProductVariant
 from .forms import CategoryForm, ProductForm, ProductVariantFormSet
 from .cart import get_cart_items, add_item, remove_item, update_item_qty, cart_total
 
@@ -167,11 +167,14 @@ class DashboardProductCreateView(StoreOwnerMixin, CreateView):
 
     def form_valid(self, form):
         form.instance.store = getattr(self.request, "store", None)
-        return super().form_valid(form)
+        response = super().form_valid(form)
+        for i, f in enumerate(self.request.FILES.getlist("extra_images", [])):
+            if f and f.content_type.startswith("image/"):
+                ProductImage.objects.create(product=self.object, image=f, sort_order=i)
+        return response
 
     def get_success_url(self):
         return reverse_lazy("catalog:dashboard_product_list")
-
 
     def get_form(self, form_class=None):
         form = super().get_form(form_class)
@@ -191,6 +194,14 @@ class DashboardProductUpdateView(StoreOwnerMixin, UpdateView):
     def get_queryset(self):
         store = getattr(self.request, "store", None)
         return Product.objects.filter(store=store) if store else Product.objects.none()
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        start = self.object.images.count()
+        for i, f in enumerate(self.request.FILES.getlist("extra_images", [])):
+            if f and f.content_type.startswith("image/"):
+                ProductImage.objects.create(product=self.object, image=f, sort_order=start + i)
+        return response
 
     def get_form(self, form_class=None):
         form = super().get_form(form_class)

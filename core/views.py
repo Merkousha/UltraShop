@@ -13,7 +13,16 @@ class HomeView(TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["store"] = getattr(self.request, "store", None)
+        store = getattr(self.request, "store", None)
+        context["store"] = store
+        if store:
+            from catalog.models import Category, Product
+            context["store_categories"] = Category.objects.filter(
+                store=store, parent__isnull=True
+            ).order_by("sort_order", "name")
+            context["store_products"] = Product.objects.filter(
+                store=store, status=Product.STATUS_ACTIVE
+            ).order_by("-created_at")[:24]
         return context
 
 
