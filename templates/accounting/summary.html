@@ -16,6 +16,6 @@
         <p>خالص: {{ net|floatformat:0 }} تومان</p>
         <p class="pt-2 border-t">موجودی کل: <strong>{{ balance|floatformat:0 }}</strong> تومان</p>
     </div>
-    <p class="mt-4"><a href="{% url 'accounting:ledger' %}" class="text-blue-600 hover:underline">دفتر حساب</a> — <a href="{% url 'stores:dashboard' %}" class="text-blue-600 hover:underline">داشبورد</a></p>
+    <p class="mt-4"><a href="{{ store_path_prefix }}{% url 'accounting:ledger' %}" class="text-blue-600 hover:underline">دفتر حساب</a> — <a href="{{ store_path_prefix }}{% url 'stores:dashboard' %}" class="text-blue-600 hover:underline">داشبورد</a></p>
 </div>
 {% endblock %}

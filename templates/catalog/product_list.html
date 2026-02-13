@@ -6,7 +6,7 @@
     <ul class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {% for product in products %}
             <li>
-                <a href="{% url 'catalog:product_detail' slug=product.slug %}" class="block rounded-lg border border-gray-200 bg-white p-4 shadow-sm hover:border-blue-300">
+                <a href="{{ store_path_prefix }}{% url 'catalog:product_detail' slug=product.slug %}" class="block rounded-lg border border-gray-200 bg-white p-4 shadow-sm hover:border-blue-300">
                     {% if product.image %}<img src="{{ product.image.url }}" alt="{{ product.name }}" class="h-32 w-full object-cover rounded">{% endif %}
                     <h2 class="mt-2 font-semibold">{{ product.name }}</h2>
                     {% with v=product.variants.first %}{% if v %}<p class="text-sm text-gray-600">{{ v.price|floatformat:0 }} تومان</p>{% endif %}{% endwith %}
@@ -16,6 +16,6 @@
             <li class="text-gray-500">محصولی یافت نشد.</li>
         {% endfor %}
     </ul>
-    <p class="mt-4"><a href="{% url 'catalog:category_list' %}" class="text-blue-600 hover:underline">دسته‌بندی‌ها</a></p>
+    <p class="mt-4"><a href="{{ store_path_prefix }}{% url 'catalog:category_list' %}" class="text-blue-600 hover:underline">دسته‌بندی‌ها</a></p>
 </div>
 {% endblock %}

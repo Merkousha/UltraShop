@@ -13,7 +13,7 @@
             </div>
         {% endfor %}
         <button type="submit" class="btn btn-primary">ذخیره</button>
-        <a href="{% url 'catalog:dashboard_product_list' %}" class="btn btn-secondary">انصراف</a>
+        <a href="{{ store_path_prefix }}{% url 'catalog:dashboard_product_list' %}" class="btn btn-secondary">انصراف</a>
     </form>
     <p class="mt-4 text-sm text-gray-500">پس از ذخیره، از بخش ویرایش می‌توانید گونه‌ها (قیمت و موجودی) را اضافه کنید.</p>
 </div>

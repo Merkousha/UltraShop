@@ -13,6 +13,6 @@
     {% else %}
     <p class="mt-4 text-gray-500">Only the store owner can change branding.</p>
     {% endif %}
-    <p class="mt-6"><a href="{% url 'stores:settings' %}" class="text-blue-600 hover:underline">Back to settings</a></p>
+    <p class="mt-6"><a href="{{ store_path_prefix }}{% url 'stores:settings' %}" class="text-blue-600 hover:underline">Back to settings</a></p>
 </div>
 {% endblock %}

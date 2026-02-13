@@ -11,7 +11,7 @@
                 <span>{% if v.sku %}{{ v.sku }}{% else %}گونه {{ v.pk }}{% endif %} — موجودی {{ v.stock }}</span>
                 <span class="font-semibold">{{ v.price|floatformat:0 }} تومان</span>
                 {% if v.stock > 0 %}
-                    <form method="post" action="{% url 'catalog:add_to_cart' %}" class="inline">
+                    <form method="post" action="{{ store_path_prefix }}{% url 'catalog:add_to_cart' %}" class="inline">
                         {% csrf_token %}
                         <input type="hidden" name="variant_id" value="{{ v.pk }}">
                         <input type="hidden" name="qty" value="1">
@@ -26,6 +26,6 @@
             <p class="text-gray-500">گونه‌ای برای این محصول تعریف نشده است.</p>
         {% endfor %}
     </div>
-    <p class="mt-4"><a href="{% url 'catalog:product_list' %}" class="text-blue-600 hover:underline">بازگشت به محصولات</a></p>
+    <p class="mt-4"><a href="{{ store_path_prefix }}{% url 'catalog:product_list' %}" class="text-blue-600 hover:underline">بازگشت به محصولات</a></p>
 </div>
 {% endblock %}

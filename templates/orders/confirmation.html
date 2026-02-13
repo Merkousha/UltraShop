@@ -18,6 +18,6 @@
     {% if customer %}
         <p class="mt-4"><a href="{% url 'orders:my_orders' %}" class="btn btn-primary">سفارش‌های من</a></p>
     {% endif %}
-    <p class="mt-4"><a href="{% url 'catalog:product_list' %}" class="text-blue-600 hover:underline">بازگشت به فروشگاه</a></p>
+    <p class="mt-4"><a href="{{ store_path_prefix }}{% url 'catalog:product_list' %}" class="text-blue-600 hover:underline">بازگشت به فروشگاه</a></p>
 </div>
 {% endblock %}

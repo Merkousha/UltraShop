@@ -31,6 +31,6 @@
             {% endfor %}
         </tbody>
     </table>
-    <p class="mt-4"><a href="{% url 'accounting:ledger' %}" class="text-blue-600 hover:underline">دفتر حساب</a> — <a href="{% url 'stores:dashboard' %}" class="text-blue-600 hover:underline">داشبورد</a></p>
+    <p class="mt-4"><a href="{{ store_path_prefix }}{% url 'accounting:ledger' %}" class="text-blue-600 hover:underline">دفتر حساب</a> — <a href="{{ store_path_prefix }}{% url 'stores:dashboard' %}" class="text-blue-600 hover:underline">داشبورد</a></p>
 </div>
 {% endblock %}

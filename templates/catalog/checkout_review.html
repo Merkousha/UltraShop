@@ -14,11 +14,11 @@
         {% endfor %}
     </ul>
     <p class="mt-4 font-semibold">جمع: {{ cart_total|floatformat:0 }} تومان</p>
-    <form method="post" action="{% url 'orders:place_order' %}" class="mt-4">
+    <form method="post" action="{{ store_path_prefix }}{% url 'orders:place_order' %}" class="mt-4">
         {% csrf_token %}
         <button type="submit" class="btn btn-primary">ثبت سفارش</button>
     </form>
     <p class="mt-2 text-sm text-gray-500">پرداخت آنلاین به زودی. با کلیک روی «ثبت سفارش» سفارش ثبت و پس از پرداخت ارسال می‌شود.</p>
-    <p class="mt-2"><a href="{% url 'catalog:checkout_address' %}" class="text-blue-600 hover:underline">ویرایش آدرس</a> — <a href="{% url 'catalog:cart_detail' %}" class="text-blue-600 hover:underline">سبد خرید</a></p>
+    <p class="mt-2"><a href="{{ store_path_prefix }}{% url 'catalog:checkout_address' %}" class="text-blue-600 hover:underline">ویرایش آدرس</a> — <a href="{{ store_path_prefix }}{% url 'catalog:cart_detail' %}" class="text-blue-600 hover:underline">سبد خرید</a></p>
 </div>
 {% endblock %}

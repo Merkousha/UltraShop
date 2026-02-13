@@ -27,6 +27,8 @@ class CreateStoreView(LoginRequiredMixin, CreateView):
         return super().form_valid(form)
 
     def get_success_url(self):
+        if getattr(django_settings, "PLATFORM_USE_PATH_BASED_STORE_URLS", False):
+            return f"/store/{self.object.username}/dashboard/"
         return reverse_lazy("stores:dashboard") + f"?store={self.object.username}"
 
 
@@ -47,13 +49,14 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         return context
 
     def get(self, request, *args, **kwargs):
-        # Redirect to store subdomain if user selected a store and we're on root
+        # Redirect to store (path-based or subdomain) if user selected a store and we're on root
         store_slug = request.GET.get("store")
         if store_slug and not getattr(request, "store", None):
             store = Store.objects.filter(username=store_slug).first()
             if store and user_can_access_store(request.user, store):
-                from django.conf import settings
-                root = getattr(settings, "PLATFORM_ROOT_DOMAIN", "ultrashop.local")
+                if getattr(django_settings, "PLATFORM_USE_PATH_BASED_STORE_URLS", False):
+                    return redirect(f"/store/{store.username}/dashboard/")
+                root = getattr(django_settings, "PLATFORM_ROOT_DOMAIN", "ultrashop.local")
                 scheme = "https" if request.is_secure() else "http"
                 port = request.get_port()
                 port_suffix = f":{port}" if port not in ("80", "443") else ""

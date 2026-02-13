@@ -67,21 +67,23 @@ docker run -d -p 8000:8000 -e DATA_DIR=/app/data --env-file .env -v ultrashop_da
 docker exec -it ultrashop gosu appuser python manage.py createsuperuser
 ```
 
-App listens on port **8000**. Put Nginx/Caddy in front for HTTPS and proxy to `http://127.0.0.1:8000`. Data (SQLite + uploads) is in volume `ultrashop_data`.
+App listens on port **8000**. Put Nginx/Caddy in front on **80/443** so the browser URL has no port (e.g. `https://helpio.ir`). Proxy `/` to `http://127.0.0.1:8000`. Data (SQLite + uploads) is in volume `ultrashop_data`.
 
 ### Deployment on HELPIO.IR
 
-1. **DNS:** Point `helpio.ir` and `www.helpio.ir` to your server. For store subdomains (e.g. `mystore.helpio.ir`) add a wildcard A/CNAME: `*.helpio.ir` → your server IP/host.
+1. **DNS:** Point `helpio.ir` and `www.helpio.ir` to your server. No need for wildcard subdomains if you use path-based store URLs.
 
-2. **Environment** (e.g. in `.env` or your process manager):
+2. **Environment** (e.g. in `.env`):
    ```bash
    DJANGO_SECRET_KEY=<generate-a-secure-key>
    DJANGO_DEBUG=0
    PLATFORM_ROOT_DOMAIN=helpio.ir
+   PLATFORM_USE_PATH_BASED_STORE_URLS=1
    ALLOWED_HOSTS=helpio.ir,.helpio.ir,www.helpio.ir
-   CSRF_TRUSTED_ORIGINS=https://helpio.ir,https://www.helpio.ir,https://*.helpio.ir
+   CSRF_TRUSTED_ORIGINS=https://helpio.ir,https://www.helpio.ir
    ```
+   With `PLATFORM_USE_PATH_BASED_STORE_URLS=1`, stores are at **https://helpio.ir/store/&lt;username&gt;/** (e.g. `https://helpio.ir/store/number1/dashboard/`) instead of subdomains, so you don’t need a port or subdomain DNS.
 
-3. **Server:** Run Django behind a reverse proxy (Nginx/Caddy) with HTTPS. Serve static files (e.g. `STATIC_ROOT`) and proxy `/` to Django (Gunicorn/uWSGI). Set `SECURE_SSL_REDIRECT` (default True when `DEBUG=0`).
+3. **Server:** Run Django behind a reverse proxy (Nginx/Caddy) on port 80/443 with HTTPS. Proxy `/` to Gunicorn. Set `SECURE_SSL_REDIRECT` (default True when `DEBUG=0`).
 
 4. **After deploy:** Create a superuser, run migrations, collect static (`python manage.py collectstatic --noinput`). Platform admin: `https://helpio.ir/platform/admin/`.

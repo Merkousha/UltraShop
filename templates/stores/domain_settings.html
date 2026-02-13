@@ -17,10 +17,10 @@
             {% if is_owner %}
             <div class="flex gap-2">
                 {% if not d.verified %}
-                <form method="post" action="{% url 'stores:verify_domain' d.pk %}" class="inline">{% csrf_token %}<button type="submit" class="text-sm text-blue-600 hover:underline">Verify</button></form>
+                <form method="post" action="{{ store_path_prefix }}{% url 'stores:verify_domain' d.pk %}" class="inline">{% csrf_token %}<button type="submit" class="text-sm text-blue-600 hover:underline">Verify</button></form>
                 {% endif %}
                 {% if not d.is_primary %}
-                <form method="post" action="{% url 'stores:set_primary_domain' d.pk %}" class="inline">{% csrf_token %}<button type="submit" class="text-sm text-gray-600 hover:underline">Set primary</button></form>
+                <form method="post" action="{{ store_path_prefix }}{% url 'stores:set_primary_domain' d.pk %}" class="inline">{% csrf_token %}<button type="submit" class="text-sm text-gray-600 hover:underline">Set primary</button></form>
                 {% endif %}
             </div>
             {% endif %}
@@ -39,6 +39,6 @@
     </form>
     {% endif %}
 
-    <p class="mt-6"><a href="{% url 'stores:settings' %}" class="text-blue-600 hover:underline">Back to settings</a></p>
+    <p class="mt-6"><a href="{{ store_path_prefix }}{% url 'stores:settings' %}" class="text-blue-600 hover:underline">Back to settings</a></p>
 </div>
 {% endblock %}

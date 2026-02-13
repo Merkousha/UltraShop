@@ -146,6 +146,8 @@ AUTH_USER_MODEL = "accounts.User"
 # Multi-tenancy: platform root domain (no store subdomain)
 PLATFORM_ROOT_DOMAIN = os.environ.get("PLATFORM_ROOT_DOMAIN", "ultrashop.local")
 STORE_SUBDOMAIN_SEPARATOR = "."
+# Use path-based store URLs: helpio.ir/store/number1/ instead of number1.helpio.ir (no subdomain/port)
+PLATFORM_USE_PATH_BASED_STORE_URLS = os.environ.get("PLATFORM_USE_PATH_BASED_STORE_URLS", "0") == "1"
 
 # Payment gateway: "mock" or "zarinpal"
 PAYMENT_GATEWAY = os.environ.get("PAYMENT_GATEWAY", "mock")

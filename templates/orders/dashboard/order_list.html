@@ -29,6 +29,6 @@
         </tbody>
     </table>
     {% if page_obj %}<p class="mt-2 text-sm text-gray-500">صفحه {{ page_obj.number }} از {{ page_obj.paginator.num_pages }}</p>{% endif %}
-    <p class="mt-4"><a href="{% url 'stores:dashboard' %}" class="text-blue-600 hover:underline">بازگشت به داشبورد</a></p>
+    <p class="mt-4"><a href="{{ store_path_prefix }}{% url 'stores:dashboard' %}" class="text-blue-600 hover:underline">بازگشت به داشبورد</a></p>
 </div>
 {% endblock %}

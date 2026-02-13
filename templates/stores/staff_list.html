@@ -10,7 +10,7 @@
             <span>{{ s.user.email }}</span>
             <span class="text-sm text-gray-500">{{ s.get_role_display }}</span>
             {% if is_owner %}
-            <form method="post" action="{% url 'stores:remove_staff' s.user_id %}" class="inline">{% csrf_token %}<button type="submit" class="text-sm text-red-600 hover:underline">حذف</button></form>
+            <form method="post" action="{{ store_path_prefix }}{% url 'stores:remove_staff' s.user_id %}" class="inline">{% csrf_token %}<button type="submit" class="text-sm text-red-600 hover:underline">حذف</button></form>
             {% endif %}
         </li>
         {% empty %}
@@ -20,12 +20,12 @@
     {% if is_owner %}
     <h2 class="mt-6 text-lg font-semibold">افزودن کارمند</h2>
     <p class="text-sm text-gray-500">کاربر باید قبلاً با همان ایمیل در پلتفرم ثبت‌نام کرده باشد.</p>
-    <form method="post" action="{% url 'stores:add_staff' %}" class="mt-2">
+    <form method="post" action="{{ store_path_prefix }}{% url 'stores:add_staff' %}" class="mt-2">
         {% csrf_token %}
         {{ add_form.as_p }}
         <button type="submit" class="btn btn-primary mt-2">افزودن</button>
     </form>
     {% endif %}
-    <p class="mt-6"><a href="{% url 'stores:settings' %}" class="text-blue-600 hover:underline">بازگشت به تنظیمات</a></p>
+    <p class="mt-6"><a href="{{ store_path_prefix }}{% url 'stores:settings' %}" class="text-blue-600 hover:underline">بازگشت به تنظیمات</a></p>
 </div>
 {% endblock %}

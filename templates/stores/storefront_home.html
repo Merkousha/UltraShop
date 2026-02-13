@@ -4,14 +4,14 @@
 <div class="text-center">
     <h1 class="text-2xl font-bold text-gray-900">{{ store.name }}</h1>
     {% if store.description %}<p class="mt-2 text-gray-600">{{ store.description }}</p>{% endif %}
-    <p class="mt-4"><a href="{% url 'catalog:category_list' %}" class="text-blue-600 hover:underline">دسته‌بندی‌ها</a> — <a href="{% url 'catalog:product_list' %}" class="text-blue-600 hover:underline">همه محصولات</a></p>
+    <p class="mt-4"><a href="{{ store_path_prefix }}{% url 'catalog:category_list' %}" class="text-blue-600 hover:underline">دسته‌بندی‌ها</a> — <a href="{{ store_path_prefix }}{% url 'catalog:product_list' %}" class="text-blue-600 hover:underline">همه محصولات</a></p>
     {% if customer %}
         <p class="mt-2 text-sm">شما با موبایل وارد شده‌اید — <a href="{% url 'orders:my_orders' %}" class="text-blue-600 hover:underline">سفارش‌های من</a> — <form method="post" action="{% url 'customers:logout' %}" class="inline">{% csrf_token %}<button type="submit" class="text-blue-600 hover:underline">خروج</button></form></p>
     {% else %}
         <p class="mt-2 text-sm"><a href="{% url 'customers:login_phone' %}" class="text-blue-600 hover:underline">ورود / ثبت‌نام با موبایل</a></p>
     {% endif %}
     {% if user.is_authenticated %}
-        <p class="mt-2 text-sm">شما به عنوان فروشنده وارد شده‌اید. <a href="{% url 'stores:dashboard' %}" class="text-blue-600">داشبورد</a></p>
+        <p class="mt-2 text-sm">شما به عنوان فروشنده وارد شده‌اید. <a href="{{ store_path_prefix }}{% url 'stores:dashboard' %}" class="text-blue-600">داشبورد</a></p>
     {% endif %}
 </div>
 {% endblock %}
