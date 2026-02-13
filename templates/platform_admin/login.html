@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Platform Admin Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style type="text/tailwindcss">
+        .input { @apply w-full rounded border border-gray-300 px-3 py-2; }
+        .btn { @apply rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700; }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center bg-gray-100">
+    <div class="w-full max-w-sm rounded-lg border bg-white p-6 shadow">
+        <h1 class="text-xl font-bold">Platform Admin Login</h1>
+        <form method="post" action="" class="mt-4 space-y-3">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ next }}">
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Email</label>
+                <input type="email" name="email" required class="input mt-1" autocomplete="username">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Password</label>
+                <input type="password" name="password" required class="input mt-1" autocomplete="current-password">
+            </div>
+            <button type="submit" class="btn w-full">Log in</button>
+        </form>
+        {% if messages %}
+        <ul class="mt-3 space-y-1 text-sm text-red-600">
+            {% for message in messages %}
+            <li>{{ message }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </div>
+</body>
+</html>

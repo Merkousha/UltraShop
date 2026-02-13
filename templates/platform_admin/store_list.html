@@ -1,0 +1,29 @@
+{% extends "platform_admin/base.html" %}
+{% block title %}Stores{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold">Stores</h1>
+<form method="get" class="mt-4 flex gap-2">
+    <input type="text" name="q" value="{{ request.GET.q }}" placeholder="Search" class="input max-w-xs">
+    <select name="status" class="input w-auto">
+        <option value="">All</option>
+        <option value="active">Active</option>
+        <option value="suspended">Suspended</option>
+    </select>
+    <button type="submit" class="btn btn-primary">Search</button>
+</form>
+<table class="mt-4 w-full border bg-white">
+    <tr class="bg-gray-50"><th class="border p-2 text-left">Name</th><th class="border p-2 text-left">Username</th><th class="border p-2 text-left">Owner</th><th class="border p-2 text-left">Status</th><th class="border p-2 text-left">Actions</th></tr>
+    {% for s in stores %}
+    <tr>
+        <td class="border p-2"><a href="{% url 'platform_admin:store_detail' s.username %}">{{ s.name }}</a></td>
+        <td class="border p-2 font-mono">{{ s.username }}</td>
+        <td class="border p-2">{{ s.owner.email }}</td>
+        <td class="border p-2">{% if s.is_active %}Active{% else %}Suspended{% endif %}</td>
+        <td class="border p-2"><a href="{% url 'platform_admin:store_detail' s.username %}">View</a></td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="5" class="border p-4">No stores.</td></tr>
+    {% endfor %}
+</table>
+{% if page_obj %}<p class="mt-2">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</p>{% endif %}
+{% endblock %}

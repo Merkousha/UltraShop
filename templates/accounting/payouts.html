@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}تسویه | داشبورد{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-2xl">
+    <h1 class="text-2xl font-bold text-gray-900">تسویه</h1>
+    <p class="mt-2 text-gray-600">موجودی قابل تسویه: <strong>{{ balance|floatformat:0 }}</strong> تومان</p>
+    <form method="post" class="mt-4 space-y-4">
+        {% csrf_token %}
+        <div>
+            <label class="block text-sm font-medium text-gray-700">مبلغ (تومان)</label>
+            <input type="number" name="amount" min="1" step="1" class="input" required>
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700">اطلاعات پرداخت (شبا، شماره حساب و ...)</label>
+            <textarea name="payment_details" class="input" rows="3" placeholder="شماره شبا یا شماره حساب برای واریز"></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">ثبت درخواست تسویه</button>
+    </form>
+    <h2 class="mt-6 font-semibold">درخواست‌های قبلی</h2>
+    <table class="mt-2 w-full border">
+        <thead><tr class="border-b bg-gray-50"><th class="p-2 text-right">تاریخ</th><th class="p-2 text-right">مبلغ</th><th class="p-2 text-right">وضعیت</th></tr></thead>
+        <tbody>
+            {% for pr in payout_requests %}
+                <tr class="border-b">
+                    <td class="p-2">{{ pr.created_at|date:"Y/m/d" }}</td>
+                    <td class="p-2">{{ pr.amount|floatformat:0 }}</td>
+                    <td class="p-2">{{ pr.get_status_display }}</td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="3" class="p-4 text-gray-500">درخواستی ثبت نشده است.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <p class="mt-4"><a href="{% url 'accounting:ledger' %}" class="text-blue-600 hover:underline">دفتر حساب</a> — <a href="{% url 'stores:dashboard' %}" class="text-blue-600 hover:underline">داشبورد</a></p>
+</div>
+{% endblock %}

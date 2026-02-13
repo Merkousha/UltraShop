@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}ساخت فروشگاه{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-md">
+    <h1 class="text-2xl font-bold text-gray-900">ساخت فروشگاه جدید</h1>
+    <p class="mt-1 text-gray-600">نام و آدرس زیردامنه فروشگاه را انتخاب کنید.</p>
+    <form method="post" class="mt-6 space-y-4">
+        {% csrf_token %}
+        {% for field in form %}
+            <div>
+                <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-gray-700">{{ field.label }}</label>
+                {{ field }}
+                {% if field.help_text %}<p class="mt-1 text-xs text-gray-500">{{ field.help_text }}</p>{% endif %}
+                {% if field.errors %}<p class="mt-1 text-sm text-red-600">{{ field.errors.0 }}</p>{% endif %}
+            </div>
+        {% endfor %}
+        <button type="submit" class="btn btn-primary w-full">ساخت فروشگاه</button>
+    </form>
+</div>
+{% endblock %}

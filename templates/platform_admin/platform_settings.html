@@ -1,0 +1,12 @@
+{% extends "platform_admin/base.html" %}
+{% block title %}Platform Settings{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold">Platform Settings</h1>
+<p class="mt-1 text-gray-600">Global name, support email, terms and privacy URLs, logo.</p>
+<form method="post" enctype="multipart/form-data" class="mt-6 max-w-xl space-y-4">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit" class="btn btn-primary">Save</button>
+</form>
+<p class="mt-4"><a href="{% url 'platform_admin:dashboard' %}">Back to dashboard</a></p>
+{% endblock %}

@@ -1,0 +1,39 @@
+# Virtual env and caches
+.venv
+venv
+__pycache__
+*.py[cod]
+*.pyo
+.pytest_cache
+.mypy_cache
+.coverage
+htmlcov
+
+# Git and IDE
+.git
+.gitignore
+.cursor
+.vscode
+*.md
+!README.md
+
+# Local env and secrets (set at runtime)
+.env
+.env.*
+!.env.example
+
+# Local DB (use volume or external DB in production)
+db.sqlite3
+*.sqlite3
+
+# Static collected locally
+staticfiles
+
+# Media uploads (use volume in production)
+media
+
+# Docs and dev
+user-stories
+PRD.md
+*.md
+!README.md

@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Domain | Settings{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-2xl">
+    <h1 class="text-2xl font-bold text-gray-900">Domain & Store URL</h1>
+    <p class="mt-2 text-gray-600">Your store is available at:</p>
+    <p class="mt-1 font-mono text-blue-600"><a href="{{ subdomain_url }}" target="_blank" rel="noopener">{{ subdomain_url }}</a></p>
+    <p class="mt-4 text-sm text-gray-500">You can add a custom domain (e.g. www.mystore.com).</p>
+
+    <h2 class="mt-6 text-lg font-semibold">Custom domains</h2>
+    <ul class="mt-2 space-y-2">
+        {% for d in custom_domains %}
+        <li class="flex items-center justify-between rounded border bg-white p-3">
+            <span class="font-mono">{{ d.domain }}</span>
+            <span class="text-sm {% if d.verified %}text-green-600{% else %}text-amber-600{% endif %}">{% if d.verified %}Verified{% else %}Not verified{% endif %}</span>
+            <span class="text-sm text-gray-500">SSL: {{ d.get_ssl_status_display }}</span>
+            {% if is_owner %}
+            <div class="flex gap-2">
+                {% if not d.verified %}
+                <form method="post" action="{% url 'stores:verify_domain' d.pk %}" class="inline">{% csrf_token %}<button type="submit" class="text-sm text-blue-600 hover:underline">Verify</button></form>
+                {% endif %}
+                {% if not d.is_primary %}
+                <form method="post" action="{% url 'stores:set_primary_domain' d.pk %}" class="inline">{% csrf_token %}<button type="submit" class="text-sm text-gray-600 hover:underline">Set primary</button></form>
+                {% endif %}
+            </div>
+            {% endif %}
+        </li>
+        {% empty %}
+        <li class="text-gray-500">No custom domains.</li>
+        {% endfor %}
+    </ul>
+
+    {% if is_owner %}
+    <h2 class="mt-6 text-lg font-semibold">Add custom domain</h2>
+    <form method="post" action="" class="mt-2">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="btn btn-primary mt-2">Add domain</button>
+    </form>
+    {% endif %}
+
+    <p class="mt-6"><a href="{% url 'stores:settings' %}" class="text-blue-600 hover:underline">Back to settings</a></p>
+</div>
+{% endblock %}

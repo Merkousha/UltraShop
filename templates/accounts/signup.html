@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}ثبت‌نام{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-md">
+    <h1 class="text-2xl font-bold text-gray-900">ثبت‌نام</h1>
+    <p class="mt-1 text-gray-600">حساب فروشگاه‌دار بسازید و فروشگاه خود را راه‌اندازی کنید.</p>
+    <form method="post" action="{% url 'accounts:signup' %}" class="mt-6 space-y-4">
+        {% csrf_token %}
+        {% for field in form %}
+            <div>
+                <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-gray-700">{{ field.label }}</label>
+                {{ field }}
+                {% if field.help_text %}<p class="mt-1 text-xs text-gray-500">{{ field.help_text }}</p>{% endif %}
+                {% if field.errors %}<p class="mt-1 text-sm text-red-600">{{ field.errors.0 }}</p>{% endif %}
+            </div>
+        {% endfor %}
+        <button type="submit" class="btn btn-primary w-full">ثبت‌نام</button>
+    </form>
+    <p class="mt-4 text-center text-sm text-gray-600">
+        قبلاً ثبت‌نام کرده‌اید؟ <a href="{% url 'accounts:login' %}" class="text-blue-600 hover:underline">ورود</a>
+    </p>
+</div>
+{% endblock %}

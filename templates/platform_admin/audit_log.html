@@ -1,0 +1,31 @@
+{% extends "platform_admin/base.html" %}
+{% block title %}Audit Log{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold">Audit Log</h1>
+<form method="get" class="mt-4 flex gap-2">
+    <select name="action" class="input w-48">
+        <option value="">All actions</option>
+        {% for value, label in action_choices %}
+        <option value="{{ value }}" {% if request.GET.action == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+    </select>
+    <button type="submit" class="btn btn-secondary">Filter</button>
+</form>
+<table class="mt-4 w-full border bg-white">
+    <tr class="bg-gray-50"><th class="border p-2 text-left">Time</th><th class="border p-2 text-left">Actor</th><th class="border p-2 text-left">Action</th><th class="border p-2 text-left">Resource</th><th class="border p-2 text-left">Store</th><th class="border p-2 text-left">Details</th></tr>
+    {% for e in entries %}
+    <tr>
+        <td class="border p-2">{{ e.created_at|date:"Y-m-d H:i" }}</td>
+        <td class="border p-2">{{ e.actor.email|default:"-" }}</td>
+        <td class="border p-2">{{ e.get_action_display }}</td>
+        <td class="border p-2">{{ e.resource_type }}:{{ e.resource_id }}</td>
+        <td class="border p-2">{{ e.store.name|default:"-" }}</td>
+        <td class="border p-2 max-w-xs truncate">{{ e.details }}</td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="6" class="border p-4">No entries.</td></tr>
+    {% endfor %}
+</table>
+{% if page_obj %}<p class="mt-2 text-sm">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</p>{% endif %}
+<p class="mt-4"><a href="{% url 'platform_admin:dashboard' %}">Back to dashboard</a></p>
+{% endblock %}

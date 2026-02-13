@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}کارکنان | تنظیمات{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-2xl">
+    <h1 class="text-2xl font-bold text-gray-900">کارکنان فروشگاه</h1>
+    <p class="mt-1 text-gray-600">کاربرانی که به داشبورد این فروشگاه دسترسی دارند (به‌جز مالک).</p>
+    <ul class="mt-4 space-y-2">
+        {% for s in staff_list %}
+        <li class="flex items-center justify-between rounded border bg-white p-3">
+            <span>{{ s.user.email }}</span>
+            <span class="text-sm text-gray-500">{{ s.get_role_display }}</span>
+            {% if is_owner %}
+            <form method="post" action="{% url 'stores:remove_staff' s.user_id %}" class="inline">{% csrf_token %}<button type="submit" class="text-sm text-red-600 hover:underline">حذف</button></form>
+            {% endif %}
+        </li>
+        {% empty %}
+        <li class="text-gray-500">کارمندی اضافه نشده است.</li>
+        {% endfor %}
+    </ul>
+    {% if is_owner %}
+    <h2 class="mt-6 text-lg font-semibold">افزودن کارمند</h2>
+    <p class="text-sm text-gray-500">کاربر باید قبلاً با همان ایمیل در پلتفرم ثبت‌نام کرده باشد.</p>
+    <form method="post" action="{% url 'stores:add_staff' %}" class="mt-2">
+        {% csrf_token %}
+        {{ add_form.as_p }}
+        <button type="submit" class="btn btn-primary mt-2">افزودن</button>
+    </form>
+    {% endif %}
+    <p class="mt-6"><a href="{% url 'stores:settings' %}" class="text-blue-600 hover:underline">بازگشت به تنظیمات</a></p>
+</div>
+{% endblock %}

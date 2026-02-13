@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{% if platform_settings %}{{ platform_settings.name }}{% else %}UltraShop{% endif %}{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Vazirmatn', 'Tahoma', 'sans-serif'],
+                    },
+                },
+            },
+        };
+    </script>
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
+    <style type="text/tailwindcss">
+        .input { @apply w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-right shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500; }
+        .btn { @apply inline-flex items-center justify-center rounded-lg px-4 py-2 font-medium transition; }
+        .btn-primary { @apply bg-blue-600 text-white hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2; }
+        .btn-secondary { @apply border border-gray-300 bg-white text-gray-700 hover:bg-gray-50; }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="min-h-screen bg-gray-50 font-sans text-gray-900 antialiased">
+    <header class="border-b border-gray-200 bg-white">
+        <div class="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+            <a href="{% url 'core:home' %}" class="font-semibold text-gray-800">{% if platform_settings %}{{ platform_settings.name }}{% else %}UltraShop{% endif %}</a>
+            <nav class="flex items-center gap-4">
+                {% if store %}
+                    <a href="{% url 'catalog:cart_detail' %}" class="text-sm text-gray-600 hover:text-gray-900">سبد خرید</a>
+                {% endif %}
+                {% if user.is_authenticated %}
+                    <a href="{% url 'stores:dashboard' %}" class="text-sm text-gray-600 hover:text-gray-900">داشبورد</a>
+                    <form method="post" action="{% url 'accounts:logout' %}" class="inline">
+                        {% csrf_token %}
+                        <button type="submit" class="text-sm text-gray-600 hover:text-gray-900">خروج</button>
+                    </form>
+                {% else %}
+                    <a href="{% url 'accounts:login' %}" class="text-sm text-gray-600 hover:text-gray-900">ورود</a>
+                    <a href="{% url 'accounts:signup' %}" class="btn btn-primary text-sm">ثبت‌نام</a>
+                {% endif %}
+            </nav>
+        </div>
+    </header>
+    <main class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        {% if messages %}
+            <ul class="mb-4 space-y-2">
+                {% for message in messages %}
+                    <li class="rounded-lg border px-4 py-2 {% if message.tags == 'error' %}border-red-200 bg-red-50 text-red-800{% else %}border-green-200 bg-green-50 text-green-800{% endif %}">{{ message }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+        {% block content %}{% endblock %}
+    </main>
+    <footer class="border-t border-gray-200 py-4 text-center text-sm text-gray-500">
+        {% if platform_settings %}{{ platform_settings.name }}{% else %}UltraShop{% endif %} — پلتفرم فروشگاه آنلاین
+        {% if platform_settings %}{% if platform_settings.terms_url %} | <a href="{{ platform_settings.terms_url }}" class="text-blue-600 hover:underline">قوانین</a>{% endif %}{% if platform_settings.privacy_url %} | <a href="{{ platform_settings.privacy_url }}" class="text-blue-600 hover:underline">حریم خصوصی</a>{% endif %}{% if platform_settings.support_email %} | <a href="mailto:{{ platform_settings.support_email }}" class="text-blue-600 hover:underline">پشتیبانی</a>{% endif %}{% endif %}
+    </footer>
+</body>
+</html>

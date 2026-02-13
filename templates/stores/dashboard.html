@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}داشبورد{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-4xl">
+    <h1 class="text-2xl font-bold text-gray-900">داشبورد</h1>
+    {% if store %}
+        <p class="mt-1 text-gray-600">فروشگاه: <strong>{{ store.name }}</strong> — {{ store.username }}.ultrashop.local</p>
+        <div class="mt-6 grid gap-4 sm:grid-cols-2">
+            <a href="{% url 'catalog:dashboard_category_list' %}" class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm hover:border-blue-300">دسته‌بندی‌ها</a>
+            <a href="{% url 'catalog:dashboard_product_list' %}" class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm hover:border-blue-300">محصولات</a>
+            <a href="{% url 'orders:dashboard_order_list' %}" class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm hover:border-blue-300">سفارشات</a>
+            <a href="{% url 'accounting:ledger' %}" class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm hover:border-blue-300">حساب‌داری</a>
+            <a href="{% url 'stores:settings' %}" class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm hover:border-blue-300">تنظیمات</a>
+        </div>
+    {% else %}
+        <p class="mt-2 text-gray-600">فروشگاه‌های شما:</p>
+        {% if owned_stores %}
+            <ul class="mt-4 space-y-2">
+{% for s in owned_stores %}
+                <li>
+                    <a href="?store={{ s.username }}" class="text-blue-600 hover:underline">{{ s.name }}</a>
+                    — {{ s.username }}.ultrashop.local
+                    {% if s.id in staff_stores %}<span class="text-xs text-gray-500">(کارمند)</span>{% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+            <p class="mt-4 text-sm text-gray-500">برای مدیریت هر فروشگاه، روی آن کلیک کنید یا از آدرس زیردامنه وارد شوید.</p>
+        {% else %}
+            <p class="mt-4 text-gray-600">هنوز فروشگاهی نساخته‌اید.</p>
+            <a href="{% url 'stores:create' %}" class="btn btn-primary mt-4">ساخت اولین فروشگاه</a>
+        {% endif %}
+    {% endif %}
+</div>
+{% endblock %}

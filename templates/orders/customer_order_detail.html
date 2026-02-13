@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}سفارش #{{ order.pk }} | {{ store.name }}{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-2xl">
+    <h1 class="text-2xl font-bold text-gray-900">سفارش #{{ order.pk }}</h1>
+    <p class="text-gray-600">وضعیت: {{ order.get_status_display }} — تاریخ: {{ order.created_at|date:"Y/m/d H:i" }}</p>
+    <div class="mt-4 rounded-lg border p-4">
+        <h2 class="font-semibold">آدرس ارسال</h2>
+        <p>{{ order.shipping_full_name }} — {{ order.shipping_phone }}</p>
+        <p>{{ order.shipping_address }}، {{ order.shipping_city }}</p>
+    </div>
+    <ul class="mt-4 space-y-2">
+        {% for line in order.lines.all %}
+            <li>{{ line.product.name }} — {{ line.quantity }} × {{ line.price|floatformat:0 }} تومان</li>
+        {% endfor %}
+    </ul>
+    <p class="mt-2 font-semibold">جمع: {{ order.total|floatformat:0 }} تومان</p>
+    {% if order_shipment %}
+        <p class="mt-4">ارسال: <a href="{% url 'shipping:track' shipment_id=order_shipment.pk %}" class="text-blue-600 hover:underline">رهگیری {{ order_shipment.tracking_number }}</a></p>
+    {% else %}
+        <p class="mt-4 text-sm text-gray-500">پس از ارسال، لینک رهگیری اینجا نمایش داده می‌شود.</p>
+    {% endif %}
+    <p class="mt-4"><a href="{% url 'orders:my_orders' %}" class="text-blue-600 hover:underline">سفارش‌های من</a></p>
+</div>
+{% endblock %}

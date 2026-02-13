@@ -1,0 +1,16 @@
+{% extends "platform_admin/base.html" %}
+{% block title %}{{ store.name }}{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold">{{ store.name }}</h1>
+<p>Username: {{ store.username }} | Owner: {{ store.owner.email }}</p>
+<p>Status: {% if store.is_active %}Active{% else %}Suspended{% endif %}</p>
+<p>Balance: {{ balance|floatformat:0 }} | Orders: {{ order_count }} | Shipments: {{ shipment_count }}</p>
+<div class="mt-4 flex gap-2">
+    {% if store.is_active %}
+    <form method="post" action="{% url 'platform_admin:store_suspend' store.username %}">{% csrf_token %}<button type="submit" class="btn bg-amber-600 text-white">Suspend</button></form>
+    {% else %}
+    <form method="post" action="{% url 'platform_admin:store_reactivate' store.username %}">{% csrf_token %}<button type="submit" class="btn btn-primary">Reactivate</button></form>
+    {% endif %}
+</div>
+<p class="mt-6"><a href="{% url 'platform_admin:store_list' %}">Back to stores</a></p>
+{% endblock %}

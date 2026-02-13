@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}ورود{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-md">
+    <h1 class="text-2xl font-bold text-gray-900">ورود</h1>
+    <p class="mt-1 text-gray-600">با ایمیل و رمز عبور وارد شوید.</p>
+    <form method="post" class="mt-6 space-y-4">
+        {% csrf_token %}
+        {% if form.non_field_errors %}
+            <div class="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{{ form.non_field_errors }}</div>
+        {% endif %}
+        {% for field in form %}
+            <div>
+                <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-gray-700">{{ field.label }}</label>
+                {{ field }}
+                {% if field.errors %}<p class="mt-1 text-sm text-red-600">{{ field.errors.0 }}</p>{% endif %}
+            </div>
+        {% endfor %}
+        <button type="submit" class="btn btn-primary w-full">ورود</button>
+    </form>
+    <p class="mt-4 text-center text-sm text-gray-600">
+        حساب ندارید؟ <a href="{% url 'accounts:signup' %}" class="text-blue-600 hover:underline">ثبت‌نام</a>
+    </p>
+</div>
+{% endblock %}

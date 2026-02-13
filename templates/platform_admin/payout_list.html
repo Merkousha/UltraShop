@@ -1,0 +1,39 @@
+{% extends "platform_admin/base.html" %}
+{% block title %}Payouts - Platform Admin{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold">Payout requests</h1>
+<p class="text-gray-600">Pending: {{ pending_count }}</p>
+<table class="mt-4 w-full border-collapse border bg-white">
+    <thead>
+        <tr class="bg-gray-50">
+            <th class="border p-2 text-left">Store</th>
+            <th class="border p-2 text-left">Amount</th>
+            <th class="border p-2 text-left">Payment details</th>
+            <th class="border p-2 text-left">Status</th>
+            <th class="border p-2 text-left">Created</th>
+            <th class="border p-2 text-left">Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for p in payouts %}
+        <tr>
+            <td class="border p-2"><a href="{% url 'platform_admin:store_detail' p.store.username %}" class="text-blue-600 hover:underline">{{ p.store.name }}</a></td>
+            <td class="border p-2">{{ p.amount|floatformat:0 }}</td>
+            <td class="border p-2 max-w-xs truncate">{{ p.payment_details|truncatewords:10 }}</td>
+            <td class="border p-2">{{ p.get_status_display }}</td>
+            <td class="border p-2">{{ p.created_at|date }}</td>
+            <td class="border p-2">
+                {% if p.status == 'pending' %}
+                <form method="post" action="{% url 'platform_admin:payout_approve' p.pk %}" class="inline">{% csrf_token %}<button type="submit" class="text-green-600 hover:underline">Approve</button></form>
+                <form method="post" action="{% url 'platform_admin:payout_reject' p.pk %}" class="inline">{% csrf_token %}<button type="submit" class="text-red-600 hover:underline">Reject</button></form>
+                {% endif %}
+            </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="border p-4 text-gray-500">No payout requests.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% if page_obj %}<p class="mt-2 text-sm">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</p>{% endif %}
+<p class="mt-6"><a href="{% url 'platform_admin:dashboard' %}" class="text-blue-600 hover:underline">Back to dashboard</a></p>
+{% endblock %}

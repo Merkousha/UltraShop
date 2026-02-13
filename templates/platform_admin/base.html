@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Platform Admin{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style type="text/tailwindcss">
+        .input { @apply w-full rounded border border-gray-300 px-3 py-2; }
+        .btn { @apply inline-flex items-center justify-center rounded px-4 py-2 font-medium; }
+        .btn-primary { @apply bg-blue-600 text-white hover:bg-blue-700; }
+        .btn-secondary { @apply border border-gray-300 bg-white hover:bg-gray-50; }
+    </style>
+</head>
+<body class="min-h-screen bg-gray-100">
+    <header class="border-b bg-white">
+        <div class="mx-auto flex h-12 max-w-6xl items-center justify-between px-4">
+            <a href="{% url 'platform_admin:dashboard' %}" class="font-semibold">Platform Admin</a>
+            <nav class="flex gap-4">
+                <a href="{% url 'platform_admin:store_list' %}">Stores</a>
+                <a href="{% url 'platform_admin:payout_list' %}">Payouts</a>
+                <a href="{% url 'platform_admin:commission_report' %}">Commission</a>
+                <a href="{% url 'platform_admin:audit_log' %}">Audit log</a>
+                <a href="{% url 'platform_admin:platform_settings' %}">Settings</a>
+                <a href="{% url 'platform_admin:carrier_list' %}">Carriers</a>
+                <a href="{% url 'platform_admin:password_change' %}">Change password</a>
+                <form method="post" action="{% url 'accounts:logout' %}" class="inline">{% csrf_token %}<button type="submit" class="text-gray-700 hover:underline">Logout</button></form>
+            </nav>
+        </div>
+    </header>
+    <main class="mx-auto max-w-6xl px-4 py-6">
+        {% if messages %}
+        <ul class="mb-4 space-y-1">
+            {% for message in messages %}
+            <li class="rounded px-3 py-2 {% if message.tags == 'error' %}bg-red-100 text-red-800{% else %}bg-green-100 text-green-800{% endif %}">{{ message }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>
