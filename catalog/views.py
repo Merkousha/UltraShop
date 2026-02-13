@@ -121,6 +121,13 @@ class DashboardProductListView(StoreOwnerMixin, ListView):
         return Product.objects.filter(store=store).order_by("-created_at")
 
 
+def _dashboard_success_url(request, view_name):
+    """Redirect to dashboard list with store path prefix when using path-based store URLs."""
+    path = reverse(view_name)
+    prefix = getattr(request, "store_path_prefix", "") or ""
+    return prefix + path if prefix else path
+
+
 class DashboardCategoryCreateView(StoreOwnerMixin, CreateView):
     model = Category
     form_class = CategoryForm
@@ -131,7 +138,7 @@ class DashboardCategoryCreateView(StoreOwnerMixin, CreateView):
         return super().form_valid(form)
 
     def get_success_url(self):
-        return reverse_lazy("catalog:dashboard_category_list")
+        return _dashboard_success_url(self.request, "catalog:dashboard_category_list")
 
     def get_form(self, form_class=None):
         form = super().get_form(form_class)
@@ -146,7 +153,6 @@ class DashboardCategoryUpdateView(StoreOwnerMixin, UpdateView):
     form_class = CategoryForm
     template_name = "catalog/dashboard/category_form.html"
     context_object_name = "category"
-    success_url = reverse_lazy("catalog:dashboard_category_list")
 
     def get_queryset(self):
         store = getattr(self.request, "store", None)
@@ -158,6 +164,9 @@ class DashboardCategoryUpdateView(StoreOwnerMixin, UpdateView):
         if store and "parent" in form.fields:
             form.fields["parent"].queryset = Category.objects.filter(store=store).exclude(pk=self.object.pk)
         return form
+
+    def get_success_url(self):
+        return _dashboard_success_url(self.request, "catalog:dashboard_category_list")
 
 
 class DashboardProductCreateView(StoreOwnerMixin, CreateView):
@@ -174,7 +183,7 @@ class DashboardProductCreateView(StoreOwnerMixin, CreateView):
         return response
 
     def get_success_url(self):
-        return reverse_lazy("catalog:dashboard_product_list")
+        return _dashboard_success_url(self.request, "catalog:dashboard_product_list")
 
     def get_form(self, form_class=None):
         form = super().get_form(form_class)
@@ -189,7 +198,6 @@ class DashboardProductUpdateView(StoreOwnerMixin, UpdateView):
     form_class = ProductForm
     template_name = "catalog/dashboard/product_form.html"
     context_object_name = "product"
-    success_url = reverse_lazy("catalog:dashboard_product_list")
 
     def get_queryset(self):
         store = getattr(self.request, "store", None)
@@ -209,6 +217,9 @@ class DashboardProductUpdateView(StoreOwnerMixin, UpdateView):
         if store and "categories" in form.fields:
             form.fields["categories"].queryset = Category.objects.filter(store=store)
         return form
+
+    def get_success_url(self):
+        return _dashboard_success_url(self.request, "catalog:dashboard_product_list")
 
 
 # ---------- Cart (storefront) ----------
