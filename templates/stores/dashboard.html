@@ -4,12 +4,12 @@
 <div class="mx-auto max-w-4xl">
     <h1 class="text-2xl font-bold text-gray-900">داشبورد</h1>
     {% if store %}
-        <p class="mt-1 text-gray-600">فروشگاه: <strong>{{ store.name }}</strong> — {{ store.username }}.ultrashop.local</p>
+        <p class="mt-1 text-gray-600">فروشگاه: <strong>{{ store.name }}</strong> — {% if use_path_based_store_urls %}{{ request.get_host }}{{ store_path_prefix }}{% else %}{{ store.username }}.{{ platform_root_domain }}{% endif %}</p>
         <div class="mt-6 grid gap-4 sm:grid-cols-2">
             <a href="{{ store_path_prefix }}{% url 'catalog:dashboard_category_list' %}" class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm hover:border-blue-300">دسته‌بندی‌ها</a>
             <a href="{{ store_path_prefix }}{% url 'catalog:dashboard_product_list' %}" class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm hover:border-blue-300">محصولات</a>
-            <a href="{% url 'orders:dashboard_order_list' %}" class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm hover:border-blue-300">سفارشات</a>
-            <a href="{% url 'accounting:ledger' %}" class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm hover:border-blue-300">حساب‌داری</a>
+            <a href="{{ store_path_prefix }}{% url 'orders:dashboard_order_list' %}" class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm hover:border-blue-300">سفارشات</a>
+            <a href="{{ store_path_prefix }}{% url 'accounting:ledger' %}" class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm hover:border-blue-300">حساب‌داری</a>
             <a href="{{ store_path_prefix }}{% url 'stores:settings' %}" class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm hover:border-blue-300">تنظیمات</a>
         </div>
     {% else %}
@@ -19,7 +19,7 @@
 {% for s in owned_stores %}
                 <li>
                     <a href="?store={{ s.username }}" class="text-blue-600 hover:underline">{{ s.name }}</a>
-                    — {{ s.username }}.ultrashop.local
+                    — {% if use_path_based_store_urls %}{{ request.get_host }}/store/{{ s.username }}/{% else %}{{ s.username }}.{{ platform_root_domain }}{% endif %}
                     {% if s.id in staff_stores %}<span class="text-xs text-gray-500">(کارمند)</span>{% endif %}
                 </li>
                 {% endfor %}

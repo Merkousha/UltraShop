@@ -93,7 +93,14 @@ class DomainSettingsView(StoreAccessMixin, FormView):
         context = super().get_context_data(**kwargs)
         store = getattr(self.request, "store", None)
         root = getattr(django_settings, "PLATFORM_ROOT_DOMAIN", "ultrashop.local")
-        context["subdomain_url"] = f"https://{store.username}.{root}" if store else ""
+        if store:
+            if getattr(django_settings, "PLATFORM_USE_PATH_BASED_STORE_URLS", False):
+                prefix = getattr(self.request, "store_path_prefix", "") or f"/store/{store.username}"
+                context["subdomain_url"] = self.request.build_absolute_uri(prefix + "/")
+            else:
+                context["subdomain_url"] = f"https://{store.username}.{root}"
+        else:
+            context["subdomain_url"] = ""
         context["custom_domains"] = StoreDomain.objects.filter(store=store, domain_type=StoreDomain.TYPE_CUSTOM) if store else []
         context["is_owner"] = user_is_store_owner(self.request.user, store)
         return context
