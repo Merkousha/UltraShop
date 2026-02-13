@@ -160,6 +160,8 @@ PLATFORM_COMMISSION_RATE = float(os.environ.get("PLATFORM_COMMISSION_RATE", "0")
 
 # Production security (when DEBUG is False)
 if not DEBUG:
+    # Required behind Nginx/Caddy: trust X-Forwarded-Proto so Django sees HTTPS and doesn't redirect loop
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     SECURE_SSL_REDIRECT = os.environ.get("SECURE_SSL_REDIRECT", "1") == "1"
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
