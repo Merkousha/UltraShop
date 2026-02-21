@@ -1,31 +1,36 @@
 {% extends "platform_admin/base.html" %}
-{% block title %}Audit Log{% endblock %}
+{% block title %}لاگ تغییرات{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold">Audit Log</h1>
-<form method="get" class="mt-4 flex gap-2">
-    <select name="action" class="input w-48">
-        <option value="">All actions</option>
-        {% for value, label in action_choices %}
-        <option value="{{ value }}" {% if request.GET.action == value %}selected{% endif %}>{{ label }}</option>
-        {% endfor %}
+<h2 class="text-2xl font-bold mb-6">📋 لاگ تغییرات (Audit Log)</h2>
+<form method="get" class="flex gap-3 mb-4">
+    <select name="action" class="border rounded px-3 py-2 text-sm">
+        <option value="">همه اکشن‌ها</option>
+        {% for a in actions %}<option value="{{ a }}" {% if request.GET.action == a %}selected{% endif %}>{{ a }}</option>{% endfor %}
     </select>
-    <button type="submit" class="btn btn-secondary">Filter</button>
+    <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded text-sm">فیلتر</button>
 </form>
-<table class="mt-4 w-full border bg-white">
-    <tr class="bg-gray-50"><th class="border p-2 text-left">Time</th><th class="border p-2 text-left">Actor</th><th class="border p-2 text-left">Action</th><th class="border p-2 text-left">Resource</th><th class="border p-2 text-left">Store</th><th class="border p-2 text-left">Details</th></tr>
-    {% for e in entries %}
-    <tr>
-        <td class="border p-2">{{ e.created_at|date:"Y-m-d H:i" }}</td>
-        <td class="border p-2">{{ e.actor.email|default:"-" }}</td>
-        <td class="border p-2">{{ e.get_action_display }}</td>
-        <td class="border p-2">{{ e.resource_type }}:{{ e.resource_id }}</td>
-        <td class="border p-2">{{ e.store.name|default:"-" }}</td>
-        <td class="border p-2 max-w-xs truncate">{{ e.details }}</td>
-    </tr>
-    {% empty %}
-    <tr><td colspan="6" class="border p-4">No entries.</td></tr>
-    {% endfor %}
-</table>
-{% if page_obj %}<p class="mt-2 text-sm">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</p>{% endif %}
-<p class="mt-4"><a href="{% url 'platform_admin:dashboard' %}">Back to dashboard</a></p>
+<div class="bg-white rounded-lg shadow overflow-x-auto">
+    <table class="w-full text-sm">
+        <thead class="bg-gray-50"><tr>
+            <th class="px-4 py-3 text-right">زمان</th>
+            <th class="px-4 py-3 text-right">اکشن</th>
+            <th class="px-4 py-3 text-right">کاربر</th>
+            <th class="px-4 py-3 text-right">فروشگاه</th>
+            <th class="px-4 py-3 text-right">منبع</th>
+        </tr></thead>
+        <tbody>
+        {% for log in logs %}
+        <tr class="border-t">
+            <td class="px-4 py-3 text-xs text-gray-500">{{ log.created_at|date:"Y/m/d H:i:s" }}</td>
+            <td class="px-4 py-3"><code class="bg-gray-100 px-1 rounded text-xs">{{ log.action }}</code></td>
+            <td class="px-4 py-3">{{ log.actor.email|default:"—" }}</td>
+            <td class="px-4 py-3">{{ log.store.name|default:"—" }}</td>
+            <td class="px-4 py-3 text-xs">{{ log.resource_type }} {{ log.resource_id }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" class="px-4 py-8 text-center text-gray-500">رکوردی وجود ندارد.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
 {% endblock %}

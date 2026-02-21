@@ -1,0 +1,103 @@
+{% extends "dashboard/base.html" %}
+{% block title %}محصولات{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+    <h2 class="text-2xl font-bold">📦 محصولات</h2>
+    <a href="{% url 'dashboard:product-create' %}" class="bg-indigo-600 text-white px-4 py-2 rounded text-sm hover:bg-indigo-700">+ محصول جدید</a>
+</div>
+
+<!-- Search & Filter -->
+<form method="get" class="flex gap-3 mb-4">
+    <input type="text" name="q" value="{{ request.GET.q }}" placeholder="جستجو..." class="border rounded px-3 py-2 text-sm flex-1">
+    <select name="status" class="border rounded px-3 py-2 text-sm">
+        <option value="">همه وضعیت‌ها</option>
+        {% for val, label in statuses %}<option value="{{ val }}" {% if request.GET.status == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <button type="submit" class="bg-gray-200 px-4 py-2 rounded text-sm">فیلتر</button>
+</form>
+
+<!-- SO-14: Bulk Action Form -->
+<form method="post" action="{% url 'dashboard:product-bulk-action' %}" id="bulk-form">
+    {% csrf_token %}
+    <div class="bg-gray-100 rounded p-3 mb-4 flex flex-wrap gap-3 items-center text-sm" id="bulk-bar" style="display:none;">
+        <span id="selected-count">0</span> محصول انتخاب شده
+        <select name="bulk_action" class="border rounded px-2 py-1">
+            <option value="activate">فعال کردن</option>
+            <option value="draft">پیش‌نویس</option>
+            <option value="archive">آرشیو</option>
+            <option value="change_category">تغییر دسته‌بندی</option>
+            <option value="adjust_price">تنظیم قیمت</option>
+            <option value="set_stock">تنظیم موجودی</option>
+        </select>
+        <select name="category_id" class="border rounded px-2 py-1">
+            {% for cat in categories %}<option value="{{ cat.pk }}">{{ cat.name }}</option>{% endfor %}
+        </select>
+        <input type="text" name="amount" placeholder="مقدار" class="border rounded px-2 py-1 w-24">
+        <select name="adjustment_type" class="border rounded px-2 py-1">
+            <option value="fixed">مقدار ثابت</option>
+            <option value="percent">درصد</option>
+        </select>
+        <input type="number" name="stock_value" placeholder="موجودی" class="border rounded px-2 py-1 w-24">
+        <button type="submit" class="bg-amber-500 text-white px-4 py-1 rounded hover:bg-amber-600"
+                onclick="return confirm('آیا مطمئنید؟')">اعمال</button>
+    </div>
+
+    <div class="bg-white rounded-lg shadow overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="bg-gray-50"><tr>
+                <th class="px-4 py-3"><input type="checkbox" id="select-all"></th>
+                <th class="px-4 py-3 text-right">تصویر</th>
+                <th class="px-4 py-3 text-right">نام</th>
+                <th class="px-4 py-3 text-right">SKU</th>
+                <th class="px-4 py-3 text-right">قیمت</th>
+                <th class="px-4 py-3 text-right">موجودی</th>
+                <th class="px-4 py-3 text-right">وضعیت</th>
+                <th class="px-4 py-3 text-right">عملیات</th>
+            </tr></thead>
+            <tbody>
+            {% for product in products %}
+            <tr class="border-t hover:bg-gray-50">
+                <td class="px-4 py-3"><input type="checkbox" name="product_ids" value="{{ product.pk }}" class="product-cb"></td>
+                <td class="px-4 py-3">
+                    {% with img=product.primary_image %}
+                    {% if img %}<img src="{{ img.image.url }}" class="w-10 h-10 object-cover rounded">
+                    {% else %}<div class="w-10 h-10 bg-gray-200 rounded flex items-center justify-center text-xs">📷</div>{% endif %}
+                    {% endwith %}
+                </td>
+                <td class="px-4 py-3 font-medium">{{ product.name }}</td>
+                <td class="px-4 py-3 font-mono text-xs">{{ product.sku|default:"—" }}</td>
+                <td class="px-4 py-3">
+                    {% for v in product.variants.all %}{{ v.price|stringformat:",.0f" }}{% if not forloop.last %}<br>{% endif %}{% endfor %}
+                </td>
+                <td class="px-4 py-3">
+                    {% for v in product.variants.all %}{{ v.stock }}{% if not forloop.last %}<br>{% endif %}{% endfor %}
+                </td>
+                <td class="px-4 py-3">
+                    <span class="px-2 py-1 rounded text-xs {% if product.status == 'active' %}bg-green-100 text-green-700{% elif product.status == 'draft' %}bg-gray-100{% else %}bg-red-100 text-red-700{% endif %}">{{ product.get_status_display }}</span>
+                </td>
+                <td class="px-4 py-3">
+                    <a href="{% url 'dashboard:product-edit' product.pk %}" class="text-indigo-600 hover:underline text-xs">ویرایش</a>
+                    <a href="{% url 'dashboard:product-images' product.pk %}" class="text-indigo-600 hover:underline text-xs mr-2">تصاویر</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="8" class="px-4 py-8 text-center text-gray-500">محصولی وجود ندارد.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</form>
+
+<script>
+document.getElementById('select-all').addEventListener('change', function() {
+    document.querySelectorAll('.product-cb').forEach(cb => cb.checked = this.checked);
+    updateBulkBar();
+});
+document.querySelectorAll('.product-cb').forEach(cb => cb.addEventListener('change', updateBulkBar));
+function updateBulkBar() {
+    const count = document.querySelectorAll('.product-cb:checked').length;
+    document.getElementById('selected-count').textContent = count;
+    document.getElementById('bulk-bar').style.display = count > 0 ? 'flex' : 'none';
+}
+</script>
+{% endblock %}

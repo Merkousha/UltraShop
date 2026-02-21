@@ -1,0 +1,60 @@
+{% extends "platform_admin/base.html" %}
+{% block title %}مرسوله #{{ shipment.pk }}{% endblock %}
+{% block content %}
+<div class="flex items-center gap-3 mb-6">
+    <a href="{% url 'platform_admin:shipment-list' %}" class="text-indigo-600 hover:underline">← مرسولات</a>
+    <h2 class="text-2xl font-bold">📦 مرسوله #{{ shipment.pk }}</h2>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <!-- Details -->
+    <div class="bg-white rounded-lg shadow p-6 space-y-3">
+        <div><span class="text-gray-500 text-sm">فروشگاه:</span> <strong>{{ shipment.store.name }}</strong></div>
+        <div><span class="text-gray-500 text-sm">سفارش:</span> <strong>#{{ shipment.order_id }}</strong></div>
+        <div><span class="text-gray-500 text-sm">حمل‌کننده:</span> {{ shipment.carrier.name|default:"تعیین نشده" }}</div>
+        <div><span class="text-gray-500 text-sm">کد رهگیری:</span> <code>{{ shipment.tracking_number|default:"—" }}</code></div>
+        <div><span class="text-gray-500 text-sm">هزینه ارسال:</span> {{ shipment.cost|stringformat:",.0f" }} ﷼</div>
+        <div><span class="text-gray-500 text-sm">وضعیت فعلی:</span>
+            <span class="inline-block px-2 py-1 rounded text-xs font-bold
+                {% if shipment.status == 'delivered' %}bg-green-100 text-green-700
+                {% elif shipment.status == 'exception' %}bg-red-100 text-red-700
+                {% elif shipment.status == 'in_transit' %}bg-blue-100 text-blue-700
+                {% else %}bg-gray-100 text-gray-700{% endif %}">
+                {{ shipment.get_status_display }}
+            </span>
+        </div>
+        <div><span class="text-gray-500 text-sm">ایجاد:</span> {{ shipment.created_at|date:"Y/m/d H:i" }}</div>
+        <div><span class="text-gray-500 text-sm">آخرین بروزرسانی:</span> {{ shipment.updated_at|date:"Y/m/d H:i" }}</div>
+        {% if shipment.note %}
+        <div><span class="text-gray-500 text-sm">یادداشت:</span> {{ shipment.note }}</div>
+        {% endif %}
+    </div>
+
+    <!-- PA-23: Update Status -->
+    {% if allowed_next %}
+    <div class="bg-white rounded-lg shadow p-6">
+        <h3 class="text-lg font-semibold mb-4">بروزرسانی وضعیت</h3>
+        <form method="post" action="{% url 'platform_admin:shipment-update-status' shipment.pk %}" class="space-y-3">
+            {% csrf_token %}
+            <div>
+                <label class="block text-sm font-medium mb-1">وضعیت جدید</label>
+                <select name="status" required class="w-full border rounded px-3 py-2">
+                    {% for s in allowed_next %}
+                    <option value="{{ s }}">{{ s }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium mb-1">یادداشت (اختیاری)</label>
+                <textarea name="note" rows="2" class="w-full border rounded px-3 py-2"></textarea>
+            </div>
+            <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded hover:bg-indigo-700">بروزرسانی</button>
+        </form>
+    </div>
+    {% else %}
+    <div class="bg-gray-50 rounded-lg shadow p-6 flex items-center justify-center text-gray-500">
+        وضعیت نهایی — امکان تغییر وجود ندارد
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

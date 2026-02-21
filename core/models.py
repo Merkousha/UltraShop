@@ -1,82 +1,153 @@
+from django.contrib.auth.models import AbstractUser
 from django.db import models
-from django.conf import settings
 
 
-class AuditLog(models.Model):
-    """Append-only log for sensitive actions (PA-03)."""
-    ACTION_REFUND = "refund"
-    ACTION_PAYOUT_APPROVED = "payout_approved"
-    ACTION_PAYOUT_REJECTED = "payout_rejected"  # keep same as action value in log_audit
-    ACTION_STORE_SUSPENDED = "store_suspended"
-    ACTION_STORE_REACTIVATED = "store_reactivated"
-    ACTION_CHOICES = [
-        (ACTION_REFUND, "بازپرداخت"),
-        (ACTION_PAYOUT_APPROVED, "تأیید تسویه"),
-        (ACTION_PAYOUT_REJECTED, "رد تسویه"),
-        (ACTION_STORE_SUSPENDED, "تعلیق فروشگاه"),
-        (ACTION_STORE_REACTIVATED, "فعال‌سازی فروشگاه"),
-    ]
+class User(AbstractUser):
+    """Custom user model for store owners & staff. Email-based login."""
+    email = models.EmailField(unique=True)
 
-    actor = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="audit_logs",
-    )
-    store = models.ForeignKey(
-        "stores.Store",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="audit_logs",
-    )
-    action = models.CharField(max_length=50, choices=ACTION_CHOICES)
-    resource_type = models.CharField(max_length=50, blank=True)  # e.g. order, payout_request, store
-    resource_id = models.CharField(max_length=100, blank=True)
-    details = models.TextField(blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    USERNAME_FIELD = "email"
+    REQUIRED_FIELDS = ["username"]
 
     class Meta:
-        ordering = ["-created_at"]
-        verbose_name = "Audit log"
-        verbose_name_plural = "Audit logs"
+        db_table = "users"
 
     def __str__(self):
-        return f"{self.action} {self.resource_type}:{self.resource_id} at {self.created_at}"
+        return self.email
 
 
-def log_audit(actor, action, resource_type="", resource_id="", details="", store=None):
-    """Create an append-only audit log entry."""
-    AuditLog.objects.create(
-        actor=actor,
-        store=store,
-        action=action,
-        resource_type=resource_type,
-        resource_id=str(resource_id),
-        details=details[:2000] if details else "",
-    )
-
-
-class PlatformSettings(models.Model):
-    """PA-10: Global platform config (singleton)."""
-    name = models.CharField("Platform name", max_length=255, default="UltraShop")
-    support_email = models.EmailField("Support email", blank=True)
-    terms_url = models.URLField("Terms of service URL", blank=True)
-    privacy_url = models.URLField("Privacy policy URL", blank=True)
-    logo = models.ImageField("Logo", upload_to="platform/", blank=True, null=True)
-    favicon = models.ImageField("Favicon", upload_to="platform/", blank=True, null=True)
+class Store(models.Model):
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="stores")
+    name = models.CharField(max_length=200)
+    username = models.SlugField(max_length=60, unique=True, help_text="Subdomain: username.ultra-shop.com")
+    description = models.TextField(blank=True, default="")
+    logo = models.ImageField(upload_to="stores/logos/", blank=True, null=True)
+    favicon = models.ImageField(upload_to="stores/favicons/", blank=True, null=True)
+    primary_color = models.CharField(max_length=7, default="#6366f1")
+    theme_preset = models.CharField(max_length=30, default="minimal")
+    phone = models.CharField(max_length=20, blank=True, default="")
+    support_email = models.EmailField(blank=True, default="")
+    timezone = models.CharField(max_length=50, default="Asia/Tehran")
+    currency = models.CharField(max_length=10, default="IRR")
+    allow_guest_checkout = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = "Platform settings"
-        verbose_name_plural = "Platform settings"
+        db_table = "stores"
 
     def __str__(self):
         return self.name
 
+
+class StoreDomain(models.Model):
+    class DomainType(models.TextChoices):
+        SUBDOMAIN = "subdomain", "Subdomain"
+        CUSTOM = "custom", "Custom Domain"
+
+    class SSLStatus(models.TextChoices):
+        NONE = "none", "None"
+        PENDING = "pending", "Pending"
+        ACTIVE = "active", "Active"
+
+    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="domains")
+    domain = models.CharField(max_length=253, unique=True)
+    type = models.CharField(max_length=10, choices=DomainType.choices)
+    verified = models.BooleanField(default=False)
+    ssl_status = models.CharField(max_length=10, choices=SSLStatus.choices, default=SSLStatus.NONE)
+    is_primary = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "store_domains"
+
+    def __str__(self):
+        return self.domain
+
+
+class PlatformSettings(models.Model):
+    """Singleton platform-wide settings."""
+    name = models.CharField(max_length=200, default="UltraShop")
+    support_email = models.EmailField(default="support@ultra-shop.com")
+    terms_url = models.URLField(blank=True, default="")
+    privacy_url = models.URLField(blank=True, default="")
+    logo = models.ImageField(upload_to="platform/", blank=True, null=True)
+    favicon = models.ImageField(upload_to="platform/", blank=True, null=True)
+
+    # PA-11: Default store settings
+    default_timezone = models.CharField(max_length=50, default="Asia/Tehran")
+    default_currency = models.CharField(max_length=10, default="IRR")
+    default_guest_checkout = models.BooleanField(default=True)
+
+    # PA-12: Reserved subdomain names (JSON array)
+    reserved_usernames = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="JSON array of reserved subdomain names",
+    )
+
+    # PA-15: SMS/Email provider config
+    sms_provider = models.CharField(max_length=50, blank=True, default="")
+    sms_api_key_encrypted = models.TextField(blank=True, default="")
+    sms_sender = models.CharField(max_length=30, blank=True, default="")
+    email_host = models.CharField(max_length=200, blank=True, default="")
+    email_port = models.PositiveIntegerField(default=587)
+    email_username = models.CharField(max_length=200, blank=True, default="")
+    email_password_encrypted = models.TextField(blank=True, default="")
+    email_use_tls = models.BooleanField(default=True)
+    email_from = models.EmailField(blank=True, default="")
+
+    # PA-20: Shipping service toggle
+    shipping_enabled = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = "platform_settings"
+        verbose_name_plural = "Platform Settings"
+
+    def __str__(self):
+        return self.name
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        super().save(*args, **kwargs)
+
     @classmethod
-    def get_settings(cls):
-        """Return the single settings row (create if missing)."""
-        obj, _ = cls.objects.get_or_create(pk=1, defaults={"name": "UltraShop"})
+    def load(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
         return obj
+
+
+class AuditLog(models.Model):
+    actor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    store = models.ForeignKey(Store, on_delete=models.SET_NULL, null=True, blank=True)
+    action = models.CharField(max_length=100, db_index=True)
+    resource_type = models.CharField(max_length=100, blank=True, default="")
+    resource_id = models.CharField(max_length=100, blank=True, default="")
+    details = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        db_table = "audit_logs"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.action} by {self.actor} at {self.created_at}"
+
+
+class StoreStaff(models.Model):
+    class Role(models.TextChoices):
+        STAFF = "staff", "Staff"
+        MANAGER = "manager", "Manager"
+
+    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="staff_members")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="staff_roles")
+    role = models.CharField(max_length=10, choices=Role.choices, default=Role.STAFF)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "store_staff"
+        unique_together = ("store", "user")
+
+    def __str__(self):
+        return f"{self.user.email} @ {self.store.name} ({self.role})"

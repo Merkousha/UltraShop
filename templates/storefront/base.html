@@ -1,0 +1,47 @@
+{% load static %}<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ store.store_name }}{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'css/vazirmatn.css' %}">
+    <script src="{% static 'js/tailwind.js' %}"></script>
+    <style>
+        :root { --primary: {{ store.primary_color|default:"#4f46e5" }}; }
+        body { font-family: 'Vazirmatn', Tahoma, sans-serif; }
+        .btn-primary { background-color: var(--primary); }
+        .btn-primary:hover { filter: brightness(0.9); }
+        .text-primary { color: var(--primary); }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="bg-gray-50 min-h-screen flex flex-col">
+    <!-- Header -->
+    <header class="bg-white shadow-sm">
+        <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+            <a href="{% url 'storefront:home' store.username %}" class="text-xl font-bold text-primary">{{ store.name }}</a>
+            <nav class="flex items-center gap-4 text-sm">
+                <a href="{% url 'storefront:category-list' store.username %}" class="hover:text-primary">دسته‌بندی‌ها</a>
+                <form action="{% url 'storefront:product-search' store.username %}" method="get" class="flex">
+                    <input type="text" name="q" placeholder="جستجو..." class="border rounded-r px-3 py-1 text-sm w-40">
+                    <button type="submit" class="btn-primary text-white px-3 py-1 rounded-l text-sm">🔍</button>
+                </form>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Content -->
+    <main class="flex-1 max-w-6xl mx-auto w-full px-4 py-6">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t mt-auto">
+        <div class="max-w-6xl mx-auto px-4 py-4 text-center text-sm text-gray-500">
+            {{ store.name }} — قدرت گرفته از UltraShop
+        </div>
+    </footer>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

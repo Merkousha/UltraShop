@@ -1,0 +1,112 @@
+{% extends "dashboard/base.html" %}
+{% block title %}{% if product %}ویرایش محصول{% else %}محصول جدید{% endif %}{% endblock %}
+{% block content %}
+<h2 class="text-2xl font-bold mb-6">{% if product %}ویرایش «{{ product.name }}»{% else %}➕ محصول جدید{% endif %}</h2>
+
+<form method="post" enctype="multipart/form-data" class="space-y-6 max-w-3xl">
+    {% csrf_token %}
+
+    {% if form.errors %}
+    <div class="bg-red-50 border border-red-200 rounded p-4 text-sm text-red-700">
+        <ul>{% for field, errors in form.errors.items %}{% for error in errors %}<li>{{ field }}: {{ error }}</li>{% endfor %}{% endfor %}</ul>
+    </div>
+    {% endif %}
+
+    <div class="bg-white rounded-lg shadow p-6 space-y-4">
+        <h3 class="font-semibold text-lg border-b pb-2">اطلاعات پایه</h3>
+        <div>
+            <label class="block text-sm font-medium mb-1">نام محصول *</label>
+            <input type="text" name="name" value="{{ product.name|default:'' }}" required class="w-full border rounded px-3 py-2 text-sm">
+        </div>
+        <div>
+            <label class="block text-sm font-medium mb-1">نامک (slug)</label>
+            <input type="text" name="slug" value="{{ product.slug|default:'' }}" class="w-full border rounded px-3 py-2 text-sm" dir="ltr">
+        </div>
+        <div>
+            <label class="block text-sm font-medium mb-1">توضیحات</label>
+            <textarea name="description" rows="4" class="w-full border rounded px-3 py-2 text-sm">{{ product.description|default:'' }}</textarea>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+            <div>
+                <label class="block text-sm font-medium mb-1">وضعیت</label>
+                <select name="status" class="w-full border rounded px-3 py-2 text-sm">
+                    <option value="draft" {% if product.status == "draft" %}selected{% endif %}>پیش‌نویس</option>
+                    <option value="active" {% if product.status == "active" %}selected{% endif %}>فعال</option>
+                    <option value="archived" {% if product.status == "archived" %}selected{% endif %}>آرشیو</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium mb-1">دسته‌بندی‌ها</label>
+                <select name="categories" multiple class="w-full border rounded px-3 py-2 text-sm h-24">
+                    {% for cat in categories %}
+                    <option value="{{ cat.pk }}" {% if cat.pk in selected_categories %}selected{% endif %}>{{ cat.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-lg shadow p-6 space-y-4">
+        <h3 class="font-semibold text-lg border-b pb-2">SEO</h3>
+        <div>
+            <label class="block text-sm font-medium mb-1">عنوان سئو</label>
+            <input type="text" name="meta_title" value="{{ product.meta_title|default:'' }}" class="w-full border rounded px-3 py-2 text-sm">
+        </div>
+        <div>
+            <label class="block text-sm font-medium mb-1">توضیحات سئو</label>
+            <textarea name="meta_description" rows="2" class="w-full border rounded px-3 py-2 text-sm">{{ product.meta_description|default:'' }}</textarea>
+        </div>
+    </div>
+
+    <!-- Variants -->
+    <div class="bg-white rounded-lg shadow p-6 space-y-4" id="variants-section">
+        <h3 class="font-semibold text-lg border-b pb-2">تنوع‌ها (Variants)</h3>
+        <div id="variant-list">
+            {% for v in variants %}
+            <div class="variant-row grid grid-cols-6 gap-2 mb-2 items-end">
+                <input type="hidden" name="variant_id" value="{{ v.pk }}">
+                <div><label class="text-xs">نام</label><input type="text" name="variant_name" value="{{ v.name }}" class="w-full border rounded px-2 py-1 text-sm"></div>
+                <div><label class="text-xs">SKU</label><input type="text" name="variant_sku" value="{{ v.sku }}" class="w-full border rounded px-2 py-1 text-sm" dir="ltr"></div>
+                <div><label class="text-xs">قیمت (ریال)</label><input type="number" name="variant_price" value="{{ v.price }}" class="w-full border rounded px-2 py-1 text-sm" dir="ltr"></div>
+                <div><label class="text-xs">قیمت قبلی</label><input type="number" name="variant_compare" value="{{ v.compare_at_price|default:'' }}" class="w-full border rounded px-2 py-1 text-sm" dir="ltr"></div>
+                <div><label class="text-xs">موجودی</label><input type="number" name="variant_stock" value="{{ v.stock }}" class="w-full border rounded px-2 py-1 text-sm" dir="ltr"></div>
+                <div><label class="text-xs">وزن (گرم)</label><input type="number" name="variant_weight" value="{{ v.weight|default:'' }}" class="w-full border rounded px-2 py-1 text-sm" dir="ltr"></div>
+            </div>
+            {% empty %}
+            <div class="variant-row grid grid-cols-6 gap-2 mb-2 items-end">
+                <input type="hidden" name="variant_id" value="">
+                <div><label class="text-xs">نام</label><input type="text" name="variant_name" value="پیش‌فرض" class="w-full border rounded px-2 py-1 text-sm"></div>
+                <div><label class="text-xs">SKU</label><input type="text" name="variant_sku" class="w-full border rounded px-2 py-1 text-sm" dir="ltr"></div>
+                <div><label class="text-xs">قیمت (ریال)</label><input type="number" name="variant_price" class="w-full border rounded px-2 py-1 text-sm" dir="ltr" required></div>
+                <div><label class="text-xs">قیمت قبلی</label><input type="number" name="variant_compare" class="w-full border rounded px-2 py-1 text-sm" dir="ltr"></div>
+                <div><label class="text-xs">موجودی</label><input type="number" name="variant_stock" value="0" class="w-full border rounded px-2 py-1 text-sm" dir="ltr"></div>
+                <div><label class="text-xs">وزن (گرم)</label><input type="number" name="variant_weight" class="w-full border rounded px-2 py-1 text-sm" dir="ltr"></div>
+            </div>
+            {% endfor %}
+        </div>
+        <button type="button" id="add-variant" class="text-indigo-600 text-sm hover:underline">+ افزودن تنوع جدید</button>
+    </div>
+
+    {% if not product %}
+    <div class="bg-white rounded-lg shadow p-6 space-y-4">
+        <h3 class="font-semibold text-lg border-b pb-2">تصاویر</h3>
+        <input type="file" name="images" multiple accept="image/*" class="text-sm">
+        <p class="text-xs text-gray-500">می‌توانید چند تصویر به‌صورت هم‌زمان آپلود کنید.</p>
+    </div>
+    {% endif %}
+
+    <div class="flex gap-3">
+        <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded hover:bg-indigo-700">ذخیره</button>
+        <a href="{% url 'dashboard:product-list' %}" class="bg-gray-200 px-6 py-2 rounded hover:bg-gray-300">انصراف</a>
+    </div>
+</form>
+
+<script>
+document.getElementById('add-variant').addEventListener('click', function(){
+    const list = document.getElementById('variant-list');
+    const row = list.querySelector('.variant-row').cloneNode(true);
+    row.querySelectorAll('input').forEach(i => { if(i.type !== 'hidden') i.value = ''; else i.value = ''; });
+    list.appendChild(row);
+});
+</script>
+{% endblock %}

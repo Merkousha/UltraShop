@@ -1,0 +1,41 @@
+{% extends "platform_admin/base.html" %}
+{% block title %}نام‌های رزرو شده{% endblock %}
+{% block content %}
+<h2 class="text-2xl font-bold mb-6">🚫 نام‌های رزرو شده (Subdomain Blacklist)</h2>
+
+<div class="bg-white rounded-lg shadow p-6 max-w-2xl mb-6">
+    <form method="post" class="flex gap-2 mb-4">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="add">
+        <input type="text" name="username" placeholder="نام جدید..." required pattern="[a-z0-9\-]+"
+               class="flex-1 border rounded px-3 py-2" title="فقط حروف کوچک انگلیسی، اعداد و خط تیره">
+        <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">افزودن</button>
+    </form>
+
+    {% if not reserved %}
+    <p class="text-gray-500 text-sm mb-4">هنوز نامی رزرو نشده.</p>
+    <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="seed">
+        <button type="submit" class="bg-amber-500 text-white px-4 py-2 rounded hover:bg-amber-600 text-sm">
+            بارگذاری لیست پیش‌فرض (api, admin, www, ...)
+        </button>
+    </form>
+    {% else %}
+    <div class="flex flex-wrap gap-2">
+        {% for name in reserved %}
+        <div class="flex items-center bg-gray-100 rounded px-3 py-1 gap-2">
+            <span class="text-sm font-mono">{{ name }}</span>
+            <form method="post" class="inline">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="remove">
+                <input type="hidden" name="username" value="{{ name }}">
+                <button type="submit" class="text-red-500 hover:text-red-700 text-xs">✕</button>
+            </form>
+        </div>
+        {% endfor %}
+    </div>
+    <p class="text-xs text-gray-400 mt-3">{{ reserved|length }} نام رزرو شده</p>
+    {% endif %}
+</div>
+{% endblock %}

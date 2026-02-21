@@ -1,42 +1,40 @@
-<!DOCTYPE html>
-<html lang="en" dir="ltr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Platform Admin{% endblock %}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style type="text/tailwindcss">
-        .input { @apply w-full rounded border border-gray-300 px-3 py-2; }
-        .btn { @apply inline-flex items-center justify-center rounded px-4 py-2 font-medium; }
-        .btn-primary { @apply bg-blue-600 text-white hover:bg-blue-700; }
-        .btn-secondary { @apply border border-gray-300 bg-white hover:bg-gray-50; }
-    </style>
-</head>
-<body class="min-h-screen bg-gray-100">
-    <header class="border-b bg-white">
-        <div class="mx-auto flex h-12 max-w-6xl items-center justify-between px-4">
-            <a href="{% url 'platform_admin:dashboard' %}" class="font-semibold">Platform Admin</a>
-            <nav class="flex gap-4">
-                <a href="{% url 'platform_admin:store_list' %}">Stores</a>
-                <a href="{% url 'platform_admin:payout_list' %}">Payouts</a>
-                <a href="{% url 'platform_admin:commission_report' %}">Commission</a>
-                <a href="{% url 'platform_admin:audit_log' %}">Audit log</a>
-                <a href="{% url 'platform_admin:platform_settings' %}">Settings</a>
-                <a href="{% url 'platform_admin:carrier_list' %}">Carriers</a>
-                <a href="{% url 'platform_admin:password_change' %}">Change password</a>
-                <form method="post" action="{% url 'accounts:logout' %}" class="inline">{% csrf_token %}<button type="submit" class="text-gray-700 hover:underline">Logout</button></form>
-            </nav>
+{% extends "base.html" %}
+{% block body %}
+<div class="flex min-h-screen">
+    <!-- Sidebar -->
+    <aside class="w-64 bg-indigo-900 text-white flex-shrink-0">
+        <div class="p-4 border-b border-indigo-700">
+            <h1 class="text-xl font-bold">🛡️ پنل ادمین</h1>
+            <p class="text-indigo-300 text-sm">{{ platform_settings.name|default:"UltraShop" }}</p>
         </div>
-    </header>
-    <main class="mx-auto max-w-6xl px-4 py-6">
+        <nav class="p-4 space-y-1">
+            <a href="{% url 'platform_admin:dashboard' %}" class="block px-3 py-2 rounded hover:bg-indigo-800">📊 داشبورد</a>
+            <a href="{% url 'platform_admin:store-list' %}" class="block px-3 py-2 rounded hover:bg-indigo-800">🏪 فروشگاه‌ها</a>
+            <a href="{% url 'platform_admin:shipment-list' %}" class="block px-3 py-2 rounded hover:bg-indigo-800">📦 مرسولات</a>
+            <a href="{% url 'platform_admin:payout-list' %}" class="block px-3 py-2 rounded hover:bg-indigo-800">💰 برداشت‌ها</a>
+            <a href="{% url 'platform_admin:commission-report' %}" class="block px-3 py-2 rounded hover:bg-indigo-800">📈 کمیسیون</a>
+            <a href="{% url 'platform_admin:audit-log' %}" class="block px-3 py-2 rounded hover:bg-indigo-800">📋 لاگ تغییرات</a>
+            <hr class="border-indigo-700 my-2">
+            <a href="{% url 'platform_admin:settings' %}" class="block px-3 py-2 rounded hover:bg-indigo-800">⚙️ تنظیمات پلتفرم</a>
+            <a href="{% url 'platform_admin:default-settings' %}" class="block px-3 py-2 rounded hover:bg-indigo-800">🏗️ پیش‌فرض‌ فروشگاه</a>
+            <a href="{% url 'platform_admin:reserved-usernames' %}" class="block px-3 py-2 rounded hover:bg-indigo-800">🚫 نام‌های رزروشده</a>
+            <a href="{% url 'platform_admin:provider-config' %}" class="block px-3 py-2 rounded hover:bg-indigo-800">📡 ارائه‌دهنده SMS/Email</a>
+            <a href="{% url 'platform_admin:carrier-list' %}" class="block px-3 py-2 rounded hover:bg-indigo-800">🚚 حمل‌ونقل</a>
+        </nav>
+    </aside>
+
+    <!-- Main -->
+    <main class="flex-1 p-6">
         {% if messages %}
-        <ul class="mb-4 space-y-1">
-            {% for message in messages %}
-            <li class="rounded px-3 py-2 {% if message.tags == 'error' %}bg-red-100 text-red-800{% else %}bg-green-100 text-green-800{% endif %}">{{ message }}</li>
+        <div class="mb-4">
+            {% for msg in messages %}
+            <div class="p-3 rounded mb-2 {% if msg.tags == 'error' %}bg-red-100 text-red-700{% else %}bg-green-100 text-green-700{% endif %}">
+                {{ msg }}
+            </div>
             {% endfor %}
-        </ul>
+        </div>
         {% endif %}
         {% block content %}{% endblock %}
     </main>
-</body>
-</html>
+</div>
+{% endblock %}

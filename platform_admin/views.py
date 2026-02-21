@@ -1,292 +1,427 @@
-from django.shortcuts import redirect, get_object_or_404, render
-from django.views.generic import TemplateView, ListView, DetailView, View, FormView, UpdateView, CreateView, DeleteView
-from django.contrib.auth import authenticate, login
-from django.contrib import messages
-from django.urls import reverse, reverse_lazy
+import json
 
-from django.db.models import Sum
+from django.contrib.auth import views as auth_views
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.db.models import Count, Sum, Q
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404, redirect
 from django.utils import timezone
-from datetime import timedelta
+from django.views import View
+from django.views.generic import ListView, DetailView, TemplateView
 
-from stores.models import Store
-from accounting.models import PayoutRequest, StoreTransaction, PlatformCommission
-from core.models import AuditLog, PlatformSettings
-from shipping.models import ShippingCarrier
-from accounting.services import get_store_balance, post_payout_approved
-
-from .mixins import PlatformAdminRequiredMixin, is_platform_admin
-from .forms import PlatformAdminPasswordChangeForm, PlatformSettingsForm, ShippingCarrierForm
+from accounting.models import PayoutRequest, PlatformCommission, StoreTransaction
+from core.encryption import encrypt_value, decrypt_value
+from core.models import AuditLog, PlatformSettings, Store
+from core.services import log_action
+from orders.models import Order
+from shipping.models import Shipment, ShippingCarrier
 
 
-class PlatformLoginView(TemplateView):
-    """Login for platform admins only; redirect to dashboard if already platform admin."""
+class PlatformAdminMixin(LoginRequiredMixin, UserPassesTestMixin):
+    login_url = "/platform/login/"
+
+    def test_func(self):
+        return self.request.user.groups.filter(name="PlatformAdmin").exists() or self.request.user.is_superuser
+
+
+class PlatformLoginView(auth_views.LoginView):
     template_name = "platform_admin/login.html"
+    redirect_authenticated_user = True
 
-    def get(self, request, *args, **kwargs):
-        if request.user.is_authenticated and is_platform_admin(request.user):
-            return redirect(request.GET.get("next", reverse("platform_admin:dashboard")))
-        return super().get(request, *args, **kwargs)
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["next"] = self.request.GET.get("next", reverse("platform_admin:dashboard"))
-        return context
-
-    def post(self, request, *args, **kwargs):
-        next_url = request.POST.get("next") or request.GET.get("next") or reverse("platform_admin:dashboard")
-        if request.user.is_authenticated and is_platform_admin(request.user):
-            return redirect(next_url)
-        email = request.POST.get("email", "").strip().lower()
-        password = request.POST.get("password", "")
-        user = authenticate(request, username=email, password=password)
-        if user is None:
-            from django.contrib.auth import get_user_model
-            User = get_user_model()
-            if User.USERNAME_FIELD == "email":
-                user = authenticate(request, username=email, password=password)
-        if user is None:
-            messages.error(request, "Invalid email or password.")
-            return render(request, self.template_name, {"next": next_url})
-        if not is_platform_admin(user):
-            messages.error(request, "You do not have platform admin access.")
-            return render(request, self.template_name, {"next": next_url})
-        login(request, user)
-        return redirect(next_url)
+    def get_success_url(self):
+        return "/platform/"
 
 
-class PlatformDashboardView(PlatformAdminRequiredMixin, TemplateView):
+# ─── PA-35: KPI Dashboard ─────────────────────────────────
+class DashboardView(PlatformAdminMixin, TemplateView):
     template_name = "platform_admin/dashboard.html"
 
     def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["store_count"] = Store.objects.filter(is_active=True).count()
-        context["pending_payouts"] = PayoutRequest.objects.filter(status=PayoutRequest.STATUS_PENDING).count()
-        return context
+        ctx = super().get_context_data(**kwargs)
+        now = timezone.now()
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        week_start = today_start - timezone.timedelta(days=now.weekday())
+        month_start = today_start.replace(day=1)
+
+        ctx["active_stores"] = Store.objects.filter(is_active=True).count()
+        ctx["total_stores"] = Store.objects.count()
+
+        ctx["orders_today"] = Order.objects.filter(created_at__gte=today_start).count()
+        ctx["orders_week"] = Order.objects.filter(created_at__gte=week_start).count()
+        ctx["orders_month"] = Order.objects.filter(created_at__gte=month_start).count()
+
+        commission_qs = PlatformCommission.objects.all()
+        ctx["commission_total"] = commission_qs.aggregate(t=Sum("amount"))["t"] or 0
+        ctx["commission_month"] = commission_qs.filter(
+            created_at__gte=month_start
+        ).aggregate(t=Sum("amount"))["t"] or 0
+
+        ctx["pending_payouts"] = PayoutRequest.objects.filter(
+            status=PayoutRequest.Status.PENDING
+        ).count()
+        ctx["pending_payouts_amount"] = PayoutRequest.objects.filter(
+            status=PayoutRequest.Status.PENDING
+        ).aggregate(t=Sum("amount"))["t"] or 0
+
+        ctx["active_shipments"] = Shipment.objects.exclude(
+            status__in=["delivered", "exception"]
+        ).count()
+
+        ctx["settings"] = PlatformSettings.load()
+        return ctx
 
 
-class PlatformPasswordChangeView(PlatformAdminRequiredMixin, View):
-    """PA-04: Change password with strict policy (min 10, letter, digit, special)."""
-    def get(self, request):
-        form = PlatformAdminPasswordChangeForm(user=request.user)
-        return render(request, "platform_admin/password_change.html", {"form": form})
-
-    def post(self, request):
-        form = PlatformAdminPasswordChangeForm(user=request.user, data=request.POST)
-        if form.is_valid():
-            request.user.set_password(form.cleaned_data["new_password1"])
-            request.user.save(update_fields=["password"])
-            from django.contrib.auth import update_session_auth_hash
-            update_session_auth_hash(request, request.user)
-            messages.success(request, "Your password has been changed.")
-            return redirect("platform_admin:dashboard")
-        return render(request, "platform_admin/password_change.html", {"form": form})
-
-
-class CommissionReportView(PlatformAdminRequiredMixin, TemplateView):
-    """PA-34: Platform commission summary by date range, optional per-store breakdown."""
-    template_name = "platform_admin/commission_report.html"
+# ─── PA-10: Platform Settings ─────────────────────────────
+class PlatformSettingsView(PlatformAdminMixin, TemplateView):
+    template_name = "platform_admin/settings.html"
 
     def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        date_from = self.request.GET.get("date_from", "").strip()
-        date_to = self.request.GET.get("date_to", "").strip()
-        now = timezone.now()
-        if not date_from:
-            date_from = (now - timedelta(days=30)).strftime("%Y-%m-%d")
-        if not date_to:
-            date_to = now.strftime("%Y-%m-%d")
-        try:
-            from datetime import datetime as dt
-            start = timezone.make_aware(dt.strptime(date_from, "%Y-%m-%d"))
-            end = timezone.make_aware(dt.strptime(date_to, "%Y-%m-%d") + timedelta(days=1))
-        except (ValueError, TypeError):
-            start = now - timedelta(days=30)
-            end = now + timedelta(days=1)
-        qs = PlatformCommission.objects.filter(created_at__gte=start, created_at__lt=end)
-        total = qs.aggregate(s=Sum("amount"))["s"] or 0
-        per_store = list(
-            qs.values("store__name", "store__username")
-            .annotate(total=Sum("amount"))
-            .order_by("-total")
+        ctx = super().get_context_data(**kwargs)
+        ctx["settings"] = PlatformSettings.load()
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        ps = PlatformSettings.load()
+        ps.name = request.POST.get("name", ps.name)
+        ps.support_email = request.POST.get("support_email", ps.support_email)
+        ps.terms_url = request.POST.get("terms_url", ps.terms_url)
+        ps.privacy_url = request.POST.get("privacy_url", ps.privacy_url)
+        if request.FILES.get("logo"):
+            ps.logo = request.FILES["logo"]
+        if request.FILES.get("favicon"):
+            ps.favicon = request.FILES["favicon"]
+        ps.save()
+        log_action(actor=request.user, action="platform_settings_updated", resource_type="PlatformSettings")
+        return redirect("platform_admin:settings")
+
+
+# ─── PA-11: Default Store Settings ────────────────────────
+class DefaultStoreSettingsView(PlatformAdminMixin, TemplateView):
+    template_name = "platform_admin/default_settings.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["settings"] = PlatformSettings.load()
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        ps = PlatformSettings.load()
+        ps.default_timezone = request.POST.get("default_timezone", ps.default_timezone)
+        ps.default_currency = request.POST.get("default_currency", ps.default_currency)
+        ps.default_guest_checkout = request.POST.get("default_guest_checkout") == "on"
+        ps.save()
+        log_action(
+            actor=request.user,
+            action="default_store_settings_updated",
+            resource_type="PlatformSettings",
+            details={
+                "timezone": ps.default_timezone,
+                "currency": ps.default_currency,
+                "guest_checkout": ps.default_guest_checkout,
+            },
         )
-        context["total_commission"] = total
-        context["per_store"] = per_store
-        context["date_from"] = date_from
-        context["date_to"] = date_to
-        return context
+        return redirect("platform_admin:default-settings")
 
 
-class AuditLogListView(PlatformAdminRequiredMixin, ListView):
-    """PA-03: List audit log entries with optional filters."""
-    model = AuditLog
-    template_name = "platform_admin/audit_log.html"
-    context_object_name = "entries"
-    paginate_by = 50
+# ─── PA-12: Reserved Usernames ─────────────────────────────
+class ReservedUsernamesView(PlatformAdminMixin, TemplateView):
+    template_name = "platform_admin/reserved_usernames.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ps = PlatformSettings.load()
+        ctx["reserved"] = ps.reserved_usernames or []
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        ps = PlatformSettings.load()
+        action = request.POST.get("action")
+
+        if action == "add":
+            username = request.POST.get("username", "").strip().lower()
+            if username and username not in (ps.reserved_usernames or []):
+                reserved = list(ps.reserved_usernames or [])
+                reserved.append(username)
+                ps.reserved_usernames = reserved
+                ps.save()
+                log_action(
+                    actor=request.user,
+                    action="reserved_username_added",
+                    resource_type="PlatformSettings",
+                    details={"username": username},
+                )
+
+        elif action == "remove":
+            username = request.POST.get("username", "").strip().lower()
+            reserved = list(ps.reserved_usernames or [])
+            if username in reserved:
+                reserved.remove(username)
+                ps.reserved_usernames = reserved
+                ps.save()
+                log_action(
+                    actor=request.user,
+                    action="reserved_username_removed",
+                    resource_type="PlatformSettings",
+                    details={"username": username},
+                )
+
+        elif action == "seed":
+            defaults = ["api", "admin", "www", "mail", "ftp", "platform", "static", "media"]
+            reserved = list(ps.reserved_usernames or [])
+            for name in defaults:
+                if name not in reserved:
+                    reserved.append(name)
+            ps.reserved_usernames = reserved
+            ps.save()
+            log_action(
+                actor=request.user,
+                action="reserved_usernames_seeded",
+                resource_type="PlatformSettings",
+            )
+
+        return redirect("platform_admin:reserved-usernames")
+
+
+# ─── PA-15: SMS/Email Provider Config ──────────────────────
+class ProviderConfigView(PlatformAdminMixin, TemplateView):
+    template_name = "platform_admin/provider_config.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ps = PlatformSettings.load()
+        ctx["settings"] = ps
+        ctx["sms_api_key_set"] = bool(ps.sms_api_key_encrypted)
+        ctx["email_password_set"] = bool(ps.email_password_encrypted)
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        ps = PlatformSettings.load()
+        ps.sms_provider = request.POST.get("sms_provider", "")
+        ps.sms_sender = request.POST.get("sms_sender", "")
+        sms_key = request.POST.get("sms_api_key", "")
+        if sms_key:
+            ps.sms_api_key_encrypted = encrypt_value(sms_key)
+
+        ps.email_host = request.POST.get("email_host", "")
+        ps.email_port = int(request.POST.get("email_port", 587) or 587)
+        ps.email_username = request.POST.get("email_username", "")
+        email_pass = request.POST.get("email_password", "")
+        if email_pass:
+            ps.email_password_encrypted = encrypt_value(email_pass)
+        ps.email_use_tls = request.POST.get("email_use_tls") == "on"
+        ps.email_from = request.POST.get("email_from", "")
+
+        ps.save()
+        log_action(
+            actor=request.user,
+            action="provider_config_updated",
+            resource_type="PlatformSettings",
+            details={"sms_provider": ps.sms_provider, "email_host": ps.email_host},
+        )
+        return redirect("platform_admin:provider-config")
+
+
+class TestSMSView(PlatformAdminMixin, View):
+    def post(self, request, *args, **kwargs):
+        # Placeholder: send test SMS via configured provider
+        return JsonResponse({"status": "ok", "message": "پیامک تست ارسال شد (mock)"})
+
+
+class TestEmailView(PlatformAdminMixin, View):
+    def post(self, request, *args, **kwargs):
+        from django.core.mail import send_mail
+        try:
+            send_mail(
+                subject="تست ایمیل UltraShop",
+                message="این یک ایمیل تست از پلتفرم UltraShop است.",
+                from_email=None,
+                recipient_list=[request.user.email],
+            )
+            return JsonResponse({"status": "ok", "message": "ایمیل تست ارسال شد"})
+        except Exception as e:
+            return JsonResponse({"status": "error", "message": str(e)}, status=400)
+
+
+# ─── PA-20: Shipping Toggle ───────────────────────────────
+class ShippingToggleView(PlatformAdminMixin, View):
+    def post(self, request, *args, **kwargs):
+        ps = PlatformSettings.load()
+        ps.shipping_enabled = not ps.shipping_enabled
+        ps.save()
+        log_action(
+            actor=request.user,
+            action="shipping_toggled",
+            resource_type="PlatformSettings",
+            details={"shipping_enabled": ps.shipping_enabled},
+        )
+        return redirect("platform_admin:dashboard")
+
+
+# ─── PA-22: All Shipments List ─────────────────────────────
+class ShipmentListView(PlatformAdminMixin, ListView):
+    template_name = "platform_admin/shipment_list.html"
+    context_object_name = "shipments"
+    paginate_by = 25
 
     def get_queryset(self):
-        qs = AuditLog.objects.select_related("actor", "store").order_by("-created_at")
-        action = self.request.GET.get("action", "").strip()
-        if action:
-            qs = qs.filter(action=action)
-        store_id = self.request.GET.get("store", "").strip()
+        qs = Shipment.objects.select_related("store", "order", "carrier").all()
+
+        store_id = self.request.GET.get("store")
         if store_id:
             qs = qs.filter(store_id=store_id)
+
+        status = self.request.GET.get("status")
+        if status:
+            qs = qs.filter(status=status)
+
+        date_from = self.request.GET.get("date_from")
+        if date_from:
+            qs = qs.filter(created_at__date__gte=date_from)
+
+        date_to = self.request.GET.get("date_to")
+        if date_to:
+            qs = qs.filter(created_at__date__lte=date_to)
+
         return qs
 
     def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["action_choices"] = AuditLog.ACTION_CHOICES
-        return context
+        ctx = super().get_context_data(**kwargs)
+        ctx["stores"] = Store.objects.filter(is_active=True).order_by("name")
+        ctx["statuses"] = Shipment.Status.choices
+        ctx["current_filters"] = {
+            "store": self.request.GET.get("store", ""),
+            "status": self.request.GET.get("status", ""),
+            "date_from": self.request.GET.get("date_from", ""),
+            "date_to": self.request.GET.get("date_to", ""),
+        }
+        return ctx
 
 
-class PlatformSettingsUpdateView(PlatformAdminRequiredMixin, UpdateView):
-    """PA-10: Edit global platform settings."""
-    model = PlatformSettings
-    form_class = PlatformSettingsForm
-    template_name = "platform_admin/platform_settings.html"
-    success_url = reverse_lazy("platform_admin:platform_settings")
-    context_object_name = "settings"
+class ShipmentDetailView(PlatformAdminMixin, DetailView):
+    template_name = "platform_admin/shipment_detail.html"
+    model = Shipment
+    context_object_name = "shipment"
 
-    def get_object(self, queryset=None):
-        return PlatformSettings.get_settings()
-
-    def form_valid(self, form):
-        messages.success(self.request, "Platform settings saved.")
-        return super().form_valid(form)
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        shipment = self.object
+        ctx["allowed_next"] = Shipment.ALLOWED_TRANSITIONS.get(shipment.status, [])
+        return ctx
 
 
-class ShippingCarrierListView(PlatformAdminRequiredMixin, ListView):
-    """PA-21: List shipping carriers."""
-    model = ShippingCarrier
-    template_name = "platform_admin/carrier_list.html"
-    context_object_name = "carriers"
+# ─── PA-23: Update Shipment Status ─────────────────────────
+class ShipmentUpdateStatusView(PlatformAdminMixin, View):
+    def post(self, request, pk):
+        shipment = get_object_or_404(Shipment, pk=pk)
+        new_status = request.POST.get("status")
+        note = request.POST.get("note", "")
+
+        if not shipment.can_transition_to(new_status):
+            from django.contrib import messages
+            messages.error(request, f"تغییر وضعیت از {shipment.status} به {new_status} مجاز نیست.")
+            return redirect("platform_admin:shipment-detail", pk=pk)
+
+        old_status = shipment.status
+        shipment.status = new_status
+        shipment.note = note
+        shipment.save()
+
+        # Update order status if needed
+        if new_status == "delivered":
+            shipment.order.status = "delivered"
+            shipment.order.save(update_fields=["status", "updated_at"])
+
+        log_action(
+            actor=request.user,
+            store=shipment.store,
+            action="shipment_status_updated",
+            resource_type="Shipment",
+            resource_id=shipment.pk,
+            details={"old_status": old_status, "new_status": new_status, "note": note},
+        )
+
+        return redirect("platform_admin:shipment-detail", pk=pk)
 
 
-class ShippingCarrierCreateView(PlatformAdminRequiredMixin, CreateView):
-    model = ShippingCarrier
-    form_class = ShippingCarrierForm
-    template_name = "platform_admin/carrier_form.html"
-    success_url = reverse_lazy("platform_admin:carrier_list")
-
-    def form_valid(self, form):
-        messages.success(self.request, "Carrier created.")
-        return super().form_valid(form)
-
-
-class ShippingCarrierUpdateView(PlatformAdminRequiredMixin, UpdateView):
-    model = ShippingCarrier
-    form_class = ShippingCarrierForm
-    template_name = "platform_admin/carrier_form.html"
-    context_object_name = "carrier"
-    success_url = reverse_lazy("platform_admin:carrier_list")
-
-    def form_valid(self, form):
-        messages.success(self.request, "Carrier updated.")
-        return super().form_valid(form)
-
-
-class ShippingCarrierDeleteView(PlatformAdminRequiredMixin, DeleteView):
-    model = ShippingCarrier
-    success_url = reverse_lazy("platform_admin:carrier_list")
-
-    def delete(self, request, *args, **kwargs):
-        messages.success(request, "Carrier deleted.")
-        return super().delete(request, *args, **kwargs)
-
-
-class StoreListView(PlatformAdminRequiredMixin, ListView):
-    model = Store
+# ─── PA-30: Stores ─────────────────────────────────────────
+class StoreListView(PlatformAdminMixin, ListView):
     template_name = "platform_admin/store_list.html"
     context_object_name = "stores"
-    paginate_by = 20
+    paginate_by = 25
 
     def get_queryset(self):
-        qs = Store.objects.select_related("owner").order_by("-created_at")
-        q = self.request.GET.get("q", "").strip()
+        qs = Store.objects.annotate(
+            order_count=Count("orders"),
+        ).all()
+        q = self.request.GET.get("q")
         if q:
-            qs = qs.filter(name__icontains=q) | qs.filter(username__icontains=q) | qs.filter(owner__email__icontains=q)
+            qs = qs.filter(Q(name__icontains=q) | Q(username__icontains=q))
         status = self.request.GET.get("status")
         if status == "active":
             qs = qs.filter(is_active=True)
         elif status == "suspended":
             qs = qs.filter(is_active=False)
-        return qs.distinct()
+        return qs.order_by("-created_at")
 
 
-class StoreDetailView(PlatformAdminRequiredMixin, DetailView):
-    model = Store
+class StoreDetailView(PlatformAdminMixin, DetailView):
     template_name = "platform_admin/store_detail.html"
+    model = Store
     context_object_name = "store"
-    slug_field = "username"
-    slug_url_kwarg = "username"
-
-    def get_queryset(self):
-        return Store.objects.select_related("owner")
 
     def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        store = self.object
-        context["balance"] = get_store_balance(store)
-        context["order_count"] = store.orders.count()
-        context["shipment_count"] = store.shipments.count() if hasattr(store, "shipments") else 0
-        return context
+        ctx = super().get_context_data(**kwargs)
+        from accounting.services import get_store_balance
+        ctx["balance"] = get_store_balance(self.object)
+        ctx["order_count"] = self.object.orders.count()
+        ctx["shipment_count"] = self.object.shipments.count()
+        return ctx
 
 
-class StoreSuspendView(PlatformAdminRequiredMixin, View):
-    def post(self, request, username):
-        store = get_object_or_404(Store, username=username)
-        store.is_active = False
-        store.save(update_fields=["is_active"])
-        from core.models import log_audit
-        log_audit(request.user, "store_suspended", "store", store.pk, request.POST.get("reason", ""), store=store)
-        messages.success(request, f"Store {store.name} has been suspended.")
-        return redirect("platform_admin:store_detail", username=username)
-
-
-class StoreReactivateView(PlatformAdminRequiredMixin, View):
-    def post(self, request, username):
-        store = get_object_or_404(Store, username=username)
-        store.is_active = True
-        store.save(update_fields=["is_active"])
-        from core.models import log_audit
-        log_audit(request.user, "store_reactivated", "store", store.pk, request.POST.get("reason", ""), store=store)
-        messages.success(request, f"Store {store.name} has been reactivated.")
-        return redirect("platform_admin:store_detail", username=username)
-
-
-class PayoutRequestListView(PlatformAdminRequiredMixin, ListView):
-    model = PayoutRequest
+# ─── PA-33: Payouts ────────────────────────────────────────
+class PayoutListView(PlatformAdminMixin, ListView):
     template_name = "platform_admin/payout_list.html"
     context_object_name = "payouts"
-    paginate_by = 30
+    paginate_by = 25
 
     def get_queryset(self):
-        return PayoutRequest.objects.select_related("store", "store__owner").order_by("-created_at")
+        return PayoutRequest.objects.select_related("store").all()
+
+
+# ─── PA-34: Commission Report ──────────────────────────────
+class CommissionReportView(PlatformAdminMixin, TemplateView):
+    template_name = "platform_admin/commission_report.html"
 
     def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["pending_count"] = PayoutRequest.objects.filter(status=PayoutRequest.STATUS_PENDING).count()
-        return context
+        ctx = super().get_context_data(**kwargs)
+        qs = PlatformCommission.objects.select_related("store")
+
+        date_from = self.request.GET.get("date_from")
+        date_to = self.request.GET.get("date_to")
+        if date_from:
+            qs = qs.filter(created_at__date__gte=date_from)
+        if date_to:
+            qs = qs.filter(created_at__date__lte=date_to)
+
+        ctx["total"] = qs.aggregate(t=Sum("amount"))["t"] or 0
+        ctx["by_store"] = qs.values("store__name").annotate(total=Sum("amount")).order_by("-total")
+        return ctx
 
 
-class PayoutApproveView(PlatformAdminRequiredMixin, View):
-    def post(self, request, pk):
-        payout = get_object_or_404(PayoutRequest, pk=pk, status=PayoutRequest.STATUS_PENDING)
-        post_payout_approved(payout)
-        payout.status = PayoutRequest.STATUS_APPROVED
-        payout.save(update_fields=["status", "updated_at"])
-        from core.models import log_audit
-        log_audit(request.user, "payout_approved", "payout_request", payout.pk, f"amount={payout.amount}", store=payout.store)
-        messages.success(request, f"Payout {payout.amount} for {payout.store.name} approved.")
-        return redirect("platform_admin:payout_list")
+# ─── PA-03: Audit Log ──────────────────────────────────────
+class AuditLogView(PlatformAdminMixin, ListView):
+    template_name = "platform_admin/audit_log.html"
+    context_object_name = "logs"
+    paginate_by = 50
 
+    def get_queryset(self):
+        qs = AuditLog.objects.select_related("actor", "store").all()
+        action = self.request.GET.get("action")
+        if action:
+            qs = qs.filter(action=action)
+        return qs
 
-class PayoutRejectView(PlatformAdminRequiredMixin, View):
-    def post(self, request, pk):
-        payout = get_object_or_404(PayoutRequest, pk=pk, status=PayoutRequest.STATUS_PENDING)
-        payout.status = PayoutRequest.STATUS_REJECTED
-        payout.save(update_fields=["status", "updated_at"])
-        from core.models import log_audit
-        log_audit(request.user, "payout_rejected", "payout_request", payout.pk, "", store=payout.store)
-        messages.success(request, f"Payout for {payout.store.name} rejected.")
-        return redirect("platform_admin:payout_list")
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["actions"] = AuditLog.objects.values_list("action", flat=True).distinct()
+        return ctx

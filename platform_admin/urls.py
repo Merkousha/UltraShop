@@ -1,26 +1,46 @@
-from django.urls import path, reverse_lazy
-from django.views.generic import RedirectView
-from . import views
+from django.urls import path
+from platform_admin import views
 
 app_name = "platform_admin"
 
 urlpatterns = [
-    path("", RedirectView.as_view(url=reverse_lazy("platform_admin:dashboard"), permanent=False), name="index"),
+    path("", views.DashboardView.as_view(), name="dashboard"),
     path("login/", views.PlatformLoginView.as_view(), name="login"),
-    path("dashboard/", views.PlatformDashboardView.as_view(), name="dashboard"),
-    path("stores/", views.StoreListView.as_view(), name="store_list"),
-    path("stores/<slug:username>/", views.StoreDetailView.as_view(), name="store_detail"),
-    path("stores/<slug:username>/suspend/", views.StoreSuspendView.as_view(), name="store_suspend"),
-    path("stores/<slug:username>/reactivate/", views.StoreReactivateView.as_view(), name="store_reactivate"),
-    path("payouts/", views.PayoutRequestListView.as_view(), name="payout_list"),
-    path("payouts/<int:pk>/approve/", views.PayoutApproveView.as_view(), name="payout_approve"),
-    path("payouts/<int:pk>/reject/", views.PayoutRejectView.as_view(), name="payout_reject"),
-    path("commission/", views.CommissionReportView.as_view(), name="commission_report"),
-    path("audit-log/", views.AuditLogListView.as_view(), name="audit_log"),
-    path("password-change/", views.PlatformPasswordChangeView.as_view(), name="password_change"),
-    path("settings/", views.PlatformSettingsUpdateView.as_view(), name="platform_settings"),
-    path("carriers/", views.ShippingCarrierListView.as_view(), name="carrier_list"),
-    path("carriers/add/", views.ShippingCarrierCreateView.as_view(), name="carrier_create"),
-    path("carriers/<int:pk>/edit/", views.ShippingCarrierUpdateView.as_view(), name="carrier_edit"),
-    path("carriers/<int:pk>/delete/", views.ShippingCarrierDeleteView.as_view(), name="carrier_delete"),
+
+    # PA-10: Platform settings
+    path("settings/", views.PlatformSettingsView.as_view(), name="settings"),
+
+    # PA-11: Default store settings
+    path("settings/defaults/", views.DefaultStoreSettingsView.as_view(), name="default-settings"),
+
+    # PA-12: Reserved usernames
+    path("settings/reserved-usernames/", views.ReservedUsernamesView.as_view(), name="reserved-usernames"),
+
+    # PA-15: SMS/Email config
+    path("settings/providers/", views.ProviderConfigView.as_view(), name="provider-config"),
+    path("settings/providers/test-sms/", views.TestSMSView.as_view(), name="test-sms"),
+    path("settings/providers/test-email/", views.TestEmailView.as_view(), name="test-email"),
+
+    # PA-20: Shipping toggle
+    path("shipping/toggle/", views.ShippingToggleView.as_view(), name="shipping-toggle"),
+
+    # PA-22: All shipments
+    path("shipments/", views.ShipmentListView.as_view(), name="shipment-list"),
+    path("shipments/<int:pk>/", views.ShipmentDetailView.as_view(), name="shipment-detail"),
+
+    # PA-23: Update shipment status
+    path("shipments/<int:pk>/update-status/", views.ShipmentUpdateStatusView.as_view(), name="shipment-update-status"),
+
+    # PA-30: Stores
+    path("stores/", views.StoreListView.as_view(), name="store-list"),
+    path("stores/<int:pk>/", views.StoreDetailView.as_view(), name="store-detail"),
+
+    # PA-33: Payouts
+    path("payouts/", views.PayoutListView.as_view(), name="payout-list"),
+
+    # PA-34: Commission report
+    path("commission/", views.CommissionReportView.as_view(), name="commission-report"),
+
+    # PA-03: Audit log
+    path("audit-log/", views.AuditLogView.as_view(), name="audit-log"),
 ]

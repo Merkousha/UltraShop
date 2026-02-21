@@ -1,0 +1,53 @@
+{% extends "storefront/base.html" %}
+{% block title %}{{ store.name }}{% endblock %}
+{% block content %}
+{% if store.description %}
+<div class="bg-white rounded-lg shadow p-6 mb-6 text-center">
+    <p class="text-gray-600">{{ store.description }}</p>
+</div>
+{% endif %}
+
+<!-- Categories -->
+{% if categories %}
+<section class="mb-8">
+    <h2 class="text-xl font-bold mb-4">دسته‌بندی‌ها</h2>
+    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+        {% for cat in categories %}
+        <a href="{% url 'storefront:category-detail' store.username cat.slug %}" class="bg-white rounded-lg shadow p-4 text-center hover:shadow-md transition">
+            <p class="font-medium">{{ cat.name }}</p>
+            <p class="text-xs text-gray-400 mt-1">{{ cat.products.count }} محصول</p>
+        </a>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
+<!-- Featured Products -->
+<section>
+    <h2 class="text-xl font-bold mb-4">جدیدترین محصولات</h2>
+    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+        {% for product in featured_products %}
+        <a href="{% url 'storefront:product-detail' store.username product.slug %}" class="bg-white rounded-lg shadow overflow-hidden hover:shadow-md transition group">
+            {% with img=product.primary_image %}
+            {% if img %}<img src="{{ img.image.url }}" class="w-full h-40 object-cover group-hover:scale-105 transition-transform" alt="{{ product.name }}">
+            {% else %}<div class="w-full h-40 bg-gray-100 flex items-center justify-center text-4xl text-gray-300">📷</div>{% endif %}
+            {% endwith %}
+            <div class="p-3">
+                <p class="font-medium text-sm truncate">{{ product.name }}</p>
+                {% with v=product.variants.first %}
+                {% if v %}
+                <p class="text-sm mt-1">
+                    <span class="font-bold text-primary">{{ v.price|stringformat:",.0f" }}</span>
+                    <span class="text-xs text-gray-400">ریال</span>
+                    {% if v.compare_at_price %}<del class="text-xs text-gray-400 mr-1">{{ v.compare_at_price|stringformat:",.0f" }}</del>{% endif %}
+                </p>
+                {% endif %}
+                {% endwith %}
+            </div>
+        </a>
+        {% empty %}
+        <p class="col-span-full text-center text-gray-400 py-8">هنوز محصولی ثبت نشده.</p>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

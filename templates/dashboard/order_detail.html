@@ -1,0 +1,71 @@
+{% extends "dashboard/base.html" %}
+{% block title %}سفارش #{{ order.pk }}{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+    <h2 class="text-2xl font-bold">سفارش #{{ order.pk }}</h2>
+    <a href="{% url 'dashboard:order-list' %}" class="text-indigo-600 text-sm hover:underline">← بازگشت</a>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+    <div class="bg-white rounded-lg shadow p-6">
+        <h3 class="font-semibold mb-3">اطلاعات سفارش</h3>
+        <dl class="space-y-2 text-sm">
+            <div class="flex justify-between"><dt class="text-gray-500">وضعیت</dt><dd>{{ order.get_status_display }}</dd></div>
+            <div class="flex justify-between"><dt class="text-gray-500">مبلغ کل</dt><dd>{{ order.total|stringformat:",.0f" }} ریال</dd></div>
+            <div class="flex justify-between"><dt class="text-gray-500">تاریخ ثبت</dt><dd>{{ order.created_at|date:"Y/m/d H:i" }}</dd></div>
+            <div class="flex justify-between"><dt class="text-gray-500">مرجع پرداخت</dt><dd>{{ order.payment_reference|default:"—" }}</dd></div>
+        </dl>
+    </div>
+    <div class="bg-white rounded-lg shadow p-6">
+        <h3 class="font-semibold mb-3">اطلاعات مشتری و ارسال</h3>
+        <dl class="space-y-2 text-sm">
+            <div class="flex justify-between"><dt class="text-gray-500">مشتری</dt><dd>{% if order.customer %}{{ order.customer.phone }}{% else %}{{ order.guest_phone }}{% endif %}</dd></div>
+            <div class="flex justify-between"><dt class="text-gray-500">نام گیرنده</dt><dd>{{ order.guest_name|default:"—" }}</dd></div>
+            <div class="flex justify-between"><dt class="text-gray-500">تلفن</dt><dd>{{ order.guest_phone|default:"—" }}</dd></div>
+            <div class="flex justify-between"><dt class="text-gray-500">آدرس</dt><dd>{{ order.shipping_address|default:"—" }}</dd></div>
+            <div class="flex justify-between"><dt class="text-gray-500">شهر</dt><dd>{{ order.shipping_city|default:"—" }}</dd></div>
+            <div class="flex justify-between"><dt class="text-gray-500">استان</dt><dd>{{ order.shipping_province|default:"—" }}</dd></div>
+            <div class="flex justify-between"><dt class="text-gray-500">کد پستی</dt><dd>{{ order.shipping_postal_code|default:"—" }}</dd></div>
+        </dl>
+    </div>
+</div>
+
+<div class="bg-white rounded-lg shadow p-6 mb-6">
+    <h3 class="font-semibold mb-3">اقلام سفارش</h3>
+    <table class="w-full text-sm">
+        <thead class="bg-gray-50"><tr>
+            <th class="px-4 py-2 text-right">محصول</th>
+            <th class="px-4 py-2 text-right">تنوع</th>
+            <th class="px-4 py-2 text-right">تعداد</th>
+            <th class="px-4 py-2 text-right">قیمت واحد</th>
+            <th class="px-4 py-2 text-right">جمع</th>
+        </tr></thead>
+        <tbody>
+        {% for line in order.lines.all %}
+        <tr class="border-t">
+            <td class="px-4 py-2">{{ line.product_name }}</td>
+            <td class="px-4 py-2">{{ line.variant_name }}</td>
+            <td class="px-4 py-2">{{ line.quantity }}</td>
+            <td class="px-4 py-2">{{ line.unit_price|stringformat:",.0f" }}</td>
+            <td class="px-4 py-2">{{ line.line_total|stringformat:",.0f" }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="bg-white rounded-lg shadow p-6">
+    <h3 class="font-semibold mb-3">تاریخچه وضعیت</h3>
+    <ul class="space-y-2 text-sm">
+    {% for event in order.status_events.all %}
+        <li class="flex gap-3 items-start">
+            <span class="text-gray-400 text-xs whitespace-nowrap">{{ event.created_at|date:"Y/m/d H:i" }}</span>
+            <span class="px-2 py-0.5 rounded text-xs bg-gray-100">{{ event.status }}</span>
+            <span class="text-gray-600">{{ event.note|default:"" }}</span>
+        </li>
+    {% empty %}
+        <li class="text-gray-400">رویدادی ثبت نشده.</li>
+    {% endfor %}
+    </ul>
+</div>
+{% endblock %}

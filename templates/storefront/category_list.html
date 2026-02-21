@@ -1,0 +1,15 @@
+{% extends "storefront/base.html" %}
+{% block title %}دسته‌بندی‌ها — {{ store.name }}{% endblock %}
+{% block content %}
+<h2 class="text-xl font-bold mb-6">📂 دسته‌بندی‌ها</h2>
+<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+    {% for cat in categories %}
+    <a href="{% url 'storefront:category-detail' store.username cat.slug %}" class="bg-white rounded-lg shadow p-6 text-center hover:shadow-md transition">
+        <p class="font-medium text-lg">{{ cat.name }}</p>
+        <p class="text-sm text-gray-400 mt-2">{{ cat.products.count }} محصول</p>
+    </a>
+    {% empty %}
+    <p class="col-span-full text-center text-gray-400 py-8">دسته‌بندی وجود ندارد.</p>
+    {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,30 @@
+{% extends "platform_admin/base.html" %}
+{% block title %}تنظیمات پلتفرم{% endblock %}
+{% block content %}
+<h2 class="text-2xl font-bold mb-6">⚙️ تنظیمات پلتفرم</h2>
+<form method="post" enctype="multipart/form-data" class="bg-white rounded-lg shadow p-6 max-w-2xl space-y-4">
+    {% csrf_token %}
+    <div>
+        <label class="block text-sm font-medium mb-1">نام پلتفرم</label>
+        <input type="text" name="name" value="{{ settings.name }}" class="w-full border rounded px-3 py-2">
+    </div>
+    <div>
+        <label class="block text-sm font-medium mb-1">ایمیل پشتیبانی</label>
+        <input type="email" name="support_email" value="{{ settings.support_email }}" class="w-full border rounded px-3 py-2">
+    </div>
+    <div>
+        <label class="block text-sm font-medium mb-1">لینک قوانین</label>
+        <input type="url" name="terms_url" value="{{ settings.terms_url }}" class="w-full border rounded px-3 py-2">
+    </div>
+    <div>
+        <label class="block text-sm font-medium mb-1">لینک حریم خصوصی</label>
+        <input type="url" name="privacy_url" value="{{ settings.privacy_url }}" class="w-full border rounded px-3 py-2">
+    </div>
+    <div>
+        <label class="block text-sm font-medium mb-1">لوگو</label>
+        <input type="file" name="logo" accept="image/*" class="w-full border rounded px-3 py-2">
+        {% if settings.logo %}<p class="text-xs text-gray-500 mt-1">فایل فعلی: {{ settings.logo.name }}</p>{% endif %}
+    </div>
+    <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded hover:bg-indigo-700">ذخیره</button>
+</form>
+{% endblock %}

@@ -1,0 +1,92 @@
+{% extends "platform_admin/base.html" %}
+{% block title %}تنظیمات SMS/Email{% endblock %}
+{% block content %}
+<h2 class="text-2xl font-bold mb-6">📡 تنظیمات ارائه‌دهنده SMS و Email</h2>
+
+<form method="post" class="bg-white rounded-lg shadow p-6 max-w-2xl space-y-6">
+    {% csrf_token %}
+
+    <fieldset class="border rounded p-4">
+        <legend class="text-lg font-semibold px-2">📱 SMS</legend>
+        <div class="space-y-3">
+            <div>
+                <label class="block text-sm font-medium mb-1">ارائه‌دهنده</label>
+                <select name="sms_provider" class="w-full border rounded px-3 py-2">
+                    <option value="">انتخاب کنید...</option>
+                    <option value="kavenegar" {% if settings.sms_provider == "kavenegar" %}selected{% endif %}>Kavenegar</option>
+                    <option value="melipayamak" {% if settings.sms_provider == "melipayamak" %}selected{% endif %}>ملی‌پیامک</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium mb-1">API Key</label>
+                <input type="password" name="sms_api_key" placeholder="{% if sms_api_key_set %}(تنظیم شده){% endif %}"
+                       class="w-full border rounded px-3 py-2">
+                <p class="text-xs text-gray-400 mt-1">فقط در صورت تغییر وارد کنید. رمزنگاری شده ذخیره می‌شود.</p>
+            </div>
+            <div>
+                <label class="block text-sm font-medium mb-1">شماره ارسال‌کننده</label>
+                <input type="text" name="sms_sender" value="{{ settings.sms_sender }}" class="w-full border rounded px-3 py-2">
+            </div>
+            <button type="button" onclick="testSMS()" class="bg-blue-500 text-white px-4 py-1 rounded text-sm hover:bg-blue-600">
+                ارسال تست
+            </button>
+            <span id="sms-result" class="text-sm mr-2"></span>
+        </div>
+    </fieldset>
+
+    <fieldset class="border rounded p-4">
+        <legend class="text-lg font-semibold px-2">📧 Email (SMTP)</legend>
+        <div class="space-y-3">
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-sm font-medium mb-1">هاست</label>
+                    <input type="text" name="email_host" value="{{ settings.email_host }}" class="w-full border rounded px-3 py-2">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">پورت</label>
+                    <input type="number" name="email_port" value="{{ settings.email_port }}" class="w-full border rounded px-3 py-2">
+                </div>
+            </div>
+            <div>
+                <label class="block text-sm font-medium mb-1">نام کاربری</label>
+                <input type="text" name="email_username" value="{{ settings.email_username }}" class="w-full border rounded px-3 py-2">
+            </div>
+            <div>
+                <label class="block text-sm font-medium mb-1">رمز عبور</label>
+                <input type="password" name="email_password" placeholder="{% if email_password_set %}(تنظیم شده){% endif %}"
+                       class="w-full border rounded px-3 py-2">
+                <p class="text-xs text-gray-400 mt-1">رمزنگاری شده ذخیره می‌شود.</p>
+            </div>
+            <div class="flex items-center gap-2">
+                <input type="checkbox" name="email_use_tls" id="tls" {% if settings.email_use_tls %}checked{% endif %}>
+                <label for="tls" class="text-sm">استفاده از TLS</label>
+            </div>
+            <div>
+                <label class="block text-sm font-medium mb-1">آدرس ارسال‌کننده</label>
+                <input type="email" name="email_from" value="{{ settings.email_from }}" class="w-full border rounded px-3 py-2">
+            </div>
+            <button type="button" onclick="testEmail()" class="bg-blue-500 text-white px-4 py-1 rounded text-sm hover:bg-blue-600">
+                ارسال تست
+            </button>
+            <span id="email-result" class="text-sm mr-2"></span>
+        </div>
+    </fieldset>
+
+    <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded hover:bg-indigo-700">ذخیره تنظیمات</button>
+</form>
+
+<script>
+function testSMS() {
+    fetch("{% url 'platform_admin:test-sms' %}", {method: 'POST', headers: {'X-CSRFToken': '{{ csrf_token }}'}})
+    .then(r => r.json())
+    .then(d => document.getElementById('sms-result').textContent = d.message)
+    .catch(() => document.getElementById('sms-result').textContent = 'خطا در ارسال');
+}
+function testEmail() {
+    fetch("{% url 'platform_admin:test-email' %}", {method: 'POST', headers: {'X-CSRFToken': '{{ csrf_token }}'}})
+    .then(r => r.json())
+    .then(d => document.getElementById('email-result').textContent = d.message)
+    .catch(() => document.getElementById('email-result').textContent = 'خطا در ارسال');
+}
+</script>
+{% endblock %}

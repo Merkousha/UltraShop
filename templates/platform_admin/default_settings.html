@@ -1,0 +1,27 @@
+{% extends "platform_admin/base.html" %}
+{% block title %}پیش‌فرض‌های فروشگاه جدید{% endblock %}
+{% block content %}
+<h2 class="text-2xl font-bold mb-6">🏗️ تنظیمات پیش‌فرض فروشگاه‌های جدید</h2>
+<form method="post" class="bg-white rounded-lg shadow p-6 max-w-2xl space-y-4">
+    {% csrf_token %}
+    <div>
+        <label class="block text-sm font-medium mb-1">منطقه زمانی پیش‌فرض</label>
+        <select name="default_timezone" class="w-full border rounded px-3 py-2">
+            <option value="Asia/Tehran" {% if settings.default_timezone == "Asia/Tehran" %}selected{% endif %}>Asia/Tehran</option>
+            <option value="UTC" {% if settings.default_timezone == "UTC" %}selected{% endif %}>UTC</option>
+        </select>
+    </div>
+    <div>
+        <label class="block text-sm font-medium mb-1">واحد پول پیش‌فرض</label>
+        <select name="default_currency" class="w-full border rounded px-3 py-2">
+            <option value="IRR" {% if settings.default_currency == "IRR" %}selected{% endif %}>ریال (IRR)</option>
+            <option value="IRT" {% if settings.default_currency == "IRT" %}selected{% endif %}>تومان (IRT)</option>
+        </select>
+    </div>
+    <div class="flex items-center gap-2">
+        <input type="checkbox" name="default_guest_checkout" id="guest" {% if settings.default_guest_checkout %}checked{% endif %}>
+        <label for="guest" class="text-sm">خرید مهمان فعال باشد</label>
+    </div>
+    <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded hover:bg-indigo-700">ذخیره</button>
+</form>
+{% endblock %}

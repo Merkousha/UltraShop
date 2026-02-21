@@ -1,25 +1,26 @@
 {% extends "base.html" %}
 {% block title %}ورود{% endblock %}
 {% block content %}
-<div class="mx-auto max-w-md">
-    <h1 class="text-2xl font-bold text-gray-900">ورود</h1>
-    <p class="mt-1 text-gray-600">با ایمیل و رمز عبور وارد شوید.</p>
-    <form method="post" class="mt-6 space-y-4">
-        {% csrf_token %}
-        {% if form.non_field_errors %}
-            <div class="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{{ form.non_field_errors }}</div>
+<div class="max-w-md mx-auto mt-20">
+    <div class="bg-white rounded-lg shadow p-8">
+        <h2 class="text-2xl font-bold text-center mb-6">ورود به سیستم</h2>
+
+        {% if form.errors %}
+        <div class="bg-red-50 border border-red-200 rounded p-3 mb-4 text-sm text-red-700">نام‌کاربری یا رمز عبور اشتباه است.</div>
         {% endif %}
-        {% for field in form %}
+
+        <form method="post" class="space-y-4">
+            {% csrf_token %}
             <div>
-                <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-gray-700">{{ field.label }}</label>
-                {{ field }}
-                {% if field.errors %}<p class="mt-1 text-sm text-red-600">{{ field.errors.0 }}</p>{% endif %}
+                <label class="block text-sm font-medium mb-1">ایمیل</label>
+                <input type="email" name="username" required class="w-full border rounded px-3 py-2 text-sm" autofocus>
             </div>
-        {% endfor %}
-        <button type="submit" class="btn btn-primary w-full">ورود</button>
-    </form>
-    <p class="mt-4 text-center text-sm text-gray-600">
-        حساب ندارید؟ <a href="{% url 'accounts:signup' %}" class="text-blue-600 hover:underline">ثبت‌نام</a>
-    </p>
+            <div>
+                <label class="block text-sm font-medium mb-1">رمز عبور</label>
+                <input type="password" name="password" required class="w-full border rounded px-3 py-2 text-sm">
+            </div>
+            <button type="submit" class="w-full bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700">ورود</button>
+        </form>
+    </div>
 </div>
 {% endblock %}

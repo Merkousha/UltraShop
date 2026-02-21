@@ -1,0 +1,89 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+{% block title %}تصاویر محصول{% endblock %}
+{% block extra_head %}
+<script src="{% static 'js/sortable.min.js' %}"></script>
+{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+    <h2 class="text-2xl font-bold">🖼 تصاویر «{{ product.name }}»</h2>
+    <a href="{% url 'dashboard:product-edit' product.pk %}" class="text-indigo-600 text-sm hover:underline">← بازگشت به ویرایش</a>
+</div>
+
+<!-- SO-15: Upload new images -->
+<form method="post" enctype="multipart/form-data" class="bg-white rounded-lg shadow p-6 mb-6">
+    {% csrf_token %}
+    <div class="flex items-center gap-4">
+        <input type="file" name="images" multiple accept="image/*" class="text-sm flex-1">
+        <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded text-sm hover:bg-indigo-700">آپلود</button>
+    </div>
+</form>
+
+{% if messages %}
+<div class="mb-4">
+    {% for msg in messages %}
+    <div class="p-3 rounded text-sm mb-2 {% if msg.tags == 'success' %}bg-green-50 text-green-700{% elif msg.tags == 'error' %}bg-red-50 text-red-700{% else %}bg-blue-50{% endif %}">{{ msg }}</div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- SO-15: Image grid with drag & drop reorder -->
+<div class="bg-white rounded-lg shadow p-6">
+    <p class="text-sm text-gray-500 mb-4">برای تغییر ترتیب تصاویر، آن‌ها را بکشید و رها کنید. تصویر اول به‌عنوان تصویر اصلی نمایش داده می‌شود.</p>
+
+    <div id="image-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+        {% for img in images %}
+        <div class="image-card border rounded-lg overflow-hidden relative group" data-id="{{ img.pk }}">
+            <img src="{{ img.image.url }}" class="w-full h-40 object-cover" alt="تصویر محصول">
+            <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                <!-- Set as primary -->
+                <form method="post" action="{% url 'dashboard:product-image-set-primary' product.pk img.pk %}" class="inline">
+                    {% csrf_token %}
+                    <button type="submit" class="bg-white text-gray-800 px-2 py-1 rounded text-xs hover:bg-green-100" title="تصویر اصلی">⭐</button>
+                </form>
+                <!-- Delete -->
+                <form method="post" action="{% url 'dashboard:product-image-delete' product.pk img.pk %}" class="inline"
+                      onsubmit="return confirm('حذف شود؟')">
+                    {% csrf_token %}
+                    <button type="submit" class="bg-white text-red-600 px-2 py-1 rounded text-xs hover:bg-red-100" title="حذف">🗑</button>
+                </form>
+            </div>
+            {% if img.is_primary %}
+            <span class="absolute top-1 right-1 bg-yellow-400 text-xs px-2 py-0.5 rounded">اصلی</span>
+            {% endif %}
+            <div class="text-center text-xs py-1 text-gray-500 cursor-move">☰ ترتیب: {{ img.sort_order }}</div>
+        </div>
+        {% empty %}
+        <p class="col-span-full text-center text-gray-400 py-8">هنوز تصویری آپلود نشده است.</p>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+// SO-15: Drag & drop reorder
+if (document.querySelectorAll('.image-card').length > 0) {
+    new Sortable(document.getElementById('image-grid'), {
+        animation: 150,
+        ghostClass: 'opacity-50',
+        onEnd: function() {
+            const order = Array.from(document.querySelectorAll('.image-card')).map(c => c.dataset.id);
+            fetch("{% url 'dashboard:product-image-reorder' product.pk %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({order: order})
+            }).then(r => r.json()).then(data => {
+                if (data.ok) {
+                    // Update sort order labels
+                    document.querySelectorAll('.image-card').forEach((card, idx) => {
+                        card.querySelector('.cursor-move').textContent = '☰ ترتیب: ' + idx;
+                    });
+                }
+            });
+        }
+    });
+}
+</script>
+{% endblock %}

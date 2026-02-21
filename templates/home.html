@@ -1,0 +1,619 @@
+{% load static %}<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ platform_settings.name|default:"UltraShop" }} — پلتفرم فروشگاه‌ساز حرفه‌ای</title>
+    <link rel="stylesheet" href="{% static 'css/vazirmatn.css' %}">
+    <script src="{% static 'js/tailwind.js' %}"></script>
+    <script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                fontFamily: { body: ['Vazirmatn', 'Tahoma', 'sans-serif'] },
+                colors: {
+                    neon: { cyan: '#00f5ff', purple: '#bb00ff', pink: '#ff006e', blue: '#3b82f6' },
+                    dark: { 900: '#0a0a0f', 800: '#0f0f1a', 700: '#161625', 600: '#1e1e30' }
+                }
+            }
+        }
+    }
+    </script>
+    <style>
+        * { font-family: 'Vazirmatn', Tahoma, sans-serif; }
+        body { background: #0a0a0f; overflow-x: hidden; }
+
+        /* ─── Neon Glow Utilities ─── */
+        .neon-text { text-shadow: 0 0 10px rgba(0,245,255,0.5), 0 0 40px rgba(0,245,255,0.2); }
+        .neon-text-purple { text-shadow: 0 0 10px rgba(187,0,255,0.5), 0 0 40px rgba(187,0,255,0.2); }
+        .neon-box {
+            border: 1px solid rgba(0,245,255,0.15);
+            box-shadow: 0 0 15px rgba(0,245,255,0.05), inset 0 0 15px rgba(0,245,255,0.02);
+        }
+        .neon-box:hover {
+            border-color: rgba(0,245,255,0.4);
+            box-shadow: 0 0 30px rgba(0,245,255,0.1), inset 0 0 30px rgba(0,245,255,0.04);
+        }
+        .glass {
+            background: rgba(255,255,255,0.03);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+        .glass-strong {
+            background: rgba(255,255,255,0.06);
+            backdrop-filter: blur(30px);
+        }
+
+        /* ─── Gradient Borders ─── */
+        .gradient-border {
+            position: relative;
+            background: rgba(255,255,255,0.02);
+            border-radius: 1rem;
+        }
+        .gradient-border::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 1rem;
+            padding: 1px;
+            background: linear-gradient(135deg, rgba(0,245,255,0.3), rgba(187,0,255,0.3), rgba(255,0,110,0.3));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+        }
+
+        /* ─── Animated Background ─── */
+        .hero-bg {
+            background:
+                radial-gradient(ellipse 80% 60% at 50% -20%, rgba(0,245,255,0.08) 0%, transparent 60%),
+                radial-gradient(ellipse 60% 40% at 80% 50%, rgba(187,0,255,0.06) 0%, transparent 50%),
+                radial-gradient(ellipse 60% 40% at 20% 80%, rgba(255,0,110,0.04) 0%, transparent 50%);
+        }
+
+        /* ─── Animated Orbs ─── */
+        .orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            animation: float 8s ease-in-out infinite;
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0) scale(1); }
+            50% { transform: translateY(-30px) scale(1.05); }
+        }
+
+        /* ─── Grid Pattern ─── */
+        .grid-pattern {
+            background-image:
+                linear-gradient(rgba(0,245,255,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0,245,255,0.03) 1px, transparent 1px);
+            background-size: 60px 60px;
+        }
+
+        /* ─── Pulse Ring ─── */
+        .pulse-ring {
+            animation: pulse-ring 3s ease-out infinite;
+        }
+        @keyframes pulse-ring {
+            0% { box-shadow: 0 0 0 0 rgba(0,245,255,0.4); }
+            70% { box-shadow: 0 0 0 15px rgba(0,245,255,0); }
+            100% { box-shadow: 0 0 0 0 rgba(0,245,255,0); }
+        }
+
+        /* ─── Fade In Animations ─── */
+        .fade-up {
+            opacity: 0;
+            transform: translateY(40px);
+            transition: opacity 0.8s ease, transform 0.8s ease;
+        }
+        .fade-up.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* ─── Marquee ─── */
+        @keyframes marquee {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+        .marquee-track { animation: marquee 30s linear infinite; }
+
+        /* ─── Counter Animation ─── */
+        .counter { display: inline-block; direction: ltr; }
+
+        /* ─── CTA Button ─── */
+        .btn-neon {
+            background: linear-gradient(135deg, #00f5ff, #bb00ff);
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s;
+        }
+        .btn-neon::before {
+            content: '';
+            position: absolute;
+            inset: -2px;
+            background: linear-gradient(135deg, #00f5ff, #bb00ff, #ff006e);
+            border-radius: inherit;
+            z-index: -1;
+            filter: blur(12px);
+            opacity: 0.5;
+            transition: opacity 0.3s;
+        }
+        .btn-neon:hover::before { opacity: 0.8; }
+        .btn-neon:hover { transform: translateY(-2px); box-shadow: 0 10px 40px rgba(0,245,255,0.3); }
+
+        .btn-outline-neon {
+            border: 1px solid rgba(0,245,255,0.4);
+            color: #00f5ff;
+            transition: all 0.3s;
+        }
+        .btn-outline-neon:hover {
+            background: rgba(0,245,255,0.1);
+            box-shadow: 0 0 20px rgba(0,245,255,0.15);
+        }
+
+        /* ─── Feature Icon ─── */
+        .feature-icon {
+            width: 64px; height: 64px;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 16px;
+            background: linear-gradient(135deg, rgba(0,245,255,0.1), rgba(187,0,255,0.1));
+            border: 1px solid rgba(0,245,255,0.15);
+            font-size: 28px;
+            transition: all 0.4s;
+        }
+        .feature-card:hover .feature-icon {
+            box-shadow: 0 0 25px rgba(0,245,255,0.2);
+            transform: scale(1.1);
+        }
+
+        /* ─── Step Line ─── */
+        .step-line {
+            width: 2px;
+            background: linear-gradient(180deg, #00f5ff, #bb00ff, transparent);
+        }
+        .step-number {
+            width: 48px; height: 48px;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #00f5ff, #bb00ff);
+            font-weight: 900; font-size: 18px; color: #0a0a0f;
+        }
+
+        /* ─── FAQ ─── */
+        .faq-item { transition: all 0.3s; }
+        .faq-item.open .faq-answer { max-height: 300px; opacity: 1; padding-top: 12px; }
+        .faq-item .faq-answer { max-height: 0; opacity: 0; overflow: hidden; transition: all 0.4s ease; }
+        .faq-item.open .faq-arrow { transform: rotate(180deg); }
+        .faq-arrow { transition: transform 0.3s; }
+
+        /* ─── Scrollbar ─── */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #0a0a0f; }
+        ::-webkit-scrollbar-thumb { background: linear-gradient(#00f5ff, #bb00ff); border-radius: 4px; }
+    </style>
+</head>
+<body class="text-white">
+
+<!-- ════════════════════════════════════════════════════════════
+     HEADER / NAVBAR
+     ════════════════════════════════════════════════════════════ -->
+<header class="fixed top-0 left-0 right-0 z-50 glass border-b border-white/5">
+    <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+        <!-- Logo -->
+        <a href="/" class="flex items-center gap-3 group">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-400 to-purple-500 flex items-center justify-center text-lg font-black text-black pulse-ring">U</div>
+            <span class="text-xl font-bold bg-gradient-to-l from-cyan-400 to-purple-400 bg-clip-text text-transparent">{{ platform_settings.name|default:"UltraShop" }}</span>
+        </a>
+
+        <!-- Nav Links -->
+        <nav class="hidden md:flex items-center gap-8 text-sm text-gray-400">
+            <a href="#features" class="hover:text-cyan-400 transition">امکانات</a>
+            <a href="#how-it-works" class="hover:text-cyan-400 transition">نحوه کار</a>
+            <a href="#faq" class="hover:text-cyan-400 transition">سوالات متداول</a>
+        </nav>
+
+        <!-- CTA -->
+        <div class="flex items-center gap-3">
+            {% if user.is_authenticated %}
+            <a href="{% url 'dashboard:home' %}" class="btn-neon text-black font-bold px-6 py-2.5 rounded-xl text-sm">داشبورد من</a>
+            {% else %}
+            <a href="{% url 'accounts:login' %}" class="btn-outline-neon px-5 py-2 rounded-xl text-sm">ورود</a>
+            <a href="{% url 'accounts:login' %}" class="btn-neon text-black font-bold px-6 py-2.5 rounded-xl text-sm hidden sm:inline-block">ساخت فروشگاه رایگان</a>
+            {% endif %}
+        </div>
+    </div>
+</header>
+
+<!-- ════════════════════════════════════════════════════════════
+     HERO SECTION
+     ════════════════════════════════════════════════════════════ -->
+<section class="relative min-h-screen flex items-center justify-center hero-bg grid-pattern pt-20">
+    <!-- Floating Orbs -->
+    <div class="orb w-96 h-96 bg-cyan-500/10 top-10 -right-40" style="animation-delay:0s;"></div>
+    <div class="orb w-80 h-80 bg-purple-500/10 bottom-20 -left-32" style="animation-delay:3s;"></div>
+    <div class="orb w-64 h-64 bg-pink-500/8 top-1/2 left-1/2 -translate-x-1/2" style="animation-delay:5s;"></div>
+
+    <div class="relative z-10 max-w-5xl mx-auto px-6 text-center">
+        <!-- Badge -->
+        <div class="inline-flex items-center gap-2 glass rounded-full px-5 py-2 mb-8 border border-white/10 text-sm text-gray-300">
+            <span class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
+            پلتفرم فروشگاه‌ساز نسل جدید
+        </div>
+
+        <!-- Main Heading -->
+        <h1 class="text-4xl sm:text-5xl md:text-7xl font-black leading-tight mb-6">
+            <span class="text-white">فروشگاه آنلاینت رو</span><br>
+            <span class="bg-gradient-to-l from-cyan-400 via-purple-400 to-pink-400 bg-clip-text text-transparent neon-text">در چند دقیقه</span>
+            <span class="text-white"> بساز!</span>
+        </h1>
+
+        <!-- Subtitle -->
+        <p class="text-lg md:text-xl text-gray-400 max-w-2xl mx-auto leading-9 mb-10">
+            با <strong class="text-cyan-400">{{ platform_settings.name|default:"UltraShop" }}</strong> بدون نیاز به دانش فنی، فروشگاه اینترنتی حرفه‌ایت رو راه‌اندازی کن.<br>
+            مدیریت محصولات، سفارش‌ها، حسابداری و ارسال همه در یک جا.
+        </p>
+
+        <!-- CTA Buttons -->
+        <div class="flex flex-col sm:flex-row gap-4 justify-center mb-16">
+            {% if user.is_authenticated %}
+            <a href="{% url 'dashboard:home' %}" class="btn-neon text-black font-bold px-10 py-4 rounded-2xl text-lg">رفتن به داشبورد ←</a>
+            {% else %}
+            <a href="{% url 'accounts:login' %}" class="btn-neon text-black font-bold px-10 py-4 rounded-2xl text-lg">رایگان شروع کن ←</a>
+            <a href="#features" class="btn-outline-neon px-10 py-4 rounded-2xl text-lg">مشاهده امکانات</a>
+            {% endif %}
+        </div>
+
+        <!-- Stats Row -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-3xl mx-auto">
+            <div class="glass-strong rounded-2xl p-4 neon-box">
+                <div class="text-2xl md:text-3xl font-black text-cyan-400 counter" data-target="150">0</div>
+                <div class="text-xs text-gray-400 mt-1">فروشگاه فعال</div>
+            </div>
+            <div class="glass-strong rounded-2xl p-4 neon-box">
+                <div class="text-2xl md:text-3xl font-black text-purple-400 counter" data-target="5800">0</div>
+                <div class="text-xs text-gray-400 mt-1">سفارش ثبت شده</div>
+            </div>
+            <div class="glass-strong rounded-2xl p-4 neon-box">
+                <div class="text-2xl md:text-3xl font-black text-pink-400">99.9%</div>
+                <div class="text-xs text-gray-400 mt-1">آپتایم سرور</div>
+            </div>
+            <div class="glass-strong rounded-2xl p-4 neon-box">
+                <div class="text-2xl md:text-3xl font-black text-emerald-400">24/7</div>
+                <div class="text-xs text-gray-400 mt-1">پشتیبانی آنلاین</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scroll Indicator -->
+    <div class="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-gray-500 text-xs animate-bounce">
+        <span>بیشتر ببین</span>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 13l5 5 5-5M7 6l5 5 5-5"/></svg>
+    </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════
+     MARQUEE BANNER
+     ════════════════════════════════════════════════════════════ -->
+<div class="border-y border-white/5 py-4 overflow-hidden bg-dark-800/50">
+    <div class="flex whitespace-nowrap marquee-track">
+        {% for item in "abcdef" %}
+        <span class="mx-8 text-sm text-gray-500 flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-cyan-400/50"></span>
+            مدیریت محصول
+        </span>
+        <span class="mx-8 text-sm text-gray-500 flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-purple-400/50"></span>
+            پیگیری سفارش
+        </span>
+        <span class="mx-8 text-sm text-gray-500 flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-pink-400/50"></span>
+            حسابداری خودکار
+        </span>
+        <span class="mx-8 text-sm text-gray-500 flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400/50"></span>
+            جستجوی پیشرفته
+        </span>
+        <span class="mx-8 text-sm text-gray-500 flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-amber-400/50"></span>
+            پنل مدیریت
+        </span>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     FEATURES SECTION
+     ════════════════════════════════════════════════════════════ -->
+<section id="features" class="relative py-28 overflow-hidden">
+    <div class="orb w-72 h-72 bg-purple-500/8 top-20 -right-20" style="animation-delay:2s;"></div>
+
+    <div class="max-w-7xl mx-auto px-6">
+        <!-- Section Header -->
+        <div class="text-center mb-16 fade-up">
+            <span class="text-cyan-400 text-sm font-bold tracking-wider">چرا {{ platform_settings.name|default:"UltraShop" }}؟</span>
+            <h2 class="text-3xl md:text-5xl font-black mt-4 mb-6">
+                همه‌چیز برای <span class="bg-gradient-to-l from-cyan-400 to-purple-400 bg-clip-text text-transparent">فروش آنلاین</span>
+            </h2>
+            <p class="text-gray-400 max-w-xl mx-auto leading-8">ابزارهای حرفه‌ای که برای راه‌اندازی و مدیریت فروشگاه آنلاین نیاز دارید، همه در یک پلتفرم یکپارچه.</p>
+        </div>
+
+        <!-- Feature Cards Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+
+            <div class="feature-card gradient-border rounded-2xl p-8 transition-all duration-500 hover:-translate-y-2 fade-up">
+                <div class="feature-icon mb-5">🛍️</div>
+                <h3 class="text-lg font-bold mb-3">مدیریت محصول پیشرفته</h3>
+                <p class="text-sm text-gray-400 leading-7">محصولات، دسته‌بندی‌ها، تنوع‌ها (رنگ، سایز، ...) و تصاویر را با اینترفیس drag & drop مدیریت کنید.</p>
+            </div>
+
+            <div class="feature-card gradient-border rounded-2xl p-8 transition-all duration-500 hover:-translate-y-2 fade-up" style="transition-delay: 0.1s;">
+                <div class="feature-icon mb-5">📦</div>
+                <h3 class="text-lg font-bold mb-3">پیگیری سفارش و مرسولات</h3>
+                <p class="text-sm text-gray-400 leading-7">تمام سفارش‌ها و وضعیت مرسولات را از یک داشبورد مرکزی رصد کنید. اطلاع‌رسانی خودکار به مشتریان.</p>
+            </div>
+
+            <div class="feature-card gradient-border rounded-2xl p-8 transition-all duration-500 hover:-translate-y-2 fade-up" style="transition-delay: 0.2s;">
+                <div class="feature-icon mb-5">💳</div>
+                <h3 class="text-lg font-bold mb-3">حسابداری و مالی</h3>
+                <p class="text-sm text-gray-400 leading-7">گزارش مالی شفاف، محاسبه کمیسیون خودکار و درخواست تسویه حساب از همان داشبورد.</p>
+            </div>
+
+            <div class="feature-card gradient-border rounded-2xl p-8 transition-all duration-500 hover:-translate-y-2 fade-up" style="transition-delay: 0.3s;">
+                <div class="feature-icon mb-5">🔍</div>
+                <h3 class="text-lg font-bold mb-3">جستجوی هوشمند</h3>
+                <p class="text-sm text-gray-400 leading-7">مشتریان می‌توانند محصولات را با نام، توضیحات و کد SKU جستجو کنند. نتایج سریع و دقیق.</p>
+            </div>
+
+            <div class="feature-card gradient-border rounded-2xl p-8 transition-all duration-500 hover:-translate-y-2 fade-up" style="transition-delay: 0.4s;">
+                <div class="feature-icon mb-5">🎨</div>
+                <h3 class="text-lg font-bold mb-3">برندسازی اختصاصی</h3>
+                <p class="text-sm text-gray-400 leading-7">لوگو، رنگ برند و ظاهر فروشگاه رو دقیقاً همون‌طور که می‌خواید شخصی‌سازی کنید.</p>
+            </div>
+
+            <div class="feature-card gradient-border rounded-2xl p-8 transition-all duration-500 hover:-translate-y-2 fade-up" style="transition-delay: 0.5s;">
+                <div class="feature-icon mb-5">📊</div>
+                <h3 class="text-lg font-bold mb-3">داشبورد آمار و KPI</h3>
+                <p class="text-sm text-gray-400 leading-7">شاخص‌های کلیدی عملکرد فروشگاه شامل فروش، سفارشات، بازدید و کمیسیون در یک نگاه.</p>
+            </div>
+
+        </div>
+    </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════
+     HOW IT WORKS
+     ════════════════════════════════════════════════════════════ -->
+<section id="how-it-works" class="relative py-28 overflow-hidden">
+    <div class="orb w-80 h-80 bg-cyan-500/6 bottom-0 left-10" style="animation-delay:4s;"></div>
+
+    <div class="max-w-4xl mx-auto px-6">
+        <div class="text-center mb-16 fade-up">
+            <span class="text-purple-400 text-sm font-bold tracking-wider">خیلی ساده‌ست!</span>
+            <h2 class="text-3xl md:text-5xl font-black mt-4">
+                <span class="bg-gradient-to-l from-purple-400 to-pink-400 bg-clip-text text-transparent">۴ قدم تا فروشگاه</span> آنلاینت
+            </h2>
+        </div>
+
+        <!-- Steps -->
+        <div class="relative">
+            <!-- Vertical Line -->
+            <div class="absolute right-6 top-0 bottom-0 step-line hidden md:block" style="right: 23px;"></div>
+
+            <div class="space-y-12">
+                <div class="flex gap-6 items-start fade-up">
+                    <div class="step-number shrink-0">۱</div>
+                    <div class="glass-strong rounded-2xl p-6 neon-box flex-1">
+                        <h3 class="text-lg font-bold mb-2 text-cyan-400">ثبت‌نام و ساخت فروشگاه</h3>
+                        <p class="text-sm text-gray-400 leading-7">با ایمیل ثبت‌نام کنید و در کمتر از ۲ دقیقه فروشگاه آنلاین خودتون رو بسازید. بدون نیاز به هیچ دانش فنی.</p>
+                    </div>
+                </div>
+
+                <div class="flex gap-6 items-start fade-up" style="transition-delay: 0.15s;">
+                    <div class="step-number shrink-0">۲</div>
+                    <div class="glass-strong rounded-2xl p-6 neon-box flex-1">
+                        <h3 class="text-lg font-bold mb-2 text-purple-400">افزودن محصولات</h3>
+                        <p class="text-sm text-gray-400 leading-7">محصولات، تصاویر، قیمت و موجودی رو اضافه کنید. دسته‌بندی کنید و تنوع‌های مختلف تعریف کنید.</p>
+                    </div>
+                </div>
+
+                <div class="flex gap-6 items-start fade-up" style="transition-delay: 0.3s;">
+                    <div class="step-number shrink-0">۳</div>
+                    <div class="glass-strong rounded-2xl p-6 neon-box flex-1">
+                        <h3 class="text-lg font-bold mb-2 text-pink-400">شخصی‌سازی ظاهر</h3>
+                        <p class="text-sm text-gray-400 leading-7">لوگو، رنگ‌ها و برند خودتون رو تنظیم کنید. فروشگاه شما دقیقاً با هویت برندتون نمایش داده میشه.</p>
+                    </div>
+                </div>
+
+                <div class="flex gap-6 items-start fade-up" style="transition-delay: 0.45s;">
+                    <div class="step-number shrink-0">۴</div>
+                    <div class="glass-strong rounded-2xl p-6 neon-box flex-1">
+                        <h3 class="text-lg font-bold mb-2 text-emerald-400">شروع فروش!</h3>
+                        <p class="text-sm text-gray-400 leading-7">فروشگاه شما آنلاین و آماده فروشه! سفارش‌ها رو مدیریت کنید، مرسولات رو پیگیری کنید و فروشتون رو بالا ببرید.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════
+     BIG CTA SECTION
+     ════════════════════════════════════════════════════════════ -->
+<section class="relative py-28 overflow-hidden">
+    <div class="absolute inset-0 bg-gradient-to-b from-transparent via-cyan-500/5 to-transparent"></div>
+    <div class="orb w-96 h-96 bg-cyan-500/8 top-0 left-1/2 -translate-x-1/2" style="animation-delay:1s;"></div>
+
+    <div class="relative z-10 max-w-4xl mx-auto px-6 text-center fade-up">
+        <h2 class="text-3xl md:text-5xl font-black mb-6">
+            آماده‌ای فروشگاهت رو<br>
+            <span class="bg-gradient-to-l from-cyan-400 to-emerald-400 bg-clip-text text-transparent neon-text">راه‌اندازی</span> کنی؟
+        </h2>
+        <p class="text-gray-400 text-lg leading-8 max-w-xl mx-auto mb-10">
+            همین الان شروع کن. ساخت فروشگاه رایگانه و تو تصمیم می‌گیری کی می‌خوای رشد کنی.
+        </p>
+        <div class="flex flex-col sm:flex-row gap-4 justify-center">
+            {% if user.is_authenticated %}
+            <a href="{% url 'dashboard:home' %}" class="btn-neon text-black font-bold px-12 py-4 rounded-2xl text-lg">رفتن به داشبورد</a>
+            {% else %}
+            <a href="{% url 'accounts:login' %}" class="btn-neon text-black font-bold px-12 py-4 rounded-2xl text-lg">رایگان شروع کن ←</a>
+            {% endif %}
+        </div>
+    </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════
+     FAQ SECTION
+     ════════════════════════════════════════════════════════════ -->
+<section id="faq" class="relative py-28">
+    <div class="max-w-3xl mx-auto px-6">
+        <div class="text-center mb-16 fade-up">
+            <span class="text-pink-400 text-sm font-bold tracking-wider">سوالات شما</span>
+            <h2 class="text-3xl md:text-5xl font-black mt-4">
+                <span class="bg-gradient-to-l from-pink-400 to-purple-400 bg-clip-text text-transparent">پرسش‌های متداول</span>
+            </h2>
+        </div>
+
+        <div class="space-y-4">
+            <div class="faq-item glass-strong rounded-2xl neon-box p-6 cursor-pointer fade-up" onclick="this.classList.toggle('open')">
+                <div class="flex items-center justify-between">
+                    <h3 class="font-bold text-sm">آیا برای راه‌اندازی فروشگاه نیاز به دانش فنی دارم؟</h3>
+                    <svg class="faq-arrow w-5 h-5 text-cyan-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg>
+                </div>
+                <div class="faq-answer text-sm text-gray-400 leading-7">
+                    خیر! {{ platform_settings.name|default:"UltraShop" }} طوری طراحی شده که بدون هیچ نیاز به دانش فنی یا برنامه‌نویسی بتوانید فروشگاه خود را راه‌اندازی و مدیریت کنید. همه چیز از طریق پنل مدیریت ساده انجام می‌شود.
+                </div>
+            </div>
+
+            <div class="faq-item glass-strong rounded-2xl neon-box p-6 cursor-pointer fade-up" onclick="this.classList.toggle('open')">
+                <div class="flex items-center justify-between">
+                    <h3 class="font-bold text-sm">آیا فروشگاه من ساب‌دامین یا دامنه اختصاصی میگیره؟</h3>
+                    <svg class="faq-arrow w-5 h-5 text-cyan-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg>
+                </div>
+                <div class="faq-answer text-sm text-gray-400 leading-7">
+                    بله! هر فروشگاه یک آدرس اختصاصی دریافت می‌کند و همچنین امکان اتصال دامنه شخصی (Custom Domain) با SSL رایگان وجود دارد.
+                </div>
+            </div>
+
+            <div class="faq-item glass-strong rounded-2xl neon-box p-6 cursor-pointer fade-up" onclick="this.classList.toggle('open')">
+                <div class="flex items-center justify-between">
+                    <h3 class="font-bold text-sm">آیا امکان مدیریت چند فروشگاه وجود دارد؟</h3>
+                    <svg class="faq-arrow w-5 h-5 text-cyan-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg>
+                </div>
+                <div class="faq-answer text-sm text-gray-400 leading-7">
+                    بله! شما می‌توانید چند فروشگاه مختلف داشته باشید و همه آن‌ها را از یک حساب کاربری مدیریت کنید. هر فروشگاه تنظیمات، محصولات و سفارش‌های جداگانه‌ای دارد.
+                </div>
+            </div>
+
+            <div class="faq-item glass-strong rounded-2xl neon-box p-6 cursor-pointer fade-up" onclick="this.classList.toggle('open')">
+                <div class="flex items-center justify-between">
+                    <h3 class="font-bold text-sm">حسابداری و کمیسیون به چه صورت محاسبه می‌شود؟</h3>
+                    <svg class="faq-arrow w-5 h-5 text-cyan-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg>
+                </div>
+                <div class="faq-answer text-sm text-gray-400 leading-7">
+                    سیستم به صورت خودکار کمیسیون هر فروش را محاسبه می‌کند و مابقی مبلغ به اعتبار فروشگاه اضافه می‌شود. درخواست تسویه در هر زمان از داشبورد ممکن است.
+                </div>
+            </div>
+
+            <div class="faq-item glass-strong rounded-2xl neon-box p-6 cursor-pointer fade-up" onclick="this.classList.toggle('open')">
+                <div class="flex items-center justify-between">
+                    <h3 class="font-bold text-sm">آیا از گوشی موبایل هم می‌تونم مدیریت کنم؟</h3>
+                    <svg class="faq-arrow w-5 h-5 text-cyan-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg>
+                </div>
+                <div class="faq-answer text-sm text-gray-400 leading-7">
+                    بله! رابط کاربری {{ platform_settings.name|default:"UltraShop" }} کاملاً ریسپانسیو طراحی شده و هم فروشگاه و هم پنل مدیریت از گوشی موبایل قابل استفاده هستند.
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════
+     FOOTER
+     ════════════════════════════════════════════════════════════ -->
+<footer class="border-t border-white/5 py-12">
+    <div class="max-w-7xl mx-auto px-6">
+        <div class="flex flex-col md:flex-row items-center justify-between gap-6">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-400 to-purple-500 flex items-center justify-center text-sm font-black text-black">U</div>
+                <span class="font-bold text-gray-400">{{ platform_settings.name|default:"UltraShop" }}</span>
+            </div>
+            <div class="flex items-center gap-6 text-sm text-gray-500">
+                {% if platform_settings.support_email %}
+                <a href="mailto:{{ platform_settings.support_email }}" class="hover:text-cyan-400 transition">{{ platform_settings.support_email }}</a>
+                {% endif %}
+                <a href="{% url 'accounts:login' %}" class="hover:text-cyan-400 transition">ورود</a>
+                <a href="#features" class="hover:text-cyan-400 transition">امکانات</a>
+            </div>
+            <p class="text-xs text-gray-600">© تمامی حقوق محفوظ است — {{ platform_settings.name|default:"UltraShop" }}</p>
+        </div>
+    </div>
+</footer>
+
+<!-- ════════════════════════════════════════════════════════════
+     SCRIPTS
+     ════════════════════════════════════════════════════════════ -->
+<script>
+// ─── Scroll Fade-In Animations ───
+const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+        if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+        }
+    });
+}, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
+document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
+
+// ─── Counter Animation ───
+function animateCounters() {
+    document.querySelectorAll('.counter').forEach(el => {
+        const target = +el.dataset.target;
+        if (!target) return;
+        const duration = 2000;
+        const step = target / (duration / 16);
+        let current = 0;
+        const timer = setInterval(() => {
+            current += step;
+            if (current >= target) {
+                current = target;
+                clearInterval(timer);
+            }
+            el.textContent = Math.floor(current).toLocaleString('fa-IR');
+        }, 16);
+    });
+}
+// Trigger counters when hero is visible
+const heroObserver = new IntersectionObserver((entries) => {
+    if (entries[0].isIntersecting) {
+        animateCounters();
+        heroObserver.disconnect();
+    }
+}, { threshold: 0.3 });
+const statsEl = document.querySelector('.counter');
+if (statsEl) heroObserver.observe(statsEl.closest('section'));
+
+// ─── Smooth Scroll ───
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+    a.addEventListener('click', e => {
+        e.preventDefault();
+        const target = document.querySelector(a.getAttribute('href'));
+        if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+});
+
+// ─── Navbar Background on Scroll ───
+const header = document.querySelector('header');
+window.addEventListener('scroll', () => {
+    if (window.scrollY > 80) {
+        header.style.background = 'rgba(10,10,15,0.85)';
+        header.style.borderColor = 'rgba(0,245,255,0.08)';
+    } else {
+        header.style.background = 'rgba(255,255,255,0.03)';
+        header.style.borderColor = 'rgba(255,255,255,0.05)';
+    }
+});
+</script>
+
+</body>
+</html>

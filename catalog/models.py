@@ -3,137 +3,98 @@ from django.utils.text import slugify
 
 
 class Category(models.Model):
-    """Product category per store; optional parent for hierarchy."""
-    store = models.ForeignKey(
-        "stores.Store",
-        on_delete=models.CASCADE,
-        related_name="categories",
-    )
-    parent = models.ForeignKey(
-        "self",
-        on_delete=models.CASCADE,
-        null=True,
-        blank=True,
-        related_name="children",
-    )
-    name = models.CharField("نام", max_length=255)
-    slug = models.SlugField(max_length=255, blank=True)
-    description = models.TextField(blank=True)
+    store = models.ForeignKey("core.Store", on_delete=models.CASCADE, related_name="categories")
+    parent = models.ForeignKey("self", on_delete=models.CASCADE, null=True, blank=True, related_name="children")
+    name = models.CharField(max_length=200)
+    slug = models.SlugField(max_length=220, allow_unicode=True)
+    description = models.TextField(blank=True, default="")
     image = models.ImageField(upload_to="categories/", blank=True, null=True)
-    meta_title = models.CharField(max_length=255, blank=True)
-    meta_description = models.CharField(max_length=500, blank=True)
-    sort_order = models.PositiveIntegerField(default=0)
+    meta_title = models.CharField(max_length=200, blank=True, default="")
+    meta_description = models.TextField(blank=True, default="")
+    sort_order = models.IntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = "دسته‌بندی"
-        verbose_name_plural = "دسته‌بندی‌ها"
+        db_table = "categories"
+        unique_together = ("store", "slug")
         ordering = ["sort_order", "name"]
-        unique_together = [["store", "slug"]]
+        verbose_name_plural = "categories"
 
     def __str__(self):
         return self.name
 
     def save(self, *args, **kwargs):
         if not self.slug:
-            base = slugify(self.name, allow_unicode=False) or "cat"
-            self.slug = base
-            cnt = 0
-            while Category.objects.filter(store=self.store, slug=self.slug).exclude(pk=self.pk).exists():
-                cnt += 1
-                self.slug = f"{base}-{cnt}"
+            self.slug = slugify(self.name, allow_unicode=True)
         super().save(*args, **kwargs)
 
 
 class Product(models.Model):
-    """Product per store; has variants for price/stock."""
-    STATUS_DRAFT = "draft"
-    STATUS_ACTIVE = "active"
-    STATUS_ARCHIVED = "archived"
-    STATUS_CHOICES = [
-        (STATUS_DRAFT, "پیش‌نویس"),
-        (STATUS_ACTIVE, "فعال"),
-        (STATUS_ARCHIVED, "آرشیو"),
-    ]
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        ACTIVE = "active", "Active"
+        ARCHIVED = "archived", "Archived"
 
-    store = models.ForeignKey(
-        "stores.Store",
-        on_delete=models.CASCADE,
-        related_name="products",
-    )
-    categories = models.ManyToManyField(
-        Category,
-        related_name="products",
-        blank=True,
-    )
-    name = models.CharField("نام", max_length=255)
-    slug = models.SlugField(max_length=255, blank=True)
-    description = models.TextField(blank=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_DRAFT)
-    image = models.ImageField(upload_to="products/", blank=True, null=True)
-    meta_title = models.CharField(max_length=255, blank=True)
-    meta_description = models.CharField(max_length=500, blank=True)
+    store = models.ForeignKey("core.Store", on_delete=models.CASCADE, related_name="products")
+    name = models.CharField(max_length=300)
+    slug = models.SlugField(max_length=320, allow_unicode=True)
+    description = models.TextField(blank=True, default="")
+    sku = models.CharField(max_length=100, blank=True, default="")
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.DRAFT)
+    categories = models.ManyToManyField(Category, blank=True, related_name="products")
+    meta_title = models.CharField(max_length=200, blank=True, default="")
+    meta_description = models.TextField(blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = "محصول"
-        verbose_name_plural = "محصولات"
-        ordering = ["-created_at"]
-        unique_together = [["store", "slug"]]
+        db_table = "products"
+        unique_together = ("store", "slug")
+        indexes = [
+            models.Index(fields=["store", "status"]),
+            models.Index(fields=["store", "created_at"]),
+        ]
 
     def __str__(self):
         return self.name
 
     def save(self, *args, **kwargs):
         if not self.slug:
-            base = slugify(self.name, allow_unicode=False) or "product"
-            self.slug = base
-            cnt = 0
-            while Product.objects.filter(store=self.store, slug=self.slug).exclude(pk=self.pk).exists():
-                cnt += 1
-                self.slug = f"{base}-{cnt}"
+            self.slug = slugify(self.name, allow_unicode=True)
         super().save(*args, **kwargs)
+
+    @property
+    def primary_image(self):
+        return self.images.filter(is_primary=True).first() or self.images.first()
 
 
 class ProductImage(models.Model):
-    """Extra images per product (product.image is the main one)."""
-    product = models.ForeignKey(
-        Product,
-        on_delete=models.CASCADE,
-        related_name="images",
-    )
-    image = models.ImageField(upload_to="products/gallery/")
-    sort_order = models.PositiveIntegerField(default=0)
-    created_at = models.DateTimeField(auto_now_add=True)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="images")
+    image = models.ImageField(upload_to="products/")
+    alt_text = models.CharField(max_length=300, blank=True, default="")
+    is_primary = models.BooleanField(default=False)
+    sort_order = models.IntegerField(default=0)
 
     class Meta:
-        ordering = ["sort_order", "pk"]
+        db_table = "product_images"
+        ordering = ["sort_order"]
+
+    def __str__(self):
+        return f"Image for {self.product.name} (#{self.sort_order})"
 
 
 class ProductVariant(models.Model):
-    """Single variant: SKU, price, stock. Product must have at least one variant to be sellable."""
-    product = models.ForeignKey(
-        Product,
-        on_delete=models.CASCADE,
-        related_name="variants",
-    )
-    sku = models.CharField("کد کالا", max_length=100, blank=True)
-    price = models.DecimalField("قیمت", max_digits=14, decimal_places=0)
-    compare_at_price = models.DecimalField("قیمت مقایسه", max_digits=14, decimal_places=0, null=True, blank=True)
-    stock = models.PositiveIntegerField("موجودی", default=0)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="variants")
+    name = models.CharField(max_length=200, help_text="e.g. Red / Large")
+    sku = models.CharField(max_length=100, blank=True, default="")
+    price = models.PositiveBigIntegerField(help_text="Price in IRR")
+    compare_at_price = models.PositiveBigIntegerField(null=True, blank=True)
+    stock = models.PositiveIntegerField(default=0)
+    weight = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Weight in grams")
+    is_active = models.BooleanField(default=True)
 
     class Meta:
-        verbose_name = "گونه محصول"
-        verbose_name_plural = "گونه‌های محصول"
-        ordering = ["pk"]
+        db_table = "product_variants"
 
     def __str__(self):
-        return f"{self.product.name} — {self.sku or self.pk}"
-
-    @property
-    def store(self):
-        return self.product.store
+        return f"{self.product.name} — {self.name}"

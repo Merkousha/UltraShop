@@ -1,0 +1,375 @@
+import json
+
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db.models import Q, F
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404, redirect
+from django.views import View
+from django.views.generic import ListView, TemplateView
+
+from catalog.models import Category, Product, ProductImage, ProductVariant
+from core.models import Store, StoreStaff
+from orders.models import Order
+
+
+class StoreAccessMixin(LoginRequiredMixin):
+    """Ensure user has access to a store (owner or staff)."""
+
+    def dispatch(self, request, *args, **kwargs):
+        store = self.get_current_store(request)
+        if not store:
+            return redirect("dashboard:home")
+        request.current_store = store
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_current_store(self, request):
+        store_id = request.session.get("current_store_id")
+        if not store_id:
+            return None
+        store = Store.objects.filter(pk=store_id).first()
+        if not store:
+            return None
+        if store.owner == request.user:
+            return store
+        if StoreStaff.objects.filter(store=store, user=request.user).exists():
+            return store
+        return None
+
+
+class DashboardHomeView(LoginRequiredMixin, TemplateView):
+    template_name = "dashboard/home.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        user = self.request.user
+        owned = Store.objects.filter(owner=user)
+        staff = Store.objects.filter(staff_members__user=user)
+        ctx["stores"] = (owned | staff).distinct()
+        ctx["current_store_id"] = self.request.session.get("current_store_id")
+        return ctx
+
+
+class SelectStoreView(LoginRequiredMixin, View):
+    def post(self, request, store_id):
+        store = get_object_or_404(Store, pk=store_id)
+        if store.owner == request.user or StoreStaff.objects.filter(store=store, user=request.user).exists():
+            request.session["current_store_id"] = store.pk
+        return redirect("dashboard:home")
+
+
+# ─── Products ──────────────────────────────────────────────
+class ProductListView(StoreAccessMixin, ListView):
+    template_name = "dashboard/product_list.html"
+    context_object_name = "products"
+    paginate_by = 25
+
+    def get_queryset(self):
+        qs = Product.objects.filter(store=self.request.current_store).prefetch_related("images", "variants")
+        q = self.request.GET.get("q")
+        if q:
+            qs = qs.filter(Q(name__icontains=q) | Q(sku__icontains=q))
+        status = self.request.GET.get("status")
+        if status:
+            qs = qs.filter(status=status)
+        category = self.request.GET.get("category")
+        if category:
+            qs = qs.filter(categories__id=category)
+        return qs.order_by("-created_at")
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["categories"] = Category.objects.filter(store=self.request.current_store)
+        ctx["statuses"] = Product.Status.choices
+        return ctx
+
+
+class ProductCreateView(StoreAccessMixin, TemplateView):
+    template_name = "dashboard/product_form.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["categories"] = Category.objects.filter(store=self.request.current_store)
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        store = request.current_store
+        product = Product.objects.create(
+            store=store,
+            name=request.POST.get("name", ""),
+            description=request.POST.get("description", ""),
+            sku=request.POST.get("sku", ""),
+            status=request.POST.get("status", "draft"),
+        )
+        cats = request.POST.getlist("categories")
+        if cats:
+            product.categories.set(cats)
+
+        # Create default variant
+        price = request.POST.get("price", "0")
+        stock = request.POST.get("stock", "0")
+        ProductVariant.objects.create(
+            product=product,
+            name="پیش‌فرض",
+            price=int(price) if price else 0,
+            stock=int(stock) if stock else 0,
+        )
+
+        # Upload images
+        for f in request.FILES.getlist("images"):
+            ProductImage.objects.create(
+                product=product,
+                image=f,
+                is_primary=not product.images.exists(),
+            )
+
+        return redirect("dashboard:product-edit", pk=product.pk)
+
+
+class ProductEditView(StoreAccessMixin, TemplateView):
+    template_name = "dashboard/product_form.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        product = get_object_or_404(
+            Product, pk=self.kwargs["pk"], store=self.request.current_store
+        )
+        ctx["product"] = product
+        ctx["categories"] = Category.objects.filter(store=self.request.current_store)
+        ctx["selected_categories"] = list(product.categories.values_list("pk", flat=True))
+        ctx["variants"] = product.variants.all()
+        return ctx
+
+    def post(self, request, pk, *args, **kwargs):
+        product = get_object_or_404(Product, pk=pk, store=request.current_store)
+        product.name = request.POST.get("name", product.name)
+        product.description = request.POST.get("description", product.description)
+        product.sku = request.POST.get("sku", product.sku)
+        product.status = request.POST.get("status", product.status)
+        product.meta_title = request.POST.get("meta_title", product.meta_title)
+        product.meta_description = request.POST.get("meta_description", product.meta_description)
+        slug = request.POST.get("slug", "").strip()
+        if slug:
+            product.slug = slug
+        product.save()
+
+        cats = request.POST.getlist("categories")
+        product.categories.set(cats)
+
+        # Update variants
+        variant_ids = request.POST.getlist("variant_id")
+        variant_names = request.POST.getlist("variant_name")
+        variant_skus = request.POST.getlist("variant_sku")
+        variant_prices = request.POST.getlist("variant_price")
+        variant_compares = request.POST.getlist("variant_compare")
+        variant_stocks = request.POST.getlist("variant_stock")
+        variant_weights = request.POST.getlist("variant_weight")
+
+        for i in range(len(variant_names)):
+            vid = variant_ids[i] if i < len(variant_ids) else ""
+            data = {
+                "name": variant_names[i],
+                "sku": variant_skus[i] if i < len(variant_skus) else "",
+                "price": int(variant_prices[i]) if i < len(variant_prices) and variant_prices[i] else 0,
+                "compare_at_price": int(variant_compares[i]) if i < len(variant_compares) and variant_compares[i] else None,
+                "stock": int(variant_stocks[i]) if i < len(variant_stocks) and variant_stocks[i] else 0,
+                "weight": variant_weights[i] if i < len(variant_weights) and variant_weights[i] else None,
+            }
+            if vid:
+                ProductVariant.objects.filter(pk=vid, product=product).update(**data)
+            else:
+                ProductVariant.objects.create(product=product, **data)
+
+        # Upload new images
+        for f in request.FILES.getlist("images"):
+            ProductImage.objects.create(
+                product=product,
+                image=f,
+                is_primary=not product.images.exists(),
+            )
+
+        return redirect("dashboard:product-edit", pk=product.pk)
+
+
+# ─── SO-15: Product Images (reorder, set-primary, delete) ──
+class ProductImagesView(StoreAccessMixin, TemplateView):
+    template_name = "dashboard/product_images.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        product = get_object_or_404(
+            Product, pk=self.kwargs["pk"], store=self.request.current_store
+        )
+        ctx["product"] = product
+        ctx["images"] = product.images.all()
+        return ctx
+
+    def post(self, request, pk, *args, **kwargs):
+        product = get_object_or_404(Product, pk=pk, store=request.current_store)
+        for f in request.FILES.getlist("images"):
+            ProductImage.objects.create(
+                product=product,
+                image=f,
+                is_primary=not product.images.exists(),
+            )
+        return redirect("dashboard:product-images", pk=pk)
+
+
+class ProductImageReorderView(StoreAccessMixin, View):
+    def post(self, request, pk):
+        product = get_object_or_404(Product, pk=pk, store=request.current_store)
+        try:
+            order = json.loads(request.body)
+            image_ids = order.get("order", [])
+        except (json.JSONDecodeError, AttributeError):
+            return JsonResponse({"error": "Invalid data"}, status=400)
+
+        for idx, image_id in enumerate(image_ids):
+            ProductImage.objects.filter(pk=image_id, product=product).update(sort_order=idx)
+
+        return JsonResponse({"status": "ok"})
+
+
+class ProductImageDeleteView(StoreAccessMixin, View):
+    def post(self, request, pk, image_id):
+        product = get_object_or_404(Product, pk=pk, store=request.current_store)
+        image = get_object_or_404(ProductImage, pk=image_id, product=product)
+
+        # Ensure at least one image for active products
+        if product.status == "active" and product.images.count() <= 1:
+            return JsonResponse({"error": "محصول فعال باید حداقل یک تصویر داشته باشد."}, status=400)
+
+        was_primary = image.is_primary
+        image.delete()
+
+        # Promote next image to primary
+        if was_primary:
+            next_img = product.images.first()
+            if next_img:
+                next_img.is_primary = True
+                next_img.save(update_fields=["is_primary"])
+
+        return redirect("dashboard:product-images", pk=pk)
+
+
+class ProductImageSetPrimaryView(StoreAccessMixin, View):
+    def post(self, request, pk, image_id):
+        product = get_object_or_404(Product, pk=pk, store=request.current_store)
+        product.images.update(is_primary=False)
+        ProductImage.objects.filter(pk=image_id, product=product).update(is_primary=True)
+        return redirect("dashboard:product-images", pk=pk)
+
+
+# ─── SO-14: Bulk Actions ──────────────────────────────────
+class ProductBulkActionView(StoreAccessMixin, View):
+    def post(self, request):
+        store = request.current_store
+        product_ids = request.POST.getlist("product_ids")
+        action = request.POST.get("bulk_action")
+
+        products = Product.objects.filter(pk__in=product_ids, store=store)
+
+        if action == "activate":
+            products.update(status="active")
+        elif action == "draft":
+            products.update(status="draft")
+        elif action == "archive":
+            products.update(status="archived")
+        elif action == "change_category":
+            cat_id = request.POST.get("category_id")
+            if cat_id:
+                cat = get_object_or_404(Category, pk=cat_id, store=store)
+                for p in products:
+                    p.categories.set([cat])
+        elif action == "adjust_price":
+            adjustment_type = request.POST.get("adjustment_type")  # "fixed" or "percent"
+            amount = request.POST.get("amount", "0")
+            try:
+                amount = int(amount)
+            except ValueError:
+                amount = 0
+            variants = ProductVariant.objects.filter(product__in=products)
+            if adjustment_type == "fixed":
+                variants.update(price=F("price") + amount)
+            elif adjustment_type == "percent":
+                for v in variants:
+                    v.price = max(0, int(v.price * (1 + amount / 100)))
+                    v.save(update_fields=["price"])
+        elif action == "set_stock":
+            stock_value = int(request.POST.get("stock_value", 0))
+            ProductVariant.objects.filter(product__in=products).update(stock=stock_value)
+
+        return redirect("dashboard:product-list")
+
+
+# ─── Categories ────────────────────────────────────────────
+class CategoryListView(StoreAccessMixin, ListView):
+    template_name = "dashboard/category_list.html"
+    context_object_name = "categories"
+
+    def get_queryset(self):
+        return Category.objects.filter(store=self.request.current_store)
+
+
+# ─── Orders ────────────────────────────────────────────────
+class OrderListView(StoreAccessMixin, ListView):
+    template_name = "dashboard/order_list.html"
+    context_object_name = "orders"
+    paginate_by = 25
+
+    def get_queryset(self):
+        qs = Order.objects.filter(store=self.request.current_store)
+        status = self.request.GET.get("status")
+        if status:
+            qs = qs.filter(status=status)
+        return qs
+
+
+class OrderDetailView(StoreAccessMixin, TemplateView):
+    template_name = "dashboard/order_detail.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["order"] = get_object_or_404(
+            Order, pk=self.kwargs["pk"], store=self.request.current_store
+        )
+        return ctx
+
+
+# ─── Accounting ────────────────────────────────────────────
+class AccountingLedgerView(StoreAccessMixin, ListView):
+    template_name = "dashboard/accounting_ledger.html"
+    context_object_name = "transactions"
+    paginate_by = 50
+
+    def get_queryset(self):
+        return self.request.current_store.transactions.all()
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        from accounting.services import get_store_balance
+        ctx["balance"] = get_store_balance(self.request.current_store)
+        return ctx
+
+
+# ─── Store Settings ────────────────────────────────────────
+class StoreSettingsView(StoreAccessMixin, TemplateView):
+    template_name = "dashboard/store_settings.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["store"] = self.request.current_store
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        store = request.current_store
+        if store.owner != request.user:
+            return redirect("dashboard:store-settings")
+        store.name = request.POST.get("name", store.name)
+        store.description = request.POST.get("description", store.description)
+        store.phone = request.POST.get("phone", store.phone)
+        store.support_email = request.POST.get("support_email", store.support_email)
+        store.allow_guest_checkout = request.POST.get("allow_guest_checkout") == "on"
+        if request.FILES.get("logo"):
+            store.logo = request.FILES["logo"]
+        store.save()
+        return redirect("dashboard:store-settings")

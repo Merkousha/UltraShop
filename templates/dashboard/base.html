@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="flex min-h-screen">
+    <!-- Sidebar -->
+    <aside class="w-60 bg-gray-900 text-white flex-shrink-0">
+        <div class="p-4 border-b border-gray-700">
+            <h1 class="text-lg font-bold">📦 داشبورد فروشگاه</h1>
+        </div>
+        <nav class="p-4 space-y-1 text-sm">
+            <a href="{% url 'dashboard:home' %}" class="block px-3 py-2 rounded hover:bg-gray-800">🏠 خانه</a>
+            <a href="{% url 'dashboard:product-list' %}" class="block px-3 py-2 rounded hover:bg-gray-800">📦 محصولات</a>
+            <a href="{% url 'dashboard:category-list' %}" class="block px-3 py-2 rounded hover:bg-gray-800">📁 دسته‌بندی‌ها</a>
+            <a href="{% url 'dashboard:order-list' %}" class="block px-3 py-2 rounded hover:bg-gray-800">🛒 سفارشات</a>
+            <a href="{% url 'dashboard:accounting-ledger' %}" class="block px-3 py-2 rounded hover:bg-gray-800">💰 حسابداری</a>
+            <hr class="border-gray-700 my-2">
+            <a href="{% url 'dashboard:store-settings' %}" class="block px-3 py-2 rounded hover:bg-gray-800">⚙️ تنظیمات</a>
+            <a href="{% url 'accounts:logout' %}" class="block px-3 py-2 rounded hover:bg-gray-800 text-red-400">خروج</a>
+        </nav>
+    </aside>
+    <main class="flex-1 p-6">
+        {% if messages %}
+        <div class="mb-4">
+            {% for msg in messages %}
+            <div class="p-3 rounded mb-2 {% if msg.tags == 'error' %}bg-red-100 text-red-700{% else %}bg-green-100 text-green-700{% endif %}">{{ msg }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% block content %}{% endblock %}
+    </main>
+</div>
+{% endblock %}

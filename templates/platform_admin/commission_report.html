@@ -1,29 +1,24 @@
 {% extends "platform_admin/base.html" %}
-{% block title %}Commission Report{% endblock %}
+{% block title %}گزارش کمیسیون{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold">Commission Report</h1>
-<form method="get" class="mt-4 flex gap-2">
-    <label class="flex items-center">From</label>
-    <input type="date" name="date_from" value="{{ date_from }}" class="input w-40">
-    <label class="flex items-center">To</label>
-    <input type="date" name="date_to" value="{{ date_to }}" class="input w-40">
-    <button type="submit" class="btn btn-primary">Update</button>
-</form>
-<div class="mt-4 rounded border bg-white p-4">
-    <p class="text-lg font-semibold">Total commission (period): {{ total_commission|floatformat:0 }}</p>
+<h2 class="text-2xl font-bold mb-6">📈 گزارش کمیسیون</h2>
+<div class="bg-white rounded-lg shadow p-6 mb-6">
+    <div class="text-3xl font-bold text-green-600">{{ total|stringformat:",.0f" }} ﷼</div>
+    <div class="text-sm text-gray-500">مجموع کمیسیون</div>
 </div>
-<h2 class="mt-6 text-lg font-semibold">Per store</h2>
-<table class="mt-2 w-full border bg-white">
-    <tr class="bg-gray-50"><th class="border p-2 text-left">Store</th><th class="border p-2 text-left">Username</th><th class="border p-2 text-left">Commission</th></tr>
-    {% for row in per_store %}
-    <tr>
-        <td class="border p-2">{{ row.store__name }}</td>
-        <td class="border p-2 font-mono">{{ row.store__username }}</td>
-        <td class="border p-2">{{ row.total|floatformat:0 }}</td>
-    </tr>
-    {% empty %}
-    <tr><td colspan="3" class="border p-4 text-gray-500">No commission in this period. Set PLATFORM_COMMISSION_RATE &gt; 0 for new orders.</td></tr>
-    {% endfor %}
-</table>
-<p class="mt-4"><a href="{% url 'platform_admin:dashboard' %}" class="text-blue-600 hover:underline">Back to dashboard</a></p>
+{% if by_store %}
+<div class="bg-white rounded-lg shadow overflow-x-auto">
+    <table class="w-full text-sm">
+        <thead class="bg-gray-50"><tr>
+            <th class="px-4 py-3 text-right">فروشگاه</th>
+            <th class="px-4 py-3 text-right">مبلغ</th>
+        </tr></thead>
+        <tbody>
+        {% for item in by_store %}
+        <tr class="border-t"><td class="px-4 py-3">{{ item.store__name }}</td><td class="px-4 py-3">{{ item.total|stringformat:",.0f" }} ﷼</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
 {% endblock %}

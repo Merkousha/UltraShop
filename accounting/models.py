@@ -1,94 +1,55 @@
 from django.db import models
-from decimal import Decimal
-
-
-class PayoutRequest(models.Model):
-    """Store owner requests withdrawal; platform admin approves."""
-    STATUS_PENDING = "pending"
-    STATUS_APPROVED = "approved"
-    STATUS_REJECTED = "rejected"
-    STATUS_CHOICES = [
-        (STATUS_PENDING, "در انتظار"),
-        (STATUS_APPROVED, "تأیید شده"),
-        (STATUS_REJECTED, "رد شده"),
-    ]
-
-    store = models.ForeignKey(
-        "stores.Store",
-        on_delete=models.CASCADE,
-        related_name="payout_requests",
-    )
-    amount = models.DecimalField("مبلغ", max_digits=14, decimal_places=0)
-    payment_details = models.TextField("اطلاعات پرداخت (شبا، شماره حساب و ...)", blank=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        verbose_name = "درخواست تسویه"
-        verbose_name_plural = "درخواست‌های تسویه"
-        ordering = ["-created_at"]
-
-    def __str__(self):
-        return f"{self.store.name} {self.amount} {self.get_status_display()}"
 
 
 class StoreTransaction(models.Model):
-    """
-    Single-entry: amount positive = store earns, negative = refund or payout.
-    Store balance = sum(amount) for the store.
-    """
-    store = models.ForeignKey(
-        "stores.Store",
-        on_delete=models.CASCADE,
-        related_name="transactions",
-    )
-    amount = models.DecimalField("مبلغ", max_digits=14, decimal_places=0)
-    description = models.CharField("شرح", max_length=255)
-    order = models.ForeignKey(
-        "orders.Order",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="accounting_transactions",
-    )
-    payout_request = models.ForeignKey(
-        PayoutRequest,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="transactions",
-    )
+    class Type(models.TextChoices):
+        REVENUE = "revenue", "Revenue"
+        EXPENSE = "expense", "Expense"
+        COMMISSION = "commission", "Commission"
+        REFUND = "refund", "Refund"
+        PAYOUT = "payout", "Payout"
+        SHIPPING = "shipping", "Shipping"
+
+    store = models.ForeignKey("core.Store", on_delete=models.CASCADE, related_name="transactions")
+    amount = models.BigIntegerField(help_text="Positive = credit, Negative = debit (IRR)")
+    type = models.CharField(max_length=12, choices=Type.choices, default=Type.REVENUE)
+    description = models.CharField(max_length=500, blank=True, default="")
+    order = models.ForeignKey("orders.Order", on_delete=models.SET_NULL, null=True, blank=True)
+    payout_request = models.ForeignKey("PayoutRequest", on_delete=models.SET_NULL, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        verbose_name = "تراکنش فروشگاه"
-        verbose_name_plural = "تراکنش‌های فروشگاه"
+        db_table = "store_transactions"
+        indexes = [
+            models.Index(fields=["store", "created_at"]),
+        ]
         ordering = ["-created_at"]
 
-    def __str__(self):
-        return f"{self.store.name} {self.amount} {self.description}"
+
+class PayoutRequest(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        APPROVED = "approved", "Approved"
+        REJECTED = "rejected", "Rejected"
+
+    store = models.ForeignKey("core.Store", on_delete=models.CASCADE, related_name="payout_requests")
+    amount = models.PositiveBigIntegerField()
+    payment_details = models.TextField(help_text="Bank account / card info")
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
+    admin_note = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "payout_requests"
+        ordering = ["-created_at"]
 
 
 class PlatformCommission(models.Model):
-    """Commission earned by platform from a store order (for PA-34 report)."""
-    store = models.ForeignKey(
-        "stores.Store",
-        on_delete=models.CASCADE,
-        related_name="platform_commissions",
-    )
-    order = models.ForeignKey(
-        "orders.Order",
-        on_delete=models.CASCADE,
-        related_name="platform_commissions",
-    )
-    amount = models.DecimalField("مبلغ کمیسیون", max_digits=14, decimal_places=0)
+    store = models.ForeignKey("core.Store", on_delete=models.CASCADE, related_name="commissions")
+    order = models.ForeignKey("orders.Order", on_delete=models.CASCADE, related_name="commissions")
+    amount = models.PositiveBigIntegerField()
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        verbose_name = "کمیسیون پلتفرم"
-        verbose_name_plural = "کمیسیون‌های پلتفرم"
-        ordering = ["-created_at"]
-
-    def __str__(self):
-        return f"{self.store.name} #{self.order_id} {self.amount}"
+        db_table = "platform_commissions"

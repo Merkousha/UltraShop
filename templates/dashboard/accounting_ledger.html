@@ -1,0 +1,43 @@
+{% extends "dashboard/base.html" %}
+{% block title %}حسابداری{% endblock %}
+{% block content %}
+<h2 class="text-2xl font-bold mb-6">💰 دفتر حساب</h2>
+
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+    <div class="bg-white rounded-lg shadow p-4 text-center">
+        <p class="text-sm text-gray-500">موجودی فعلی</p>
+        <p class="text-2xl font-bold text-green-600">{{ balance|stringformat:",.0f" }} <span class="text-sm">ریال</span></p>
+    </div>
+    <div class="bg-white rounded-lg shadow p-4 text-center">
+        <p class="text-sm text-gray-500">کل واریزی‌ها</p>
+        <p class="text-2xl font-bold">{{ total_credit|stringformat:",.0f" }} <span class="text-sm">ریال</span></p>
+    </div>
+    <div class="bg-white rounded-lg shadow p-4 text-center">
+        <p class="text-sm text-gray-500">کل برداشت‌ها</p>
+        <p class="text-2xl font-bold text-red-600">{{ total_debit|stringformat:",.0f" }} <span class="text-sm">ریال</span></p>
+    </div>
+</div>
+
+<div class="bg-white rounded-lg shadow overflow-x-auto">
+    <table class="w-full text-sm">
+        <thead class="bg-gray-50"><tr>
+            <th class="px-4 py-3 text-right">تاریخ</th>
+            <th class="px-4 py-3 text-right">نوع</th>
+            <th class="px-4 py-3 text-right">مبلغ</th>
+            <th class="px-4 py-3 text-right">توضیحات</th>
+        </tr></thead>
+        <tbody>
+        {% for txn in transactions %}
+        <tr class="border-t hover:bg-gray-50">
+            <td class="px-4 py-3 text-xs">{{ txn.created_at|date:"Y/m/d H:i" }}</td>
+            <td class="px-4 py-3">{{ txn.get_type_display }}</td>
+            <td class="px-4 py-3 {% if txn.amount > 0 %}text-green-600{% else %}text-red-600{% endif %}">{{ txn.amount|stringformat:",.0f" }}</td>
+            <td class="px-4 py-3 text-xs text-gray-500">{{ txn.description|default:"—" }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4" class="px-4 py-8 text-center text-gray-500">تراکنشی وجود ندارد.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

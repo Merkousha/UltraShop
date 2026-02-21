@@ -1,0 +1,41 @@
+{% extends "storefront/base.html" %}
+{% block title %}جستجو: {{ query }} — {{ store.name }}{% endblock %}
+{% block content %}
+<h2 class="text-xl font-bold mb-2">🔍 نتایج جستجو</h2>
+<p class="text-sm text-gray-500 mb-6">عبارت: «{{ query }}» — {{ products.paginator.count }} نتیجه</p>
+
+<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+    {% for product in products %}
+    <a href="{% url 'storefront:product-detail' store.username product.slug %}" class="bg-white rounded-lg shadow overflow-hidden hover:shadow-md transition group">
+        {% with img=product.primary_image %}
+        {% if img %}<img src="{{ img.image.url }}" class="w-full h-40 object-cover group-hover:scale-105 transition-transform" alt="{{ product.name }}">
+        {% else %}<div class="w-full h-40 bg-gray-100 flex items-center justify-center text-4xl text-gray-300">📷</div>{% endif %}
+        {% endwith %}
+        <div class="p-3">
+            <p class="font-medium text-sm truncate">{{ product.name }}</p>
+            {% with v=product.variants.first %}
+            {% if v %}
+            <p class="text-sm mt-1">
+                <span class="font-bold text-primary">{{ v.price|stringformat:",.0f" }}</span>
+                <span class="text-xs text-gray-400">ریال</span>
+            </p>
+            {% endif %}
+            {% endwith %}
+        </div>
+    </a>
+    {% empty %}
+    <div class="col-span-full text-center py-12">
+        <p class="text-gray-400 text-lg mb-2">نتیجه‌ای یافت نشد.</p>
+        <p class="text-sm text-gray-400">عبارت دیگری را جستجو کنید.</p>
+    </div>
+    {% endfor %}
+</div>
+
+{% if products.has_other_pages %}
+<div class="flex justify-center gap-2 mt-6">
+    {% if products.has_previous %}<a href="?q={{ query }}&page={{ products.previous_page_number }}" class="px-3 py-1 border rounded text-sm hover:bg-gray-100">قبلی</a>{% endif %}
+    <span class="px-3 py-1 text-sm text-gray-500">صفحه {{ products.number }} از {{ products.paginator.num_pages }}</span>
+    {% if products.has_next %}<a href="?q={{ query }}&page={{ products.next_page_number }}" class="px-3 py-1 border rounded text-sm hover:bg-gray-100">بعدی</a>{% endif %}
+</div>
+{% endif %}
+{% endblock %}

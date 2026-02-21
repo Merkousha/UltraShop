@@ -1,0 +1,23 @@
+{% extends "dashboard/base.html" %}
+{% block title %}داشبورد{% endblock %}
+{% block content %}
+<h2 class="text-2xl font-bold mb-6">خوش آمدید 👋</h2>
+{% if stores %}
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    {% for store in stores %}
+    <div class="bg-white rounded-lg shadow p-5 {% if store.pk == current_store_id %}ring-2 ring-indigo-500{% endif %}">
+        <h3 class="font-bold text-lg">{{ store.name }}</h3>
+        <p class="text-sm text-gray-500 mb-3">{{ store.username }}.ultra-shop.com</p>
+        <form method="post" action="{% url 'dashboard:select-store' store.pk %}">
+            {% csrf_token %}
+            <button class="bg-indigo-600 text-white px-4 py-2 rounded text-sm hover:bg-indigo-700">
+                {% if store.pk == current_store_id %}✓ انتخاب شده{% else %}انتخاب{% endif %}
+            </button>
+        </form>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<p class="text-gray-500">هنوز فروشگاهی ندارید.</p>
+{% endif %}
+{% endblock %}

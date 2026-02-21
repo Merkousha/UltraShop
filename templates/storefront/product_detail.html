@@ -1,0 +1,79 @@
+{% extends "storefront/base.html" %}
+{% block title %}{{ product.name }} — {{ store.name }}{% endblock %}
+{% block extra_head %}
+{% if product.seo_title %}<meta name="title" content="{{ product.seo_title }}">{% endif %}
+{% if product.seo_description %}<meta name="description" content="{{ product.seo_description }}">{% endif %}
+{% endblock %}
+{% block content %}
+<nav class="text-sm text-gray-400 mb-4">
+    <a href="{% url 'storefront:home' store.username %}" class="hover:text-primary">خانه</a> /
+    {% for cat in product.categories.all %}<a href="{% url 'storefront:category-detail' store.username cat.slug %}" class="hover:text-primary">{{ cat.name }}</a>{% if not forloop.last %} / {% endif %}{% endfor %}
+    / <span>{{ product.name }}</span>
+</nav>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+    <!-- Images -->
+    <div>
+        {% with images=product.images.all %}
+        {% if images %}
+        <div class="bg-white rounded-lg shadow overflow-hidden mb-4">
+            <img id="main-image" src="{{ images.0.image.url }}" class="w-full h-96 object-contain" alt="{{ product.name }}">
+        </div>
+        {% if images|length > 1 %}
+        <div class="flex gap-2 overflow-x-auto pb-2">
+            {% for img in images %}
+            <img src="{{ img.image.url }}" class="w-16 h-16 object-cover rounded cursor-pointer border-2 {% if forloop.first %}border-indigo-500{% else %}border-transparent{% endif %} hover:border-indigo-300 thumb-img" data-src="{{ img.image.url }}" alt="تصویر {{ forloop.counter }}">
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% else %}
+        <div class="bg-white rounded-lg shadow h-96 flex items-center justify-center text-6xl text-gray-300">📷</div>
+        {% endif %}
+        {% endwith %}
+    </div>
+
+    <!-- Product Info -->
+    <div class="space-y-4">
+        <h1 class="text-2xl font-bold">{{ product.name }}</h1>
+
+        {% if product.variants.count > 0 %}
+        <div class="space-y-3">
+            {% for variant in product.variants.all %}
+            <div class="bg-white rounded-lg shadow p-4 flex items-center justify-between">
+                <div>
+                    <p class="font-medium">{{ variant.name }}</p>
+                    {% if variant.sku %}<p class="text-xs text-gray-400" dir="ltr">SKU: {{ variant.sku }}</p>{% endif %}
+                </div>
+                <div class="text-left">
+                    <p class="font-bold text-lg text-primary">{{ variant.price|stringformat:",.0f" }} <span class="text-xs text-gray-400">ریال</span></p>
+                    {% if variant.compare_at_price %}<p><del class="text-sm text-gray-400">{{ variant.compare_at_price|stringformat:",.0f" }}</del></p>{% endif %}
+                    {% if variant.stock > 0 %}
+                    <p class="text-xs text-green-600">✓ موجود ({{ variant.stock }})</p>
+                    {% else %}
+                    <p class="text-xs text-red-500">✕ ناموجود</p>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if product.description %}
+        <div class="bg-white rounded-lg shadow p-6">
+            <h3 class="font-semibold mb-3">توضیحات محصول</h3>
+            <div class="text-sm text-gray-600 leading-7">{{ product.description|linebreaks }}</div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+document.querySelectorAll('.thumb-img').forEach(img => {
+    img.addEventListener('click', function() {
+        document.getElementById('main-image').src = this.dataset.src;
+        document.querySelectorAll('.thumb-img').forEach(t => t.classList.replace('border-indigo-500', 'border-transparent'));
+        this.classList.replace('border-transparent', 'border-indigo-500');
+    });
+});
+</script>
+{% endblock %}
