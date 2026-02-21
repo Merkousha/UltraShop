@@ -1,0 +1,77 @@
+{% extends "platform_admin/base.html" %}
+{% block content %}
+<div>
+    <div class="flex items-center justify-between mb-6">
+        <h2 class="text-2xl font-bold">مدیریت پوسته‌ها</h2>
+        <a href="{% url 'platform_admin:theme-preset-create' %}" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 text-sm">+ ایجاد پوسته جدید</a>
+    </div>
+
+    {% if messages %}
+    <div class="mb-4">
+        {% for msg in messages %}
+        <div class="p-3 rounded mb-2 {% if msg.tags == 'error' %}bg-red-100 text-red-700{% else %}bg-green-100 text-green-700{% endif %}">{{ msg }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Filters -->
+    <form method="get" class="bg-white rounded border p-4 mb-6 flex gap-4 items-end">
+        <div>
+            <label class="block text-sm text-gray-600 mb-1">وضعیت</label>
+            <select name="status" class="border rounded px-3 py-2 text-sm">
+                <option value="">همه</option>
+                {% for val, label in status_choices %}
+                <option value="{{ val }}" {% if current_status == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="bg-gray-700 text-white px-4 py-2 rounded text-sm">فیلتر</button>
+    </form>
+
+    <div class="bg-white rounded-lg border overflow-hidden">
+        <table class="w-full text-sm">
+            <thead class="bg-gray-50 border-b">
+                <tr>
+                    <th class="px-4 py-3 text-right font-medium">نام</th>
+                    <th class="px-4 py-3 text-right font-medium">نسخه</th>
+                    <th class="px-4 py-3 text-right font-medium">وضعیت</th>
+                    <th class="px-4 py-3 text-right font-medium">تعداد فروشگاه‌ها</th>
+                    <th class="px-4 py-3 text-right font-medium">عملیات</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y">
+                {% for preset in presets %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3">
+                        <div class="font-medium">{{ preset.name }}</div>
+                        <div class="text-gray-500 text-xs">{{ preset.slug }}</div>
+                    </td>
+                    <td class="px-4 py-3">{{ preset.version }}</td>
+                    <td class="px-4 py-3">
+                        {% if preset.status == "active" %}
+                        <span class="bg-green-100 text-green-700 text-xs px-2 py-1 rounded">فعال</span>
+                        {% elif preset.status == "deprecated" %}
+                        <span class="bg-red-100 text-red-700 text-xs px-2 py-1 rounded">منسوخ</span>
+                        {% else %}
+                        <span class="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">پیشنویس</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3">{{ preset.store_count }}</td>
+                    <td class="px-4 py-3 flex gap-2">
+                        <a href="{% url 'platform_admin:theme-preset-edit' preset.pk %}" class="text-indigo-600 hover:underline text-xs">ویرایش</a>
+                        {% if preset.status != "deprecated" %}
+                        <form method="post" action="{% url 'platform_admin:theme-preset-deprecate' preset.pk %}" class="inline" onsubmit="return confirm('آیا مطمئنید؟')">
+                            {% csrf_token %}
+                            <button type="submit" class="text-red-500 hover:underline text-xs">منسوخ کردن</button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="px-4 py-8 text-center text-gray-500">هیچ پوسته‌ای موجود نیست.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

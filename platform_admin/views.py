@@ -1,5 +1,6 @@
 import json
 
+from django.contrib import messages
 from django.contrib.auth import views as auth_views
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.db.models import Count, Sum, Q
@@ -11,7 +12,7 @@ from django.views.generic import ListView, DetailView, TemplateView
 
 from accounting.models import PayoutRequest, PlatformCommission, StoreTransaction
 from core.encryption import encrypt_value, decrypt_value
-from core.models import AuditLog, PlatformSettings, Store
+from core.models import AuditLog, PlatformSettings, Store, ThemePreset
 from core.services import log_action
 from orders.models import Order
 from shipping.models import Shipment, ShippingCarrier
@@ -425,3 +426,118 @@ class AuditLogView(PlatformAdminMixin, ListView):
         ctx = super().get_context_data(**kwargs)
         ctx["actions"] = AuditLog.objects.values_list("action", flat=True).distinct()
         return ctx
+
+
+# ─── PA-14: Theme Preset Management ─────────────────────────
+class ThemePresetListView(PlatformAdminMixin, ListView):
+    template_name = "platform_admin/theme_preset_list.html"
+    context_object_name = "presets"
+    paginate_by = 25
+
+    def get_queryset(self):
+        qs = ThemePreset.objects.annotate(store_count=Count("stores"))
+        status = self.request.GET.get("status")
+        if status:
+            qs = qs.filter(status=status)
+        return qs.order_by("name")
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["status_choices"] = ThemePreset.Status.choices
+        ctx["current_status"] = self.request.GET.get("status", "")
+        return ctx
+
+
+class ThemePresetCreateView(PlatformAdminMixin, TemplateView):
+    template_name = "platform_admin/theme_preset_form.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["action"] = "create"
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        name = request.POST.get("name", "").strip()
+        slug = request.POST.get("slug", "").strip()
+        description = request.POST.get("description", "")
+        version = request.POST.get("version", "1.0.0")
+        status = request.POST.get("status", ThemePreset.Status.ACTIVE)
+        tokens_raw = request.POST.get("tokens", "{}")
+        try:
+            import json as _json
+            tokens = _json.loads(tokens_raw)
+        except Exception:
+            tokens = {}
+        preset = ThemePreset.objects.create(
+            name=name,
+            slug=slug,
+            description=description,
+            version=version,
+            status=status,
+            tokens=tokens,
+        )
+        log_action(
+            actor=request.user,
+            action="theme_preset_created",
+            resource_type="ThemePreset",
+            resource_id=str(preset.pk),
+            details={"name": name, "slug": slug},
+        )
+        messages.success(request, f"پوسته «{preset.name}» ایجاد شد.")
+        return redirect("platform_admin:theme-preset-list")
+
+
+class ThemePresetEditView(PlatformAdminMixin, TemplateView):
+    template_name = "platform_admin/theme_preset_form.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        preset = get_object_or_404(ThemePreset, pk=self.kwargs["pk"])
+        ctx["preset"] = preset
+        ctx["action"] = "edit"
+        ctx["store_count"] = preset.stores.count()
+        import json as _json
+        ctx["tokens_json"] = _json.dumps(preset.tokens, ensure_ascii=False, indent=2)
+        return ctx
+
+    def post(self, request, pk, *args, **kwargs):
+        preset = get_object_or_404(ThemePreset, pk=pk)
+        old_status = preset.status
+        preset.name = request.POST.get("name", preset.name)
+        preset.description = request.POST.get("description", preset.description)
+        preset.version = request.POST.get("version", preset.version)
+        preset.status = request.POST.get("status", preset.status)
+        tokens_raw = request.POST.get("tokens", "{}")
+        try:
+            import json as _json
+            preset.tokens = _json.loads(tokens_raw)
+        except Exception:
+            pass
+        preset.save()
+        store_count = preset.stores.count()
+        log_action(
+            actor=request.user,
+            action="theme_preset_updated",
+            resource_type="ThemePreset",
+            resource_id=str(preset.pk),
+            details={"name": preset.name, "old_status": old_status, "new_status": preset.status, "affected_stores": store_count},
+        )
+        messages.success(request, f"پوسته «{preset.name}» ویرایش شد.")
+        return redirect("platform_admin:theme-preset-list")
+
+
+class ThemePresetDeprecateView(PlatformAdminMixin, View):
+    def post(self, request, pk):
+        preset = get_object_or_404(ThemePreset, pk=pk)
+        store_count = preset.stores.count()
+        preset.status = ThemePreset.Status.DEPRECATED
+        preset.save()
+        log_action(
+            actor=request.user,
+            action="theme_preset_deprecated",
+            resource_type="ThemePreset",
+            resource_id=str(preset.pk),
+            details={"name": preset.name, "affected_stores": store_count},
+        )
+        messages.success(request, f"پوسته «{preset.name}» منسوخ شد. {store_count} فروشگاه تحت‌تأثیر.")
+        return redirect("platform_admin:theme-preset-list")

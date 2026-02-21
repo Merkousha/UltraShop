@@ -31,4 +31,9 @@ urlpatterns = [
 
     # Settings
     path("settings/", views.StoreSettingsView.as_view(), name="store-settings"),
+
+    # Theme
+    path("theme/", views.ThemeSelectView.as_view(), name="theme-select"),
+    path("theme/customize/", views.ThemeCustomizeView.as_view(), name="theme-customize"),
+    path("theme/custom-css/", views.ThemeCustomCSSView.as_view(), name="theme-custom-css"),
 ]

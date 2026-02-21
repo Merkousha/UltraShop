@@ -1,0 +1,49 @@
+{% extends "dashboard/base.html" %}
+{% block content %}
+<div class="max-w-4xl">
+    <h2 class="text-2xl font-bold mb-6">انتخاب پوسته فروشگاه</h2>
+
+    {% if messages %}
+    <div class="mb-4">
+        {% for msg in messages %}
+        <div class="p-3 rounded mb-2 {% if msg.tags == 'error' %}bg-red-100 text-red-700{% else %}bg-green-100 text-green-700{% endif %}">{{ msg }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        {% for preset in presets %}
+        <div class="bg-white rounded-lg border-2 p-6 {% if current_theme.theme_preset_id == preset.pk %}border-indigo-500{% else %}border-gray-200 hover:border-gray-300{% endif %}">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-lg font-semibold">{{ preset.name }}</h3>
+                {% if current_theme.theme_preset_id == preset.pk %}
+                <span class="bg-indigo-100 text-indigo-700 text-xs px-2 py-1 rounded">فعال</span>
+                {% endif %}
+            </div>
+            <p class="text-gray-600 text-sm mb-4">{{ preset.description }}</p>
+            <div class="flex items-center gap-2 mb-4">
+                <span class="text-xs text-gray-500">نسخه {{ preset.version }}</span>
+            </div>
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="preset_id" value="{{ preset.pk }}">
+                <button type="submit" class="w-full bg-indigo-600 text-white py-2 px-4 rounded hover:bg-indigo-700 text-sm">
+                    انتخاب
+                </button>
+            </form>
+        </div>
+        {% empty %}
+        <p class="text-gray-500 col-span-2">هیچ پوسته‌ای موجود نیست.</p>
+        {% endfor %}
+    </div>
+
+    <div class="flex gap-4">
+        <a href="{% url 'dashboard:theme-customize' %}" class="bg-gray-700 text-white px-4 py-2 rounded hover:bg-gray-800 text-sm">
+            سفارشی‌سازی رنگ‌ها
+        </a>
+        <a href="{% url 'dashboard:theme-custom-css' %}" class="bg-gray-700 text-white px-4 py-2 rounded hover:bg-gray-800 text-sm">
+            CSS سفارشی
+        </a>
+    </div>
+</div>
+{% endblock %}

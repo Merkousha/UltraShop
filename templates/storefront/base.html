@@ -1,17 +1,17 @@
-{% load static %}<!DOCTYPE html>
+{% load static %}{% load theme_tags %}<!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}{{ store.store_name }}{% endblock %}</title>
+    <title>{% block title %}{{ store.name }}{% endblock %}</title>
     <link rel="stylesheet" href="{% static 'css/vazirmatn.css' %}">
     <script src="{% static 'js/tailwind.js' %}"></script>
+    {% store_theme_css store %}
     <style>
-        :root { --primary: {{ store.primary_color|default:"#4f46e5" }}; }
-        body { font-family: 'Vazirmatn', Tahoma, sans-serif; }
-        .btn-primary { background-color: var(--primary); }
-        .btn-primary:hover { filter: brightness(0.9); }
-        .text-primary { color: var(--primary); }
+        body { font-family: var(--font-body, 'Vazirmatn', Tahoma, sans-serif); }
+        .btn-primary { background-color: var(--btn-primary-bg, var(--color-primary-500, #4f46e5)); }
+        .btn-primary:hover { background-color: var(--btn-primary-hover, var(--color-primary-600, #4338ca)); }
+        .text-primary { color: var(--color-primary-500, #4f46e5); }
     </style>
     {% block extra_head %}{% endblock %}
 </head>

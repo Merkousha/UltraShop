@@ -1,0 +1,35 @@
+{% extends "dashboard/base.html" %}
+{% block content %}
+<div class="max-w-3xl">
+    <h2 class="text-2xl font-bold mb-6">CSS سفارشی</h2>
+
+    {% if messages %}
+    <div class="mb-4">
+        {% for msg in messages %}
+        <div class="p-3 rounded mb-2 {% if msg.tags == 'error' %}bg-red-100 text-red-700{% elif msg.tags == 'warning' %}bg-yellow-100 text-yellow-700{% else %}bg-green-100 text-green-700{% endif %}">{{ msg }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="bg-yellow-50 border border-yellow-300 rounded p-4 mb-6">
+        <p class="text-yellow-800 font-semibold">⚠️ هشدار</p>
+        <p class="text-yellow-700 text-sm mt-1">CSS نادرست ممکن است ظاهر فروشگاه را خراب کند. لطفاً با احتیاط استفاده کنید.</p>
+    </div>
+
+    <form method="post" class="bg-white rounded-lg border p-6">
+        {% csrf_token %}
+        <div class="mb-4">
+            <div class="flex justify-between items-center mb-2">
+                <label class="text-sm font-medium text-gray-700">CSS سفارشی</label>
+                <span class="text-xs text-gray-500">{{ css_size_kb }} کیلوبایت از ۵۰ کیلوبایت</span>
+            </div>
+            <textarea name="custom_css" rows="20" dir="ltr" class="w-full border rounded px-3 py-2 font-mono text-sm bg-gray-50" placeholder="/* CSS سفارشی خود را اینجا بنویسید */
+.my-button { background: red; }">{{ theme.custom_css }}</textarea>
+        </div>
+        <div class="flex gap-4">
+            <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded hover:bg-indigo-700">ذخیره</button>
+            <a href="{% url 'dashboard:theme-select' %}" class="bg-gray-200 text-gray-700 px-6 py-2 rounded hover:bg-gray-300">بازگشت</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

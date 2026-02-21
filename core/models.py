@@ -118,6 +118,73 @@ class PlatformSettings(models.Model):
         return obj
 
 
+class ThemePreset(models.Model):
+    """Platform-managed theme presets."""
+    
+    class Status(models.TextChoices):
+        ACTIVE = "active", "فعال"
+        DEPRECATED = "deprecated", "منسوخ"
+        DRAFT = "draft", "پیشنویس"
+    
+    name = models.CharField(max_length=100)
+    slug = models.SlugField(max_length=100, unique=True)
+    description = models.TextField(blank=True, default="")
+    tokens = models.JSONField(default=dict, help_text="Token values for this preset")
+    thumbnail = models.ImageField(upload_to="theme_presets/", blank=True, null=True)
+    version = models.CharField(max_length=20, default="1.0.0")
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.ACTIVE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = "theme_presets"
+        ordering = ["name"]
+    
+    def __str__(self):
+        return f"{self.name} (v{self.version})"
+
+
+class StoreTheme(models.Model):
+    """Per-store design token overrides and theme configuration."""
+    
+    class RadiusScale(models.TextChoices):
+        NONE = "none", "بدون گردی"
+        SM = "sm", "کم"
+        MD = "md", "متوسط"
+        LG = "lg", "زیاد"
+        XL = "xl", "خیلی زیاد"
+        FULL = "full", "کامل"
+    
+    class ShadowLevel(models.TextChoices):
+        NONE = "none", "بدون سایه"
+        SM = "sm", "سبک"
+        MD = "md", "متوسط"
+        LG = "lg", "سنگین"
+        XL = "xl", "خیلی سنگین"
+    
+    store = models.OneToOneField(Store, on_delete=models.CASCADE, related_name="theme")
+    theme_preset = models.ForeignKey(
+        "ThemePreset", on_delete=models.SET_NULL, null=True, blank=True, related_name="stores"
+    )
+    primary_color = models.CharField(max_length=7, default="#6366f1")
+    secondary_color = models.CharField(max_length=7, default="#8b5cf6")
+    accent_color = models.CharField(max_length=7, default="#f59e0b")
+    heading_font = models.CharField(max_length=100, default="Vazirmatn", help_text="فونت تیترها")
+    body_font = models.CharField(max_length=100, default="Vazirmatn", help_text="فونت متن")
+    radius_scale = models.CharField(max_length=10, choices=RadiusScale.choices, default=RadiusScale.MD)
+    shadow_level = models.CharField(max_length=10, choices=ShadowLevel.choices, default=ShadowLevel.MD)
+    custom_css = models.TextField(blank=True, default="", help_text="CSS سفارشی (حداکثر ۵۰ کیلوبایت)")
+    version = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = "store_themes"
+    
+    def __str__(self):
+        return f"Theme for {self.store.name}"
+
+
 class AuditLog(models.Model):
     actor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     store = models.ForeignKey(Store, on_delete=models.SET_NULL, null=True, blank=True)
