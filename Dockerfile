@@ -14,7 +14,9 @@ RUN apt-get update && \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy project
+# Copy project (templates and static explicitly so they are never missed)
+COPY templates/ ./templates/
+COPY static/ ./static/
 COPY . .
 
 # Copy entrypoint script

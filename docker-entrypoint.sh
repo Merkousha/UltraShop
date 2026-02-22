@@ -12,6 +12,9 @@ fi
 echo "Running migrations..."
 python manage.py migrate
 
+echo "Seeding platform data and theme presets (idempotent)..."
+python manage.py seed_platform 2>/dev/null || true
+
 echo "Collecting static files..."
 python manage.py collectstatic --noinput
 
