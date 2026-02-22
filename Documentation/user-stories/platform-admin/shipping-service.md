@@ -6,6 +6,9 @@ Stories for the central platform shipping service used by stores.
 
 ## PA-20: Enable or disable platform shipping for the whole platform
 
+**وضعیت:** ⚠️ نیمه‌کامل
+**کمبودها:** چک در checkout برای مخفی‌کردن «ارسال پلتفرم» وقتی غیرفعال است.
+
 **As a** PlatformAdmin  
 **I want** to enable or disable the platform shipping service globally  
 **So that** I can turn off shipping during maintenance or migration without affecting store settings.
@@ -36,6 +39,8 @@ Stories for the central platform shipping service used by stores.
 
 ## PA-22: View all shipments and delivery status
 
+**وضعیت:** ✅ انجام شد
+
 **As a** PlatformAdmin  
 **I want** to view all shipments created via the platform shipping service and their status  
 **So that** I can monitor operations and resolve delivery issues.
@@ -50,6 +55,9 @@ Stories for the central platform shipping service used by stores.
 ---
 
 ## PA-23: Manually update shipment status when needed
+
+**وضعیت:** ⚠️ نیمه‌کامل
+**کمبودها:** بازتاب در tracking view مشتری و فروشگاه پیاده‌سازی نشده است.
 
 **As a** PlatformAdmin  
 **I want** to manually update a shipment's status (e.g. mark as delivered) when carrier data is missing or wrong  

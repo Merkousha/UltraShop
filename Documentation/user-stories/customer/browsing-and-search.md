@@ -56,6 +56,8 @@ Stories for customers browsing the storefront, finding products, and interacting
 
 ## C-04: Search products by keyword
 
+**وضعیت:** ✅ انجام شد
+
 **As a** Customer  
 **I want** to search products by keyword  
 **So that** I can find items without browsing categories.

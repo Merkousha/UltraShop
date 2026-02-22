@@ -79,6 +79,9 @@ Stories for managing stores, platform-level billing, settlements, and commission
 
 ## PA-35: View platform dashboard with key KPIs
 
+**وضعیت:** ⚠️ نیمه‌کامل
+**کمبودها:** لینک از همه ویجت‌ها (خصوصا سفارشات) به صفحات جزئیات و بخش هشدارها/alerts پیاده‌سازی نشده است.
+
 **As a** PlatformAdmin  
 **I want** to see a platform-level dashboard with key performance indicators  
 **So that** I can monitor overall platform health at a glance.

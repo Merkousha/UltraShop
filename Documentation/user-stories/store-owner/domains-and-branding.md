@@ -64,6 +64,9 @@ Stories for custom domain, subdomain, store appearance, theme engine, design tok
 
 ## SO-44: Choose and customize a theme preset
 
+**وضعیت:** ⚠️ نیمه‌کامل
+**کمبودها:** پیش‌نمایش/thumbnail برای پریست‌ها و اعمال کامل سلسله‌مراتب تایپوگرافی/spacing/component defaults پوشش داده نشده است.
+
 **As a** StoreOwner  
 **I want** to choose a theme preset and see it applied to my storefront  
 **So that** I can quickly get a professional look without manual design work.
@@ -79,6 +82,9 @@ Stories for custom domain, subdomain, store appearance, theme engine, design tok
 ---
 
 ## SO-45: Customize design tokens and brand overrides
+
+**وضعیت:** ⚠️ نیمه‌کامل
+**کمبودها:** کش per-domain برای CSS تم پیاده‌سازی نشده است.
 
 **As a** StoreOwner  
 **I want** to customize colors, fonts, radius, and shadow beyond the preset defaults  
@@ -136,6 +142,9 @@ Stories for custom domain, subdomain, store appearance, theme engine, design tok
 ---
 
 ## SO-48: Apply custom CSS to storefront
+
+**وضعیت:** ⚠️ نیمه‌کامل
+**کمبودها:** سازگاری با CSP و کنترل بودجه بر اساس اندازه gzipped پیاده‌سازی نشده است.
 
 **As a** StoreOwner  
 **I want** to add custom CSS to my storefront for fine-grained visual adjustments  

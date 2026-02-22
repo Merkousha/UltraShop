@@ -21,6 +21,9 @@ Stories for global platform settings, design system governance, and AI service c
 
 ## PA-11: Configure default store settings
 
+**وضعیت:** ⚠️ نیمه‌کامل
+**کمبودها:** اعمال پیش‌فرض‌ها هنگام ساخت فروشگاه جدید پیاده‌سازی نشده است.
+
 **As a** PlatformAdmin  
 **I want** to set default values for new stores (e.g. time zone, currency, guest checkout)  
 **So that** new stores start with sensible defaults and less configuration.
@@ -34,6 +37,9 @@ Stories for global platform settings, design system governance, and AI service c
 ---
 
 ## PA-12: Manage reserved and blacklisted subdomains
+
+**وضعیت:** ⚠️ نیمه‌کامل
+**کمبودها:** ولیدیشن در فرم ساخت/تغییر نام فروشگاه انجام نشده است.
 
 **As a** PlatformAdmin  
 **I want** to manage reserved and blacklisted usernames (subdomains)  
@@ -65,6 +71,9 @@ Stories for global platform settings, design system governance, and AI service c
 
 ## PA-14: Manage design system and theme governance
 
+**وضعیت:** ⚠️ نیمه‌کامل
+**کمبودها:** ویرایش توکن‌های سطح پلتفرم، سیاست breaking change، بودجه عملکرد CSS، و ولیدیشن دسترسی‌پذیری پوشش داده نشده‌اند.
+
 **As a** PlatformAdmin  
 **I want** to manage theme presets, design tokens, and the theme versioning policy  
 **So that** all stores have access to quality themes and visual consistency is maintained.
@@ -82,6 +91,8 @@ Stories for global platform settings, design system governance, and AI service c
 ---
 
 ## PA-15: Manage SMS/Email provider configuration
+
+**وضعیت:** ✅ انجام شد
 
 **As a** PlatformAdmin  
 **I want** to configure the SMS and email providers used by the platform  

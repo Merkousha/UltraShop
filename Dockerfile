@@ -17,8 +17,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy project
 COPY . .
 
-# Collect static files
-RUN python manage.py collectstatic --noinput
+# Copy entrypoint script
+COPY docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh
 
 # Create non-root user
 RUN addgroup --system app && adduser --system --ingroup app app && \
@@ -27,4 +28,4 @@ USER app
 
 EXPOSE 8080
 
-CMD ["gunicorn", "ultrashop.wsgi:application", "--bind", "0.0.0.0:8080", "--workers", "3"]
+ENTRYPOINT ["/app/docker-entrypoint.sh"]

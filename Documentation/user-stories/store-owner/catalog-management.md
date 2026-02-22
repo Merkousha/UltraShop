@@ -69,6 +69,9 @@ Stories for categories, products, variants, inventory, and AI-powered content ge
 
 ## SO-14: Bulk edit products or variants
 
+**وضعیت:** ⚠️ نیمه‌کامل
+**کمبودها:** حذف نرم، ثبت در audit log، و نمایش نتیجه عملیات (success/errors) هنوز پیاده‌سازی نشده است.
+
 **As a** StoreOwner  
 **I want** to bulk edit products (e.g. change category, status) or variant prices/stock  
 **So that** I can save time when managing many items.
@@ -83,6 +86,8 @@ Stories for categories, products, variants, inventory, and AI-powered content ge
 ---
 
 ## SO-15: Reorder and replace product images
+
+**وضعیت:** ✅ انجام شد
 
 **As a** StoreOwner  
 **I want** to reorder product images and set the primary image  
