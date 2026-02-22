@@ -43,4 +43,10 @@ urlpatterns = [
 
     # PA-03: Audit log
     path("audit-log/", views.AuditLogView.as_view(), name="audit-log"),
+
+    # PA-14: Theme Presets
+    path("theme-presets/", views.ThemePresetListView.as_view(), name="theme-preset-list"),
+    path("theme-presets/create/", views.ThemePresetCreateView.as_view(), name="theme-preset-create"),
+    path("theme-presets/<int:pk>/edit/", views.ThemePresetEditView.as_view(), name="theme-preset-edit"),
+    path("theme-presets/<int:pk>/deprecate/", views.ThemePresetDeprecateView.as_view(), name="theme-preset-deprecate"),
 ]

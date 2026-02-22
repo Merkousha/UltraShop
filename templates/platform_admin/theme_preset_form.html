@@ -1,0 +1,58 @@
+{% extends "platform_admin/base.html" %}
+{% block content %}
+<div class="max-w-2xl">
+    <h2 class="text-2xl font-bold mb-6">{% if action == "create" %}ایجاد پوسته جدید{% else %}ویرایش پوسته: {{ preset.name }}{% endif %}</h2>
+
+    {% if messages %}
+    <div class="mb-4">
+        {% for msg in messages %}
+        <div class="p-3 rounded mb-2 {% if msg.tags == 'error' %}bg-red-100 text-red-700{% else %}bg-green-100 text-green-700{% endif %}">{{ msg }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if action == "edit" and store_count > 0 %}
+    <div class="bg-blue-50 border border-blue-300 rounded p-4 mb-6">
+        <p class="text-blue-800 text-sm">این پوسته در حال حاضر توسط <strong>{{ store_count }}</strong> فروشگاه استفاده می‌شود.</p>
+    </div>
+    {% endif %}
+
+    <form method="post" class="bg-white rounded-lg border p-6 space-y-4">
+        {% csrf_token %}
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">نام</label>
+            <input type="text" name="name" value="{{ preset.name|default:'' }}" required class="w-full border rounded px-3 py-2">
+        </div>
+        {% if action == "create" %}
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">شناسه (slug)</label>
+            <input type="text" name="slug" value="{{ preset.slug|default:'' }}" required class="w-full border rounded px-3 py-2" dir="ltr">
+        </div>
+        {% endif %}
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">توضیحات</label>
+            <textarea name="description" rows="3" class="w-full border rounded px-3 py-2">{{ preset.description|default:'' }}</textarea>
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">نسخه</label>
+            <input type="text" name="version" value="{{ preset.version|default:'1.0.0' }}" class="w-full border rounded px-3 py-2" dir="ltr">
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">وضعیت</label>
+            <select name="status" class="w-full border rounded px-3 py-2">
+                <option value="active" {% if preset.status == "active" or not preset %}selected{% endif %}>فعال</option>
+                <option value="draft" {% if preset.status == "draft" %}selected{% endif %}>پیشنویس</option>
+                <option value="deprecated" {% if preset.status == "deprecated" %}selected{% endif %}>منسوخ</option>
+            </select>
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">توکن‌ها (JSON)</label>
+            <textarea name="tokens" rows="8" dir="ltr" class="w-full border rounded px-3 py-2 font-mono text-sm bg-gray-50">{{ tokens_json|default:'{}' }}</textarea>
+        </div>
+        <div class="flex gap-4">
+            <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded hover:bg-indigo-700">ذخیره</button>
+            <a href="{% url 'platform_admin:theme-preset-list' %}" class="bg-gray-200 text-gray-700 px-6 py-2 rounded hover:bg-gray-300">بازگشت</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

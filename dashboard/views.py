@@ -1,5 +1,6 @@
 import json
 
+from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Q, F
 from django.http import JsonResponse
@@ -8,7 +9,9 @@ from django.views import View
 from django.views.generic import ListView, TemplateView
 
 from catalog.models import Category, Product, ProductImage, ProductVariant
-from core.models import Store, StoreStaff
+from core.models import Store, StoreStaff, StoreTheme, ThemePreset
+from core.theme_service import generate_color_scale, validate_contrast
+from core.css_sanitizer import sanitize_css
 from orders.models import Order
 
 
@@ -373,3 +376,94 @@ class StoreSettingsView(StoreAccessMixin, TemplateView):
             store.logo = request.FILES["logo"]
         store.save()
         return redirect("dashboard:store-settings")
+
+
+# ─── SO-44: Theme Selection ─────────────────────────────────
+class ThemeSelectView(StoreAccessMixin, TemplateView):
+    template_name = "dashboard/theme_select.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["presets"] = ThemePreset.objects.filter(status=ThemePreset.Status.ACTIVE)
+        theme, _ = StoreTheme.objects.get_or_create(store=self.request.current_store)
+        ctx["current_theme"] = theme
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        store = request.current_store
+        preset_id = request.POST.get("preset_id")
+        if preset_id:
+            preset = get_object_or_404(ThemePreset, pk=preset_id, status=ThemePreset.Status.ACTIVE)
+            theme, _ = StoreTheme.objects.get_or_create(store=store)
+            theme.theme_preset = preset
+            # Apply preset primary color if in tokens
+            if "primary_color" in preset.tokens:
+                theme.primary_color = preset.tokens["primary_color"]
+            if "radius" in preset.tokens:
+                theme.radius_scale = preset.tokens["radius"]
+            if "shadow" in preset.tokens:
+                theme.shadow_level = preset.tokens["shadow"]
+            theme.version += 1
+            theme.save()
+            messages.success(request, f"پوسته «{preset.name}» با موفقیت اعمال شد.")
+        return redirect("dashboard:theme-select")
+
+
+# ─── SO-44: Theme Customization ──────────────────────────────
+class ThemeCustomizeView(StoreAccessMixin, TemplateView):
+    template_name = "dashboard/theme_customize.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        theme, _ = StoreTheme.objects.get_or_create(store=self.request.current_store)
+        ctx["theme"] = theme
+        ctx["radius_choices"] = StoreTheme.RadiusScale.choices
+        ctx["shadow_choices"] = StoreTheme.ShadowLevel.choices
+        ctx["primary_scale"] = generate_color_scale(theme.primary_color)
+        ctx["contrast_warnings"] = validate_contrast(theme)
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        store = request.current_store
+        theme, _ = StoreTheme.objects.get_or_create(store=store)
+        theme.primary_color = request.POST.get("primary_color", theme.primary_color)
+        theme.secondary_color = request.POST.get("secondary_color", theme.secondary_color)
+        theme.accent_color = request.POST.get("accent_color", theme.accent_color)
+        theme.heading_font = request.POST.get("heading_font", theme.heading_font)
+        theme.body_font = request.POST.get("body_font", theme.body_font)
+        theme.radius_scale = request.POST.get("radius_scale", theme.radius_scale)
+        theme.shadow_level = request.POST.get("shadow_level", theme.shadow_level)
+        theme.version += 1
+        theme.save()
+        messages.success(request, "تنظیمات ظاهری با موفقیت ذخیره شد.")
+        return redirect("dashboard:theme-customize")
+
+
+# ─── SO-48: Custom CSS ────────────────────────────────────────
+class ThemeCustomCSSView(StoreAccessMixin, TemplateView):
+    template_name = "dashboard/theme_custom_css.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        theme, _ = StoreTheme.objects.get_or_create(store=self.request.current_store)
+        ctx["theme"] = theme
+        css_bytes = len(theme.custom_css.encode("utf-8"))
+        ctx["css_size"] = css_bytes
+        ctx["css_size_kb"] = round(css_bytes / 1024, 1)
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        store = request.current_store
+        theme, _ = StoreTheme.objects.get_or_create(store=store)
+        raw_css = request.POST.get("custom_css", "")
+        sanitized, warnings = sanitize_css(raw_css)
+        if len(sanitized.encode("utf-8")) > 50 * 1024:
+            messages.error(request, "CSS بیش از ۵۰ کیلوبایت است. لطفاً حجم آن را کاهش دهید.")
+            return redirect("dashboard:theme-custom-css")
+        theme.custom_css = sanitized
+        theme.version += 1
+        theme.save()
+        for w in warnings:
+            messages.warning(request, w)
+        messages.success(request, "CSS سفارشی با موفقیت ذخیره شد.")
+        return redirect("dashboard:theme-custom-css")

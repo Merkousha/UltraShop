@@ -43,4 +43,8 @@ class Command(BaseCommand):
         else:
             self.stdout.write(f"Superuser {email} already exists")
 
+        # 4. Seed theme presets
+        from django.core.management import call_command
+        call_command("seed_theme_presets")
+
         self.stdout.write(self.style.SUCCESS("Seed complete!"))

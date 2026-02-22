@@ -1,0 +1,93 @@
+{% extends "dashboard/base.html" %}
+{% block content %}
+<div class="max-w-2xl">
+    <h2 class="text-2xl font-bold mb-6">سفارشی‌سازی ظاهر فروشگاه</h2>
+
+    {% if messages %}
+    <div class="mb-4">
+        {% for msg in messages %}
+        <div class="p-3 rounded mb-2 {% if msg.tags == 'error' %}bg-red-100 text-red-700{% else %}bg-green-100 text-green-700{% endif %}">{{ msg }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if contrast_warnings %}
+    <div class="bg-yellow-50 border border-yellow-300 rounded p-4 mb-6">
+        <p class="font-semibold text-yellow-800 mb-2">⚠️ هشدار کنتراست (WCAG AA)</p>
+        {% for w in contrast_warnings %}
+        <p class="text-yellow-700 text-sm">{{ w }}</p>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <form method="post" class="bg-white rounded-lg border p-6 space-y-6">
+        {% csrf_token %}
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">رنگ اصلی</label>
+                <input type="color" name="primary_color" value="{{ theme.primary_color }}" class="w-full h-10 rounded border cursor-pointer">
+                <p class="text-xs text-gray-500 mt-1">{{ theme.primary_color }}</p>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">رنگ ثانویه</label>
+                <input type="color" name="secondary_color" value="{{ theme.secondary_color }}" class="w-full h-10 rounded border cursor-pointer">
+                <p class="text-xs text-gray-500 mt-1">{{ theme.secondary_color }}</p>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">رنگ تأکید</label>
+                <input type="color" name="accent_color" value="{{ theme.accent_color }}" class="w-full h-10 rounded border cursor-pointer">
+                <p class="text-xs text-gray-500 mt-1">{{ theme.accent_color }}</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">فونت تیترها</label>
+                <input type="text" name="heading_font" value="{{ theme.heading_font }}" class="w-full border rounded px-3 py-2">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">فونت متن</label>
+                <input type="text" name="body_font" value="{{ theme.body_font }}" class="w-full border rounded px-3 py-2">
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">گردی گوشه‌ها</label>
+                <select name="radius_scale" class="w-full border rounded px-3 py-2">
+                    {% for val, label in radius_choices %}
+                    <option value="{{ val }}" {% if theme.radius_scale == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">سطح سایه</label>
+                <select name="shadow_level" class="w-full border rounded px-3 py-2">
+                    {% for val, label in shadow_choices %}
+                    <option value="{{ val }}" {% if theme.shadow_level == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <!-- Color scale preview -->
+        <div>
+            <p class="text-sm font-medium text-gray-700 mb-2">پیش‌نمایش پالت رنگ اصلی</p>
+            <div class="flex gap-1">
+                {% for step, color in primary_scale.items %}
+                <div class="flex-1 text-center">
+                    <div class="h-8 rounded" style="background-color: {{ color }}"></div>
+                    <p class="text-xs mt-1 text-gray-500">{{ step }}</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="flex gap-4">
+            <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded hover:bg-indigo-700">ذخیره</button>
+            <a href="{% url 'dashboard:theme-select' %}" class="bg-gray-200 text-gray-700 px-6 py-2 rounded hover:bg-gray-300">بازگشت</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

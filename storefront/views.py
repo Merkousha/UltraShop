@@ -17,6 +17,9 @@ class StoreMixin:
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["store"] = self.store
+        from core.models import StoreTheme
+        theme, _ = StoreTheme.objects.get_or_create(store=self.store)
+        ctx["store_theme"] = theme
         return ctx
 
 
