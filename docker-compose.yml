@@ -1,0 +1,17 @@
+services:
+  web:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - DJANGO_DB_PATH=/app/data/db.sqlite3
+      # Optional: override from .env
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:-}
+      - DJANGO_DEBUG=${DJANGO_DEBUG:-False}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-*}
+    volumes:
+      # Persist database across rebuilds
+      - ultrashop_data:/app/data
+
+volumes:
+  ultrashop_data:

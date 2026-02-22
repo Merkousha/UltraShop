@@ -1,6 +1,14 @@
 #!/bin/bash
 set -e
 
+# Ensure data dir exists when using persistent volume (e.g. DJANGO_DB_PATH=/app/data/db.sqlite3)
+if [ -n "$DJANGO_DB_PATH" ]; then
+  DATA_DIR="$(dirname "$DJANGO_DB_PATH")"
+  if [ -n "$DATA_DIR" ] && [ "$DATA_DIR" != "." ]; then
+    mkdir -p "$DATA_DIR"
+  fi
+fi
+
 echo "Running migrations..."
 python manage.py migrate
 

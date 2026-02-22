@@ -96,10 +96,12 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "ultrashop.wsgi.application"
 
+# Database path: set DJANGO_DB_PATH in Docker to persist db (e.g. /app/data/db.sqlite3)
+_db_path = os.environ.get("DJANGO_DB_PATH")
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "NAME": _db_path if _db_path else str(BASE_DIR / "db.sqlite3"),
     }
 }
 
