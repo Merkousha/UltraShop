@@ -1,7 +1,7 @@
 from django.contrib.auth import login
 from django.shortcuts import redirect, render
 
-from .models import Store, User
+from .models import PlatformSettings, Store, User
 
 
 def signup_view(request):
@@ -33,10 +33,21 @@ def signup_view(request):
             )
             login(request, user)
             # Create a default store so new users can use the dashboard (categories, products, etc.)
+            ps = PlatformSettings.load()
+            reserved = set(ps.reserved_usernames or [])
+            base_username = f"store-{user.pk}"
+            username = base_username
+            suffix = 0
+            while username in reserved or Store.objects.filter(username=username).exists():
+                suffix += 1
+                username = f"{base_username}-{suffix}"
             store = Store.objects.create(
                 owner=user,
                 name="فروشگاه من",
-                username=f"store-{user.pk}",
+                username=username,
+                timezone=ps.default_timezone,
+                currency=ps.default_currency,
+                allow_guest_checkout=ps.default_guest_checkout,
             )
             request.session["current_store_id"] = store.pk
             request.session.modified = True

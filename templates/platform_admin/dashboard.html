@@ -30,13 +30,13 @@
     </a>
 
     <!-- Orders Today -->
-    <div class="bg-white rounded-lg shadow p-5">
+    <a href="{% url 'platform_admin:commission-report' %}" class="block bg-white rounded-lg shadow p-5 hover:shadow-md transition">
         <div class="text-sm text-gray-500 mb-1">سفارشات</div>
         <div class="text-3xl font-bold text-blue-600">{{ orders_today }}</div>
         <div class="text-xs text-gray-400 mt-1">
             امروز | هفته: {{ orders_week }} | ماه: {{ orders_month }}
         </div>
-    </div>
+    </a>
 
     <!-- Commission -->
     <a href="{% url 'platform_admin:commission-report' %}" class="block bg-white rounded-lg shadow p-5 hover:shadow-md transition">

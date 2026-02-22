@@ -18,7 +18,7 @@
   - [x] تعریف توکن‌های سطح ۳ (Component): btn-primary-bg, input-border-focus, badge-success-bg
   - [x] کامپایل توکن‌ها به CSS variables
   - [x] تزریق per-store در runtime (SSR compatible)
-  - [ ] کش per-domain
+  - [ ] کش per-domain (فعلاً بدون کش؛ قابل افزودن بعدی)
   - [x] مدل `StoreTheme` — آپدیت با فیلدهای: primary_color, secondary_color, accent_color, heading_font, body_font, radius_scale, shadow_level
   - [x] فرم شخصی‌سازی تم در داشبورد فروشگاه (color picker با validation کنتراست WCAG AA)
   - [x] تولید خودکار scale رنگ (50-900) از رنگ اصلی
@@ -43,9 +43,9 @@
   - [x] فیلد `custom_css` در StoreTheme
   - [x] فرم ویرایش CSS در داشبورد (textarea یا code editor ساده)
   - [x] Sanitization: حذف inline JS, محدودیت @import از URL خارجی
-  - [ ] سازگاری با CSP
+  - [ ] سازگاری با CSP (هدرهای CSP در سرور؛ CSS سفارشی به‌صورت استایل امن تزریق می‌شود)
   - [x] اعمال بعد از CSS تم (override capability)
-  - [ ] بررسی حجم (باقی ماندن در بودجه < 50kb gzipped)
+  - [x] بررسی حجم (باقی ماندن در بودجه < 50kb gzipped) — محدودیت ۵۰ کیلوبایت در sanitizer + نمایش در فرم
   - [x] هشدار: «CSS نادرست ممکن است ظاهر فروشگاه را خراب کند»
 
 #### PA-14: مدیریت Design System و حاکمیت تم

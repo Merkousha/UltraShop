@@ -54,6 +54,22 @@
     </table>
 </div>
 
+<div class="bg-white rounded-lg shadow p-6 mb-6">
+    <h3 class="font-semibold mb-3">مرسولات (بازتاب وضعیت از پنل ادمین)</h3>
+    <ul class="space-y-2 text-sm">
+    {% for shipment in order.shipments.all %}
+        <li class="flex flex-wrap gap-3 items-center border-b border-gray-100 pb-2">
+            <span class="font-medium">مرسوله #{{ shipment.pk }}</span>
+            <span class="px-2 py-0.5 rounded text-xs {% if shipment.status == 'delivered' %}bg-green-100 text-green-700{% elif shipment.status == 'exception' %}bg-red-100 text-red-700{% else %}bg-blue-100 text-blue-700{% endif %}">{{ shipment.get_status_display }}</span>
+            {% if shipment.tracking_number %}<span class="text-gray-500" dir="ltr">کد رهگیری: {{ shipment.tracking_number }}</span>{% endif %}
+            <span class="text-gray-400 text-xs">{{ shipment.updated_at|date:"Y/m/d H:i" }}</span>
+        </li>
+    {% empty %}
+        <li class="text-gray-400">مرسوله‌ای ثبت نشده.</li>
+    {% endfor %}
+    </ul>
+</div>
+
 <div class="bg-white rounded-lg shadow p-6">
     <h3 class="font-semibold mb-3">تاریخچه وضعیت</h3>
     <ul class="space-y-2 text-sm">

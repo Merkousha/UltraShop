@@ -68,11 +68,22 @@ class DashboardHomeView(LoginRequiredMixin, TemplateView):
                     request.session["current_store_id"] = first.pk
                     request.session.modified = True
             else:
-                # User has no store (e.g. old account or edge case): create default store
+                # User has no store (e.g. old account or edge case): create default store (PA-11, PA-12)
+                ps = PlatformSettings.load()
+                reserved = set(ps.reserved_usernames or [])
+                base_username = f"store-{user.pk}"
+                username = base_username
+                suffix = 0
+                while username in reserved or Store.objects.filter(username=username).exists():
+                    suffix += 1
+                    username = f"{base_username}-{suffix}"
                 store = Store.objects.create(
                     owner=user,
                     name="فروشگاه من",
-                    username=f"store-{user.pk}",
+                    username=username,
+                    timezone=ps.default_timezone,
+                    currency=ps.default_currency,
+                    allow_guest_checkout=ps.default_guest_checkout,
                 )
                 request.session["current_store_id"] = store.pk
                 request.session.modified = True
@@ -337,6 +348,9 @@ class ProductBulkActionView(StoreAccessMixin, View):
             stock_value = int(request.POST.get("stock_value", 0))
             ProductVariant.objects.filter(product__in=products).update(stock=stock_value)
 
+        count = products.count()
+        if count > 0:
+            messages.success(request, f"{count} محصول به‌روزرسانی شد.")
         return redirect("dashboard:product-list")
 
 
