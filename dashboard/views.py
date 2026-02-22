@@ -363,6 +363,37 @@ class CategoryListView(StoreAccessMixin, ListView):
         return Category.objects.filter(store=self.request.current_store)
 
 
+class CategoryCreateView(StoreAccessMixin, TemplateView):
+    template_name = "dashboard/category_form.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["categories"] = Category.objects.filter(store=self.request.current_store)
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        store = request.current_store
+        name = (request.POST.get("name") or "").strip()
+        if not name:
+            messages.error(request, "نام دسته‌بندی را وارد کنید.")
+            return redirect("dashboard:category-create")
+        parent_id = request.POST.get("parent_id") or ""
+        parent = None
+        if parent_id:
+            parent = Category.objects.filter(pk=parent_id, store=store).first()
+        description = (request.POST.get("description") or "").strip()
+        slug = (request.POST.get("slug") or "").strip()
+        Category.objects.create(
+            store=store,
+            parent=parent,
+            name=name,
+            slug=slug or slugify(name, allow_unicode=True),
+            description=description,
+        )
+        messages.success(request, f"دسته‌بندی «{name}» اضافه شد.")
+        return redirect("dashboard:category-list")
+
+
 # ─── Orders ────────────────────────────────────────────────
 class OrderListView(StoreAccessMixin, ListView):
     template_name = "dashboard/order_list.html"

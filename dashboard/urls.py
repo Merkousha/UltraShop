@@ -21,6 +21,7 @@ urlpatterns = [
 
     # Categories
     path("categories/", views.CategoryListView.as_view(), name="category-list"),
+    path("categories/add/", views.CategoryCreateView.as_view(), name="category-create"),
 
     # Orders
     path("orders/", views.OrderListView.as_view(), name="order-list"),

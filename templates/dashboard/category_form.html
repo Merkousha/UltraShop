@@ -1,0 +1,47 @@
+{% extends "dashboard/base.html" %}
+{% block title %}افزودن دسته‌بندی{% endblock %}
+{% block content %}
+<div class="max-w-xl">
+    <div class="flex items-center gap-3 mb-6">
+        <a href="{% url 'dashboard:category-list' %}" class="text-indigo-600 text-sm hover:underline">← دسته‌بندی‌ها</a>
+        <h2 class="text-2xl font-bold">افزودن دسته‌بندی</h2>
+    </div>
+
+    {% if messages %}
+    <div class="mb-4">
+        {% for msg in messages %}
+        <div class="p-3 rounded text-sm {% if msg.tags == 'error' %}bg-red-100 text-red-700{% else %}bg-green-100 text-green-700{% endif %}">{{ msg }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <form method="post" class="bg-white rounded-lg shadow p-6 space-y-4">
+        {% csrf_token %}
+        <div>
+            <label class="block text-sm font-medium mb-1">نام دسته‌بندی <span class="text-red-500">*</span></label>
+            <input type="text" name="name" required class="w-full border rounded px-3 py-2 text-sm" placeholder="مثال: لوازم الکترونیکی">
+        </div>
+        <div>
+            <label class="block text-sm font-medium mb-1">دسته والد</label>
+            <select name="parent_id" class="w-full border rounded px-3 py-2 text-sm">
+                <option value="">— بدون والد (دسته اصلی)</option>
+                {% for cat in categories %}
+                <option value="{{ cat.pk }}">{{ cat.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="block text-sm font-medium mb-1">نامک (اختیاری)</label>
+            <input type="text" name="slug" class="w-full border rounded px-3 py-2 text-sm" dir="ltr" placeholder="خالی بگذارید تا از نام ساخته شود">
+        </div>
+        <div>
+            <label class="block text-sm font-medium mb-1">توضیحات</label>
+            <textarea name="description" rows="3" class="w-full border rounded px-3 py-2 text-sm" placeholder="اختیاری"></textarea>
+        </div>
+        <div class="flex gap-3">
+            <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded text-sm hover:bg-indigo-700">ذخیره</button>
+            <a href="{% url 'dashboard:category-list' %}" class="bg-gray-200 text-gray-700 px-6 py-2 rounded text-sm hover:bg-gray-300">انصراف</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
