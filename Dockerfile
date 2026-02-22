@@ -26,6 +26,9 @@ RUN addgroup --system app && adduser --system --ingroup app app && \
     chown -R app:app /app
 USER app
 
+# Persist data: mount a volume at /app/data and set env DJANGO_DB_PATH=/app/data/db.sqlite3
+VOLUME /app/data
+
 EXPOSE 8080
 
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
