@@ -1,3 +1,49 @@
-from django.shortcuts import render
+from django.contrib.auth import login
+from django.shortcuts import redirect, render
 
-# Create your views here.
+from .models import Store, User
+
+
+def signup_view(request):
+    """Email-based signup for store owners. Redirects to dashboard home on success."""
+    if request.user.is_authenticated:
+        return redirect("dashboard:home")
+
+    error = None
+    if request.method == "POST":
+        email = (request.POST.get("email") or "").strip().lower()
+        password = request.POST.get("password") or ""
+        password_confirm = request.POST.get("password_confirm") or ""
+
+        if not email:
+            error = "ایمیل را وارد کنید."
+        elif not password:
+            error = "رمز عبور را وارد کنید."
+        elif len(password) < 8:
+            error = "رمز عبور باید حداقل ۸ کاراکتر باشد."
+        elif password != password_confirm:
+            error = "تکرار رمز عبور با رمز عبور یکسان نیست."
+        elif User.objects.filter(email=email).exists():
+            error = "این ایمیل قبلاً ثبت شده است."
+        else:
+            user = User.objects.create_user(
+                username=email,
+                email=email,
+                password=password,
+            )
+            login(request, user)
+            # Create a default store so new users can use the dashboard (categories, products, etc.)
+            store = Store.objects.create(
+                owner=user,
+                name="فروشگاه من",
+                username=f"store-{user.pk}",
+            )
+            request.session["current_store_id"] = store.pk
+            request.session.modified = True
+            return redirect("dashboard:home")
+
+    return render(
+        request,
+        "accounts/signup.html",
+        {"error": error, "email": request.POST.get("email", "").strip() if request.method == "POST" else ""},
+    )

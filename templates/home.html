@@ -220,7 +220,7 @@
             <a href="{% url 'dashboard:home' %}" class="btn-neon text-black font-bold px-6 py-2.5 rounded-xl text-sm">داشبورد من</a>
             {% else %}
             <a href="{% url 'accounts:login' %}" class="btn-outline-neon px-5 py-2 rounded-xl text-sm">ورود</a>
-            <a href="{% url 'accounts:login' %}" class="btn-neon text-black font-bold px-6 py-2.5 rounded-xl text-sm hidden sm:inline-block">ساخت فروشگاه رایگان</a>
+            <a href="{% url 'accounts:signup' %}" class="btn-neon text-black font-bold px-6 py-2.5 rounded-xl text-sm hidden sm:inline-block">ساخت فروشگاه رایگان</a>
             {% endif %}
         </div>
     </div>
@@ -260,7 +260,7 @@
             {% if user.is_authenticated %}
             <a href="{% url 'dashboard:home' %}" class="btn-neon text-black font-bold px-10 py-4 rounded-2xl text-lg">رفتن به داشبورد ←</a>
             {% else %}
-            <a href="{% url 'accounts:login' %}" class="btn-neon text-black font-bold px-10 py-4 rounded-2xl text-lg">رایگان شروع کن ←</a>
+            <a href="{% url 'accounts:signup' %}" class="btn-neon text-black font-bold px-10 py-4 rounded-2xl text-lg">رایگان شروع کن ←</a>
             <a href="#features" class="btn-outline-neon px-10 py-4 rounded-2xl text-lg">مشاهده امکانات</a>
             {% endif %}
         </div>
@@ -457,7 +457,7 @@
             {% if user.is_authenticated %}
             <a href="{% url 'dashboard:home' %}" class="btn-neon text-black font-bold px-12 py-4 rounded-2xl text-lg">رفتن به داشبورد</a>
             {% else %}
-            <a href="{% url 'accounts:login' %}" class="btn-neon text-black font-bold px-12 py-4 rounded-2xl text-lg">رایگان شروع کن ←</a>
+            <a href="{% url 'accounts:signup' %}" class="btn-neon text-black font-bold px-12 py-4 rounded-2xl text-lg">رایگان شروع کن ←</a>
             {% endif %}
         </div>
     </div>
@@ -544,6 +544,7 @@
                 <a href="mailto:{{ platform_settings.support_email }}" class="hover:text-cyan-400 transition">{{ platform_settings.support_email }}</a>
                 {% endif %}
                 <a href="{% url 'accounts:login' %}" class="hover:text-cyan-400 transition">ورود</a>
+                <a href="{% url 'accounts:signup' %}" class="hover:text-cyan-400 transition">ثبت‌نام</a>
                 <a href="#features" class="hover:text-cyan-400 transition">امکانات</a>
             </div>
             <p class="text-xs text-gray-600">© تمامی حقوق محفوظ است — {{ platform_settings.name|default:"UltraShop" }}</p>

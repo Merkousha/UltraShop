@@ -14,7 +14,9 @@
     {% block extra_head %}{% endblock %}
 </head>
 <body class="bg-gray-50 text-gray-900 min-h-screen">
-    {% block body %}{% endblock %}
+    {% block body %}
+    {% block content %}{% endblock %}
+    {% endblock %}
     {% block extra_scripts %}{% endblock %}
 </body>
 </html>

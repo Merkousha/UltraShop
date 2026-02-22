@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}ثبت‌نام{% endblock %}
+{% block content %}
+<div class="max-w-md mx-auto mt-20">
+    <div class="bg-white rounded-lg shadow p-8">
+        <h2 class="text-2xl font-bold text-center mb-6">ثبت‌نام و ساخت فروشگاه</h2>
+
+        {% if error %}
+        <div class="bg-red-50 border border-red-200 rounded p-3 mb-4 text-sm text-red-700">{{ error }}</div>
+        {% endif %}
+
+        <form method="post" class="space-y-4">
+            {% csrf_token %}
+            <div>
+                <label class="block text-sm font-medium mb-1">ایمیل</label>
+                <input type="email" name="email" required class="w-full border rounded px-3 py-2 text-sm" autofocus value="{{ email|default:'' }}">
+            </div>
+            <div>
+                <label class="block text-sm font-medium mb-1">رمز عبور</label>
+                <input type="password" name="password" required minlength="8" class="w-full border rounded px-3 py-2 text-sm" placeholder="حداقل ۸ کاراکتر">
+            </div>
+            <div>
+                <label class="block text-sm font-medium mb-1">تکرار رمز عبور</label>
+                <input type="password" name="password_confirm" required minlength="8" class="w-full border rounded px-3 py-2 text-sm">
+            </div>
+            <button type="submit" class="w-full bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700">ثبت‌نام</button>
+        </form>
+
+        <p class="text-center text-sm text-gray-500 mt-4">
+            قبلاً ثبت‌نام کرده‌اید؟
+            <a href="{% url 'accounts:login' %}" class="text-indigo-600 hover:underline">ورود</a>
+        </p>
+    </div>
+</div>
+{% endblock %}

@@ -5,11 +5,12 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Q, F
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect
+from django.utils.text import slugify
 from django.views import View
 from django.views.generic import ListView, TemplateView
 
 from catalog.models import Category, Product, ProductImage, ProductVariant
-from core.models import Store, StoreStaff, StoreTheme, ThemePreset
+from core.models import PlatformSettings, Store, StoreStaff, StoreTheme, ThemePreset
 from core.theme_service import generate_color_scale, validate_contrast
 from core.css_sanitizer import sanitize_css
 from orders.models import Order
@@ -41,6 +42,41 @@ class StoreAccessMixin(LoginRequiredMixin):
 
 class DashboardHomeView(LoginRequiredMixin, TemplateView):
     template_name = "dashboard/home.html"
+
+    def get(self, request, *args, **kwargs):
+        user = request.user
+        owned = Store.objects.filter(owner=user)
+        staff = Store.objects.filter(staff_members__user=user)
+        stores = (owned | staff).distinct()
+
+        # If current_store_id is set but invalid (deleted or no access), clear it
+        current_id = request.session.get("current_store_id")
+        if current_id:
+            store = Store.objects.filter(pk=current_id).first()
+            if not store or (store.owner != user and not StoreStaff.objects.filter(store=store, user=user).exists()):
+                del request.session["current_store_id"]
+                request.session.modified = True
+                current_id = None
+
+        # No store selected: auto-select or create one so dashboard links (products, categories, etc.) work
+        if not current_id:
+            if stores:
+                first = stores.first()
+                if first and (
+                    first.owner == user or StoreStaff.objects.filter(store=first, user=user).exists()
+                ):
+                    request.session["current_store_id"] = first.pk
+                    request.session.modified = True
+            else:
+                # User has no store (e.g. old account or edge case): create default store
+                store = Store.objects.create(
+                    owner=user,
+                    name="فروشگاه من",
+                    username=f"store-{user.pk}",
+                )
+                request.session["current_store_id"] = store.pk
+                request.session.modified = True
+        return super().get(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -367,14 +403,37 @@ class StoreSettingsView(StoreAccessMixin, TemplateView):
         store = request.current_store
         if store.owner != request.user:
             return redirect("dashboard:store-settings")
-        store.name = request.POST.get("name", store.name)
-        store.description = request.POST.get("description", store.description)
+
+        store.name = request.POST.get("store_name", request.POST.get("name", store.name))
+        store.description = request.POST.get("store_description", request.POST.get("description", store.description))
         store.phone = request.POST.get("phone", store.phone)
         store.support_email = request.POST.get("support_email", store.support_email)
         store.allow_guest_checkout = request.POST.get("allow_guest_checkout") == "on"
         if request.FILES.get("logo"):
             store.logo = request.FILES["logo"]
+
+        # Editable username: normalize to slug and check availability
+        raw_username = (request.POST.get("username") or "").strip().lower()
+        if raw_username:
+            slug = slugify(raw_username, allow_unicode=False)
+            slug = "".join(c for c in slug if c.isalnum() or c == "-").strip("-") or None
+            if not slug or len(slug) < 2:
+                messages.error(request, "نام‌کاربری باید حداقل ۲ کاراکتر و فقط حروف انگلیسی، عدد و خط تیره باشد.")
+                return redirect("dashboard:store-settings")
+            if len(slug) > 60:
+                messages.error(request, "نام‌کاربری نباید بیشتر از ۶۰ کاراکتر باشد.")
+                return redirect("dashboard:store-settings")
+            reserved = list(PlatformSettings.load().reserved_usernames or [])
+            if slug in reserved:
+                messages.error(request, "این نام‌کاربری رزرو شده و قابل استفاده نیست.")
+                return redirect("dashboard:store-settings")
+            if Store.objects.filter(username=slug).exclude(pk=store.pk).exists():
+                messages.error(request, "این نام‌کاربری قبلاً انتخاب شده. یک نام دیگر وارد کنید.")
+                return redirect("dashboard:store-settings")
+            store.username = slug
+
         store.save()
+        messages.success(request, "تنظیمات ذخیره شد.")
         return redirect("dashboard:store-settings")
 
 

@@ -21,6 +21,11 @@
             </div>
             <button type="submit" class="w-full bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700">ورود</button>
         </form>
+
+        <p class="text-center text-sm text-gray-500 mt-4">
+            حساب کاربری ندارید؟
+            <a href="{% url 'accounts:signup' %}" class="text-indigo-600 hover:underline">ثبت‌نام</a>
+        </p>
     </div>
 </div>
 {% endblock %}

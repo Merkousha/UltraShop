@@ -7,13 +7,19 @@
     {% for store in stores %}
     <div class="bg-white rounded-lg shadow p-5 {% if store.pk == current_store_id %}ring-2 ring-indigo-500{% endif %}">
         <h3 class="font-bold text-lg">{{ store.name }}</h3>
-        <p class="text-sm text-gray-500 mb-3">{{ store.username }}.ultra-shop.com</p>
-        <form method="post" action="{% url 'dashboard:select-store' store.pk %}">
-            {% csrf_token %}
-            <button class="bg-indigo-600 text-white px-4 py-2 rounded text-sm hover:bg-indigo-700">
-                {% if store.pk == current_store_id %}✓ انتخاب شده{% else %}انتخاب{% endif %}
-            </button>
-        </form>
+        <p class="text-sm text-gray-500 mt-1 mb-0.5" dir="ltr">{{ store.username }}.ultra-shop.com</p>
+        <p class="text-sm text-gray-500 mb-3" dir="ltr">/s/{{ store.username }}/</p>
+        <div class="flex flex-wrap gap-2">
+            <form method="post" action="{% url 'dashboard:select-store' store.pk %}" class="inline">
+                {% csrf_token %}
+                <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded text-sm hover:bg-indigo-700">
+                    {% if store.pk == current_store_id %}✓ انتخاب شده{% else %}انتخاب{% endif %}
+                </button>
+            </form>
+            <a href="{% url 'storefront:home' store_username=store.username %}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center px-4 py-2 rounded text-sm border border-indigo-600 text-indigo-600 hover:bg-indigo-50">
+                نمایش فروشگاه
+            </a>
+        </div>
     </div>
     {% endfor %}
 </div>

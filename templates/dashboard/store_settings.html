@@ -22,8 +22,8 @@
         </div>
         <div>
             <label class="block text-sm font-medium mb-1">نام‌کاربری (آدرس فروشگاه)</label>
-            <input type="text" name="username" value="{{ store.username }}" class="w-full border rounded px-3 py-2 text-sm" dir="ltr" disabled>
-            <p class="text-xs text-gray-400 mt-1">نام‌کاربری قابل تغییر نیست.</p>
+            <input type="text" name="username" value="{{ store.username }}" class="w-full border rounded px-3 py-2 text-sm" dir="ltr" pattern="[a-zA-Z0-9\-]+" minlength="2" maxlength="60" placeholder="مثال: my-shop">
+            <p class="text-xs text-gray-400 mt-1">فقط حروف انگلیسی، عدد و خط تیره. آدرس فروشگاه: <span dir="ltr" class="text-gray-600">{{ store.username }}.ultra-shop.com</span></p>
         </div>
     </div>
 
