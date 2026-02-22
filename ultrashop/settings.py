@@ -24,6 +24,24 @@ if "helpio.ir" not in ALLOWED_HOSTS:
 if "ultrashop.darkube.app" not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.append("ultrashop.darkube.app")
 
+# CSRF trusted origins (scheme + host[:port]) for form POSTs from these domains
+_trusted_hosts = [h.strip() for h in os.environ.get("ALLOWED_HOSTS", "*").split(",") if h.strip() and h.strip() != "*"]
+if "helpio.ir" not in _trusted_hosts:
+    _trusted_hosts += ["helpio.ir", "www.helpio.ir"]
+if "ultrashop.darkube.app" not in _trusted_hosts:
+    _trusted_hosts.append("ultrashop.darkube.app")
+CSRF_TRUSTED_ORIGINS = []
+for host in _trusted_hosts:
+    if host in ("localhost", "127.0.0.1"):
+        CSRF_TRUSTED_ORIGINS.append(f"http://{host}:8080")
+    else:
+        CSRF_TRUSTED_ORIGINS.append(f"https://{host}")
+# Dev: when using default ALLOWED_HOSTS or DEBUG, allow local server (runserver 8080)
+if not CSRF_TRUSTED_ORIGINS or DEBUG:
+    for origin in ("http://127.0.0.1:8080", "http://localhost:8080"):
+        if origin not in CSRF_TRUSTED_ORIGINS:
+            CSRF_TRUSTED_ORIGINS.append(origin)
+
 AUTH_USER_MODEL = "core.User"
 
 INSTALLED_APPS = [
