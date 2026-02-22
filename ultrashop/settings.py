@@ -21,6 +21,8 @@ DEBUG = os.environ.get("DJANGO_DEBUG", "True").lower() in ("true", "1", "yes")
 ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "*").split(",")
 if "helpio.ir" not in ALLOWED_HOSTS:
     ALLOWED_HOSTS += ["helpio.ir", "www.helpio.ir"]
+if "ultrashop.darkube.app" not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append("ultrashop.darkube.app")
 
 AUTH_USER_MODEL = "core.User"
 
