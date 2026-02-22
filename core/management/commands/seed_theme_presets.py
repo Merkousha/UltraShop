@@ -10,6 +10,7 @@ PRESETS = [
         "tokens": {
             "radius": "sm", "shadow": "sm", "spacing": "relaxed", "animation": "subtle",
             "primary_color": "#6366f1",
+            "typography": "minimal", "heading_scale": "tight", "component_defaults": "flat",
         },
         "version": "1.0.0",
     },
@@ -20,6 +21,7 @@ PRESETS = [
         "tokens": {
             "radius": "md", "shadow": "lg", "spacing": "compact", "animation": "bold",
             "primary_color": "#ef4444",
+            "typography": "bold", "heading_scale": "expanded", "component_defaults": "elevated",
         },
         "version": "1.0.0",
     },
@@ -30,6 +32,7 @@ PRESETS = [
         "tokens": {
             "radius": "lg", "shadow": "md", "spacing": "generous", "animation": "smooth",
             "primary_color": "#8b5cf6",
+            "typography": "elegant", "heading_scale": "relaxed", "component_defaults": "soft",
         },
         "version": "1.0.0",
     },
@@ -40,6 +43,7 @@ PRESETS = [
         "tokens": {
             "radius": "full", "shadow": "md", "spacing": "balanced", "animation": "playful",
             "primary_color": "#f59e0b",
+            "typography": "playful", "heading_scale": "balanced", "component_defaults": "rounded",
         },
         "version": "1.0.0",
     },

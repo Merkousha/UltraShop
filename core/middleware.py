@@ -4,6 +4,26 @@ from django.conf import settings
 from core.models import Store, StoreDomain
 
 
+class CSPMiddleware:
+    """
+    Set Content-Security-Policy header. Custom CSS is injected as <style> (safe).
+    Set CSP_ENABLED=False in settings to disable.
+    """
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+        if getattr(settings, "CSP_ENABLED", True) and hasattr(response, "get"):
+            csp = getattr(
+                settings,
+                "CSP_HEADER",
+                "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; script-src 'self';",
+            )
+            response["Content-Security-Policy"] = csp
+        return response
+
+
 class StoreMiddleware:
     """
     Resolve current store from subdomain or custom domain.

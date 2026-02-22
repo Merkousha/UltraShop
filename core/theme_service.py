@@ -100,11 +100,18 @@ def validate_contrast(theme):
 
 
 def compile_store_css(store):
-    """Compile full CSS variable block for a store's theme."""
+    """Compile full CSS variable block for a store's theme. Cached per store + theme version."""
+    from django.conf import settings
+    from django.core.cache import cache
     from core.models import StoreTheme
     from core.css_sanitizer import sanitize_css
 
     theme, _ = StoreTheme.objects.get_or_create(store=store)
+    cache_key = f"store_theme_css:{store.pk}:v{theme.version}"
+    timeout = getattr(settings, "THEME_CSS_CACHE_TIMEOUT", 300)
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
 
     primary_scale = generate_color_scale(theme.primary_color)
     secondary_scale = generate_color_scale(theme.secondary_color)
@@ -161,4 +168,5 @@ def compile_store_css(store):
         if sanitized:
             css += "\n\n" + sanitized
 
+    cache.set(cache_key, css, timeout)
     return css

@@ -60,7 +60,7 @@
                     <td class="px-4 py-3 flex gap-2">
                         <a href="{% url 'platform_admin:theme-preset-edit' preset.pk %}" class="text-indigo-600 hover:underline text-xs">ویرایش</a>
                         {% if preset.status != "deprecated" %}
-                        <form method="post" action="{% url 'platform_admin:theme-preset-deprecate' preset.pk %}" class="inline" onsubmit="return confirm('آیا مطمئنید؟')">
+                        <form method="post" action="{% url 'platform_admin:theme-preset-deprecate' preset.pk %}" class="inline" onsubmit="return confirm('{{ preset.store_count }} فروشگاه از این پریست استفاده می‌کنند. پس از منسوخ‌سازی، آن‌ها می‌توانند در داشبورد پوسته دیگری انتخاب کنند. آیا مطمئنید؟');">
                             {% csrf_token %}
                             <button type="submit" class="text-red-500 hover:underline text-xs">منسوخ کردن</button>
                         </form>

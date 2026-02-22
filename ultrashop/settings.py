@@ -73,6 +73,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "core.middleware.CSPMiddleware",
     "core.middleware.StoreMiddleware",
 ]
 
@@ -95,6 +96,15 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = "ultrashop.wsgi.application"
+
+# Cache (for theme CSS per store; use Redis in production if needed)
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "ultrashop-default",
+    }
+}
+THEME_CSS_CACHE_TIMEOUT = 300  # seconds (5 min)
 
 # Database path: set DJANGO_DB_PATH in Docker to persist db (e.g. /app/data/db.sqlite3)
 _db_path = os.environ.get("DJANGO_DB_PATH")

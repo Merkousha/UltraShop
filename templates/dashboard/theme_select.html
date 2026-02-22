@@ -14,17 +14,29 @@
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         {% for preset in presets %}
         <div class="bg-white rounded-lg border-2 p-6 {% if current_theme.theme_preset_id == preset.pk %}border-indigo-500{% else %}border-gray-200 hover:border-gray-300{% endif %}">
-            <div class="flex items-center justify-between mb-3">
-                <h3 class="text-lg font-semibold">{{ preset.name }}</h3>
-                {% if current_theme.theme_preset_id == preset.pk %}
-                <span class="bg-indigo-100 text-indigo-700 text-xs px-2 py-1 rounded">فعال</span>
+            <div class="flex items-center gap-4 mb-3">
+                {% if preset.thumbnail %}
+                <img src="{{ preset.thumbnail.url }}" alt="{{ preset.name }}" class="w-20 h-20 object-cover rounded-lg border border-gray-200">
+                {% else %}
+                <div class="w-20 h-20 rounded-lg border border-gray-200 flex items-center justify-center text-xs text-white font-bold" style="background-color: {{ preset.tokens.primary_color|default:'#6366f1' }};">پیش‌نمایش</div>
                 {% endif %}
+                <div class="flex-1">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-lg font-semibold">{{ preset.name }}</h3>
+                        {% if current_theme.theme_preset_id == preset.pk %}
+                        <span class="bg-indigo-100 text-indigo-700 text-xs px-2 py-1 rounded">فعال</span>
+                        {% endif %}
+                    </div>
+                    <p class="text-gray-600 text-sm mt-1">{{ preset.description }}</p>
+                    <div class="flex items-center gap-2 mt-2 text-xs text-gray-500">
+                        <span>نسخه {{ preset.version }}</span>
+                        {% if preset.tokens.radius %}<span>• radius: {{ preset.tokens.radius }}</span>{% endif %}
+                        {% if preset.tokens.shadow %}<span>• shadow: {{ preset.tokens.shadow }}</span>{% endif %}
+                        {% if preset.tokens.spacing %}<span>• spacing: {{ preset.tokens.spacing }}</span>{% endif %}
+                    </div>
+                </div>
             </div>
-            <p class="text-gray-600 text-sm mb-4">{{ preset.description }}</p>
-            <div class="flex items-center gap-2 mb-4">
-                <span class="text-xs text-gray-500">نسخه {{ preset.version }}</span>
-            </div>
-            <form method="post">
+            <form method="post" class="mt-4">
                 {% csrf_token %}
                 <input type="hidden" name="preset_id" value="{{ preset.pk }}">
                 <button type="submit" class="w-full bg-indigo-600 text-white py-2 px-4 rounded hover:bg-indigo-700 text-sm">
