@@ -1,0 +1,23 @@
+{% extends "dashboard/base.html" %}
+{% block title %}تحلیل با AI{% endblock %}
+{% block content %}
+<div class="max-w-2xl mx-auto text-center">
+    <h2 class="text-2xl font-bold mb-4">مرحله ۲: پیشنهاد ظاهر فروشگاه</h2>
+
+    {% if ai_available %}
+    <p class="text-gray-600 mb-6">با توجه به اطلاعات شما، AI یک تم و چیدمان پیشنهاد می‌دهد.</p>
+    <form method="post" class="bg-white rounded-lg shadow p-8">
+        {% csrf_token %}
+        <button type="submit" name="run_ai" value="1" class="bg-indigo-600 text-white px-8 py-3 rounded text-sm hover:bg-indigo-700">دریافت پیشنهاد با AI</button>
+    </form>
+    <p class="text-sm text-gray-500 mt-4">یک درخواست از اعتبار روزانه AI مصرف می‌شود.</p>
+    {% else %}
+    <p class="text-amber-700 bg-amber-50 p-4 rounded mb-4">سرویس AI در دسترس نیست یا اعتبار روزانه تمام شده. می‌توانید تم و چیدمان را خودتان انتخاب کنید.</p>
+    {% endif %}
+
+    <form method="post" class="mt-6">
+        {% csrf_token %}
+        <button type="submit" class="bg-gray-200 text-gray-700 px-6 py-2 rounded text-sm hover:bg-gray-300">رد کردن و انتخاب دستی تم</button>
+    </form>
+</div>
+{% endblock %}

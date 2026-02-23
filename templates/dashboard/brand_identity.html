@@ -1,0 +1,66 @@
+{% extends "dashboard/base.html" %}
+{% block title %}هویت برند با AI{% endblock %}
+{% block content %}
+<div class="max-w-2xl">
+    <h2 class="text-2xl font-bold mb-6">تولید هویت بصری برند با AI</h2>
+
+    {% if messages %}
+    <div class="mb-4">
+        {% for msg in messages %}
+        <div class="p-3 rounded text-sm {% if msg.tags == 'error' %}bg-red-100 text-red-700{% else %}bg-green-100 text-green-700{% endif %}">{{ msg }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if ai_available %}
+    <div class="bg-white rounded-lg shadow p-6 mb-6">
+        <h3 class="font-semibold mb-3">تولید شعار و داستان برند</h3>
+        <form method="post" class="space-y-3">
+            {% csrf_token %}
+            <input type="hidden" name="generate" value="1">
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-sm font-medium mb-1">نام برند</label>
+                    <input type="text" name="brand_name" value="{{ store.name }}" class="w-full border rounded px-3 py-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">نوع کسب‌وکار</label>
+                    <input type="text" name="business_type" class="w-full border rounded px-3 py-2 text-sm" placeholder="مثال: پوشاک">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-sm font-medium mb-1">سبک</label>
+                    <input type="text" name="style" class="w-full border rounded px-3 py-2 text-sm" placeholder="مینیمال، لوکس، ...">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">رنگ پایه</label>
+                    <input type="text" name="base_color" class="w-full border rounded px-3 py-2 text-sm" placeholder="آبی، #6366f1">
+                </div>
+            </div>
+            <button type="submit" class="bg-amber-500 text-white px-4 py-2 rounded text-sm hover:bg-amber-600">تولید با AI</button>
+        </form>
+        <p class="text-xs text-gray-500 mt-2">اعتبار امروز: {{ ai_usage.0 }}/{{ ai_usage.1 }}</p>
+    </div>
+    {% endif %}
+
+    <div class="bg-white rounded-lg shadow p-6">
+        <h3 class="font-semibold mb-3">شعار و توضیح فروشگاه (قابل ویرایش و اعمال)</h3>
+        <form method="post" class="space-y-4">
+            {% csrf_token %}
+            <input type="hidden" name="apply" value="1">
+            <div>
+                <label class="block text-sm font-medium mb-1">شعار (tagline)</label>
+                <input type="text" name="tagline" value="{{ tagline|default:'' }}" maxlength="300" class="w-full border rounded px-3 py-2 text-sm" placeholder="یک جمله کوتاه">
+            </div>
+            <div>
+                <label class="block text-sm font-medium mb-1">داستان برند / توضیحات فروشگاه</label>
+                <textarea name="description" rows="4" class="w-full border rounded px-3 py-2 text-sm" placeholder="۲–۴ جمله درباره برند و ارزش‌ها">{{ brand_story|default:store.description }}</textarea>
+            </div>
+            <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded text-sm hover:bg-indigo-700">اعمال روی فروشگاه</button>
+        </form>
+    </div>
+
+    <p class="mt-4 text-sm text-gray-500">لوگو و favicon را می‌توانید از تنظیمات فروشگاه آپلود کنید.</p>
+</div>
+{% endblock %}

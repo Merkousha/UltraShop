@@ -1,0 +1,31 @@
+{% extends "dashboard/base.html" %}
+{% block title %}تأیید پیشنهاد{% endblock %}
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <h2 class="text-2xl font-bold mb-4">مرحله ۳: تأیید و اعمال</h2>
+
+    {% if suggestion %}
+    <div class="bg-white rounded-lg shadow p-6 mb-6 space-y-4">
+        <p class="text-gray-600">پیشنهاد AI برای فروشگاه شما:</p>
+        <ul class="list-disc list-inside text-sm space-y-1">
+            <li><strong>تم:</strong> {{ suggestion.theme_slug }}</li>
+            <li><strong>رنگ اصلی:</strong> <span class="inline-block w-6 h-6 rounded border" style="background:{{ suggestion.primary_color }}"></span> {{ suggestion.primary_color }}</li>
+            <li><strong>رنگ ثانویه:</strong> {{ suggestion.secondary_color }}</li>
+            <li><strong>رنگ تأکید:</strong> {{ suggestion.accent_color }}</li>
+            <li><strong>چیدمان صفحه اصلی:</strong> {{ suggestion.block_order|join:", " }}</li>
+        </ul>
+    </div>
+    <form method="post" class="flex gap-3">
+        {% csrf_token %}
+        <button type="submit" name="apply" value="1" class="bg-indigo-600 text-white px-6 py-2 rounded text-sm hover:bg-indigo-700">اعمال همه</button>
+        <button type="submit" name="start_from_scratch" value="1" class="bg-gray-200 text-gray-700 px-6 py-2 rounded text-sm hover:bg-gray-300">شروع از صفر (انتخاب دستی)</button>
+    </form>
+    {% else %}
+    <p class="text-gray-600 mb-4">پیشنهاد AI دریافت نشد. تم و چیدمان را خودتان از داشبورد انتخاب کنید.</p>
+    <form method="post">
+        {% csrf_token %}
+        <button type="submit" name="start_from_scratch" value="1" class="bg-indigo-600 text-white px-6 py-2 rounded text-sm hover:bg-indigo-700">رفتن به انتخاب تم</button>
+    </form>
+    {% endif %}
+</div>
+{% endblock %}

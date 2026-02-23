@@ -48,6 +48,12 @@ urlpatterns = [
     path("theme/customize/", views.ThemeCustomizeView.as_view(), name="theme-customize"),
     path("theme/custom-css/", views.ThemeCustomCSSView.as_view(), name="theme-custom-css"),
 
+    # SO-06: Onboarding wizard
+    path("onboarding/", views.OnboardingWizardView.as_view(), name="onboarding"),
+
+    # SO-07: Brand identity (AI)
+    path("brand-identity/", views.BrandIdentityView.as_view(), name="brand-identity"),
+
     # SO-46: Block page editor
     path("pages/edit/", views.PageEditorView.as_view(), name="page-editor"),
     path("pages/publish/", views.PagePublishView.as_view(), name="page-publish"),

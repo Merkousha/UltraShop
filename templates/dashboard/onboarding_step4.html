@@ -1,0 +1,18 @@
+{% extends "dashboard/base.html" %}
+{% block title %}اولین محصول{% endblock %}
+{% block content %}
+<div class="max-w-2xl mx-auto text-center">
+    <h2 class="text-2xl font-bold mb-4">فروشگاه شما آماده است</h2>
+    <p class="text-gray-600 mb-6">می‌توانید اولین محصول را اضافه کنید یا بعداً از داشبورد این کار را انجام دهید.</p>
+
+    <div class="flex flex-col sm:flex-row gap-3 justify-center mb-8">
+        <a href="{% url 'dashboard:product-from-image' %}" class="bg-amber-500 text-white px-6 py-3 rounded text-sm hover:bg-amber-600">📷 ساخت محصول از عکس (AI)</a>
+        <a href="{% url 'dashboard:product-create' %}" class="bg-indigo-600 text-white px-6 py-3 rounded text-sm hover:bg-indigo-700">➕ افزودن محصول دستی</a>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+        <button type="submit" name="done" value="1" class="bg-gray-200 text-gray-700 px-6 py-2 rounded text-sm hover:bg-gray-300">رفتن به داشبورد</button>
+    </form>
+</div>
+{% endblock %}

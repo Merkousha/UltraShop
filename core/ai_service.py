@@ -181,3 +181,142 @@ Categories: {categories_str}
                 time.sleep(1.0 * (attempt + 1))
                 continue
             raise AIError(str(e), user_message="خطا در تولید SEO. فیلدها را دستی پر کنید.")
+
+
+def onboarding_suggest_theme(
+    business_type: str,
+    brand_name: str,
+    slogan: str,
+    audience: str,
+    style: str,
+    favorite_color: str,
+    store,
+    preset_slugs: list,
+    block_ids: list,
+) -> dict:
+    """
+    SO-06: Suggest theme preset + colors + home layout from onboarding answers. Consumes rate limit.
+    Returns dict: theme_slug, primary_color, secondary_color, accent_color, block_order (subset of block_ids).
+    """
+    _check_and_consume_rate_limit(store)
+    ps = PlatformSettings.load()
+    client = _get_client()
+    model = ps.text_model or "gpt-4o-mini"
+
+    presets_str = ", ".join(preset_slugs) if preset_slugs else "minimal, bold-commerce, elegant, creator"
+    blocks_str = ", ".join(block_ids) if block_ids else "hero, product_grid, category_grid, banner, newsletter, custom"
+
+    prompt = f"""You are an e-commerce design advisor. Based on the following store info, suggest a theme and layout.
+Respond with a JSON object only (no markdown):
+- "theme_slug": MUST be exactly one of: {presets_str}
+- "primary_color": hex color e.g. #6366f1 (main brand color)
+- "secondary_color": hex color
+- "accent_color": hex color (for CTAs/highlights)
+- "block_order": array of 4-6 block IDs for the home page, in order. Each must be one of: {blocks_str}. Example: ["hero", "product_grid", "category_grid", "banner", "newsletter"]
+
+Store info:
+- Business type: {business_type or "general"}
+- Brand name: {brand_name or "—"}
+- Slogan: {slogan or "—"}
+- Target audience: {audience or "—"}
+- Preferred style: {style or "—"}
+- Favorite color: {favorite_color or "—"}
+"""
+
+    max_retries = 2
+    for attempt in range(max_retries + 1):
+        try:
+            response = client.chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=512,
+            )
+            text = response.choices[0].message.content.strip()
+            if text.startswith("```"):
+                text = text.split("```")[1]
+                if text.startswith("json"):
+                    text = text[4:]
+                text = text.strip()
+            data = json.loads(text)
+            theme_slug = (data.get("theme_slug") or "minimal").strip().lower()
+            if theme_slug not in preset_slugs:
+                theme_slug = preset_slugs[0] if preset_slugs else "minimal"
+            order = data.get("block_order") or block_ids[:6]
+            order = [b for b in order if b in block_ids][:8]
+            if not order:
+                order = block_ids[:6]
+
+            def hex_val(s):
+                s = (s or "").strip()
+                if s.startswith("#") and len(s) in (4, 7):
+                    return s
+                return "#6366f1"
+
+            return {
+                "theme_slug": theme_slug,
+                "primary_color": hex_val(data.get("primary_color")),
+                "secondary_color": hex_val(data.get("secondary_color")),
+                "accent_color": hex_val(data.get("accent_color")),
+                "block_order": order,
+            }
+        except json.JSONDecodeError as e:
+            raise AIError(f"Invalid JSON: {e}", user_message="پیشنهاد نامعتبر. می‌توانید تم و چیدمان را دستی انتخاب کنید.")
+        except Exception as e:
+            if attempt < max_retries:
+                time.sleep(1.0 * (attempt + 1))
+                continue
+            raise AIError(str(e), user_message="خطا در تحلیل. می‌توانید از «شروع از صفر» استفاده کنید.")
+
+
+def text_generate_brand_identity(
+    brand_name: str,
+    business_type: str,
+    style: str,
+    base_color: str,
+    store,
+) -> dict:
+    """
+    SO-07: Generate tagline and brand story. Consumes rate limit.
+    Returns dict: tagline, brand_story.
+    """
+    _check_and_consume_rate_limit(store)
+    ps = PlatformSettings.load()
+    client = _get_client()
+    model = ps.text_model or "gpt-4o-mini"
+
+    prompt = f"""Generate brand identity copy in Persian (فارسی). Respond with a JSON object only (no markdown):
+- "tagline": short slogan for the brand, one short sentence (under 80 chars)
+- "brand_story": 2-4 sentences describing the brand story and values, in Persian
+
+Brand name: {brand_name or "—"}
+Business type: {business_type or "—"}
+Style: {style or "—"}
+Base color preference: {base_color or "—"}
+"""
+
+    max_retries = 2
+    for attempt in range(max_retries + 1):
+        try:
+            response = client.chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=512,
+            )
+            text = response.choices[0].message.content.strip()
+            if text.startswith("```"):
+                text = text.split("```")[1]
+                if text.startswith("json"):
+                    text = text[4:]
+                text = text.strip()
+            data = json.loads(text)
+            return {
+                "tagline": (data.get("tagline") or "")[:300],
+                "brand_story": (data.get("brand_story") or "")[:2000],
+            }
+        except json.JSONDecodeError as e:
+            raise AIError(f"Invalid JSON: {e}", user_message="خروجی نامعتبر. دوباره امتحان کنید.")
+        except Exception as e:
+            if attempt < max_retries:
+                time.sleep(1.0 * (attempt + 1))
+                continue
+            raise AIError(str(e), user_message="خطا در تولید هویت برند.")

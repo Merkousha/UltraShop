@@ -1,0 +1,55 @@
+{% extends "dashboard/base.html" %}
+{% block title %}راه‌اندازی فروشگاه{% endblock %}
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <h2 class="text-2xl font-bold mb-2">به UltraShop خوش آمدید</h2>
+    <p class="text-gray-600 mb-6">چند سؤال کوتاه تا ظاهر و چیدمان فروشگاه را پیشنهاد کنیم.</p>
+
+    <form method="post" class="bg-white rounded-lg shadow p-6 space-y-4">
+        {% csrf_token %}
+        <div>
+            <label class="block text-sm font-medium mb-1">نوع کسب‌وکار</label>
+            <select name="business_type" class="w-full border rounded px-3 py-2 text-sm">
+                <option value="">— انتخاب کنید</option>
+                <option value="پوشاک">پوشاک</option>
+                <option value="الکترونیک">الکترونیک</option>
+                <option value="غذا و رستوران">غذا و رستوران</option>
+                <option value="هنری و دست‌ساز">هنری و دست‌ساز</option>
+                <option value="زیبایی و سلامت">زیبایی و سلامت</option>
+                <option value="عمومی">عمومی</option>
+            </select>
+        </div>
+        <div>
+            <label class="block text-sm font-medium mb-1">نام برند</label>
+            <input type="text" name="brand_name" value="{{ data.brand_name|default:'' }}" class="w-full border rounded px-3 py-2 text-sm" placeholder="نام فروشگاه یا برند">
+        </div>
+        <div>
+            <label class="block text-sm font-medium mb-1">شعار (اختیاری)</label>
+            <input type="text" name="slogan" value="{{ data.slogan|default:'' }}" class="w-full border rounded px-3 py-2 text-sm" placeholder="یک جمله کوتاه درباره برند">
+        </div>
+        <div>
+            <label class="block text-sm font-medium mb-1">مخاطب هدف</label>
+            <input type="text" name="audience" value="{{ data.audience|default:'' }}" class="w-full border rounded px-3 py-2 text-sm" placeholder="مثال: جوانان، خانواده‌ها">
+        </div>
+        <div>
+            <label class="block text-sm font-medium mb-1">سبک ترجیحی</label>
+            <select name="style" class="w-full border rounded px-3 py-2 text-sm">
+                <option value="">— انتخاب کنید</option>
+                <option value="مینیمال">مینیمال</option>
+                <option value="لوکس">لوکس</option>
+                <option value="شاد و رنگارنگ">شاد و رنگارنگ</option>
+                <option value="حرفه‌ای">حرفه‌ای</option>
+                <option value="خلاقانه">خلاقانه</option>
+            </select>
+        </div>
+        <div>
+            <label class="block text-sm font-medium mb-1">رنگ موردعلاقه (اختیاری)</label>
+            <input type="text" name="favorite_color" value="{{ data.favorite_color|default:'' }}" class="w-full border rounded px-3 py-2 text-sm" placeholder="مثال: آبی، #6366f1">
+        </div>
+        <div class="flex gap-3 pt-4">
+            <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded text-sm hover:bg-indigo-700">ادامه و پیشنهاد با AI</button>
+            <button type="submit" name="skip_ai" value="1" class="bg-gray-200 text-gray-700 px-6 py-2 rounded text-sm hover:bg-gray-300">شروع از صفر (انتخاب دستی تم)</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

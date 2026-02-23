@@ -20,6 +20,7 @@ class Store(models.Model):
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="stores")
     name = models.CharField(max_length=200)
     username = models.SlugField(max_length=60, unique=True, help_text="Subdomain: username.ultra-shop.com")
+    tagline = models.CharField(max_length=300, blank=True, default="", help_text="Short slogan (SO-07)")
     description = models.TextField(blank=True, default="")
     logo = models.ImageField(upload_to="stores/logos/", blank=True, null=True)
     favicon = models.ImageField(upload_to="stores/favicons/", blank=True, null=True)

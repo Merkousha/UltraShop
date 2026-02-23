@@ -35,6 +35,8 @@ from core.ai_service import (
     AIError,
     get_ai_usage_today,
     is_ai_available_for_store,
+    onboarding_suggest_theme,
+    text_generate_brand_identity,
     text_generate_seo,
     vision_extract_product,
 )
@@ -920,6 +922,167 @@ class ThemeCustomCSSView(StoreAccessMixin, TemplateView):
             messages.warning(request, w)
         messages.success(request, "CSS سفارشی با موفقیت ذخیره شد.")
         return redirect("dashboard:theme-custom-css")
+
+
+# ─── SO-06: Onboarding Wizard ─────────────────────────────────
+ONBOARDING_SESSION_KEY = "onboarding_wizard"
+
+
+class OnboardingWizardView(StoreAccessMixin, TemplateView):
+    """Multi-step onboarding: business info → AI suggestion → confirm/apply → first product."""
+    template_name = "dashboard/onboarding_step1.html"
+
+    def _session(self, request):
+        if ONBOARDING_SESSION_KEY not in request.session:
+            request.session[ONBOARDING_SESSION_KEY] = {"step": 1, "data": {}, "suggestion": None}
+        return request.session[ONBOARDING_SESSION_KEY]
+
+    def get_template_names(self):
+        step = self._session(self.request).get("step", 1)
+        return [f"dashboard/onboarding_step{step}.html"]
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        sess = self._session(self.request)
+        ctx["onboarding"] = sess
+        ctx["step"] = sess.get("step", 1)
+        ctx["data"] = sess.get("data") or {}
+        ctx["suggestion"] = sess.get("suggestion")
+        ctx["presets"] = ThemePreset.objects.filter(status=ThemePreset.Status.ACTIVE)
+        ctx["preset_slugs"] = list(ctx["presets"].values_list("slug", flat=True))
+        ctx["block_ids"] = get_default_block_order()
+        ctx["ai_available"] = is_ai_available_for_store(self.request.current_store)
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        sess = self._session(request)
+        step = sess.get("step", 1)
+        store = request.current_store
+
+        if step == 1:
+            sess["data"] = {
+                "business_type": request.POST.get("business_type", "").strip(),
+                "brand_name": request.POST.get("brand_name", "").strip(),
+                "slogan": request.POST.get("slogan", "").strip(),
+                "audience": request.POST.get("audience", "").strip(),
+                "style": request.POST.get("style", "").strip(),
+                "favorite_color": request.POST.get("favorite_color", "").strip(),
+            }
+            if request.POST.get("skip_ai"):
+                sess["step"] = 3
+                sess["suggestion"] = None
+                request.session.modified = True
+                return redirect("dashboard:theme-select")
+            sess["step"] = 2
+            request.session.modified = True
+            return redirect("dashboard:onboarding")
+
+        if step == 2:
+            if request.POST.get("run_ai") and is_ai_available_for_store(store):
+                data = sess.get("data") or {}
+                preset_slugs = list(ThemePreset.objects.filter(status=ThemePreset.Status.ACTIVE).values_list("slug", flat=True))
+                block_ids = get_default_block_order()
+                try:
+                    suggestion = onboarding_suggest_theme(
+                        business_type=data.get("business_type", ""),
+                        brand_name=data.get("brand_name", ""),
+                        slogan=data.get("slogan", ""),
+                        audience=data.get("audience", ""),
+                        style=data.get("style", ""),
+                        favorite_color=data.get("favorite_color", ""),
+                        store=store,
+                        preset_slugs=preset_slugs,
+                        block_ids=block_ids,
+                    )
+                    sess["suggestion"] = suggestion
+                    sess["step"] = 3
+                except AIError as e:
+                    messages.error(request, e.user_message)
+            else:
+                sess["step"] = 3
+                sess["suggestion"] = None
+            request.session.modified = True
+            return redirect("dashboard:onboarding")
+
+        if step == 3:
+            if request.POST.get("apply"):
+                suggestion = sess.get("suggestion")
+                if suggestion:
+                    preset = ThemePreset.objects.filter(slug=suggestion["theme_slug"], status=ThemePreset.Status.ACTIVE).first()
+                    theme, _ = StoreTheme.objects.get_or_create(store=store)
+                    if preset:
+                        theme.theme_preset = preset
+                    theme.primary_color = suggestion.get("primary_color", theme.primary_color)
+                    theme.secondary_color = suggestion.get("secondary_color", theme.secondary_color)
+                    theme.accent_color = suggestion.get("accent_color", theme.accent_color)
+                    theme.version += 1
+                    theme.save()
+                    layout, _ = LayoutConfiguration.objects.get_or_create(
+                        store=store, page_type=LayoutConfiguration.PageType.HOME,
+                        defaults={"block_order": get_default_block_order(), "block_settings": {}, "block_enabled": {}},
+                    )
+                    layout.block_order = suggestion.get("block_order", layout.block_order)
+                    layout.block_enabled = {bid: True for bid in layout.block_order}
+                    layout.save()
+                data = sess.get("data") or {}
+                if data.get("brand_name"):
+                    store.name = data["brand_name"][:200]
+                    store.save(update_fields=["name"])
+                sess["step"] = 4
+                request.session.modified = True
+                messages.success(request, "تنظیمات اعمال شد. می‌توانید اولین محصول را اضافه کنید.")
+                return redirect("dashboard:onboarding")
+            if request.POST.get("start_from_scratch"):
+                sess["step"] = 1
+                sess["data"] = {}
+                sess["suggestion"] = None
+                request.session.modified = True
+                return redirect("dashboard:theme-select")
+
+        if step == 4:
+            if request.POST.get("done"):
+                request.session.pop(ONBOARDING_SESSION_KEY, None)
+                return redirect("dashboard:home")
+
+        return redirect("dashboard:onboarding")
+
+
+# ─── SO-07: Brand Identity (AI) ─────────────────────────────────
+class BrandIdentityView(StoreAccessMixin, TemplateView):
+    """Generate tagline and brand story with AI; apply to store."""
+    template_name = "dashboard/brand_identity.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        store = self.request.current_store
+        ctx["store"] = store
+        ctx["ai_available"] = is_ai_available_for_store(store)
+        ctx["ai_usage"] = get_ai_usage_today(store)
+        prefill = self.request.session.pop("brand_identity_prefill", None)
+        ctx["tagline"] = prefill.get("tagline", store.tagline) if prefill else store.tagline
+        ctx["brand_story"] = prefill.get("brand_story", store.description) if prefill else store.description
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        store = request.current_store
+        if request.POST.get("generate") and is_ai_available_for_store(store):
+            try:
+                result = text_generate_brand_identity(
+                    brand_name=request.POST.get("brand_name", store.name),
+                    business_type=request.POST.get("business_type", ""),
+                    style=request.POST.get("style", ""),
+                    base_color=request.POST.get("base_color", ""),
+                    store=store,
+                )
+                request.session["brand_identity_prefill"] = result
+            except AIError as e:
+                messages.error(request, e.user_message)
+        elif request.POST.get("apply"):
+            store.tagline = (request.POST.get("tagline") or "")[:300]
+            store.description = request.POST.get("description", store.description)[:5000]
+            store.save(update_fields=["tagline", "description"])
+            messages.success(request, "هویت برند روی فروشگاه اعمال شد.")
+        return redirect("dashboard:brand-identity")
 
 
 # ─── SO-46: Block Page Editor ─────────────────────────────────
