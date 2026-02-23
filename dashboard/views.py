@@ -1137,6 +1137,7 @@ class PageEditorView(StoreAccessMixin, TemplateView):
                 "label": label,
                 "enabled": enabled_map.get(bid, True),
                 "settings": _settings_for_display(defaults, settings_map.get(bid)),
+                "block_id_safe": bid.replace("_", "-"),
             })
         for b in BLOCK_REGISTRY:
             if b["id"] not in types_in_order:
@@ -1146,6 +1147,7 @@ class PageEditorView(StoreAccessMixin, TemplateView):
                     "label": b["label"],
                     "enabled": enabled_map.get(b["id"], True),
                     "settings": _settings_for_display(defaults, settings_map.get(b["id"])),
+                    "block_id_safe": b["id"].replace("_", "-"),
                 })
         ctx["layout"] = layout
         ctx["layout_blocks"] = layout_blocks
@@ -1166,7 +1168,31 @@ class PageEditorView(StoreAccessMixin, TemplateView):
             "items": "آیتم‌ها (JSON)",
         }
         for lb in layout_blocks:
-            lb["settings_list"] = [(setting_labels.get(k, k), k, v) for k, v in lb["settings"].items()]
+            meta = get_block_by_id(lb["id"])
+            items_schema = (meta or {}).get("items_schema")
+            if items_schema:
+                lb["items_schema"] = items_schema
+                merged = {**(meta.get("default_settings") or {}), **(settings_map.get(lb["id"]) or {})}
+                raw_items = merged.get("items")
+                items_list = raw_items if isinstance(raw_items, list) else []
+                # Pad to 10 slots so user can add items without JS; each row is [(key, label, value), ...]
+                padded = (items_list + [{}] * 10)[:10]
+                lb["items_display"] = []
+                for it in padded:
+                    row = []
+                    for f in items_schema:
+                        val = it.get(f["key"], "") if isinstance(it, dict) else ""
+                        if isinstance(val, str):
+                            pass
+                        else:
+                            val = str(val) if val is not None else ""
+                        row.append((f["key"], f["label"], val))
+                    lb["items_display"].append(row)
+                lb["settings_list"] = [(setting_labels.get(k, k), k, v) for k, v in lb["settings"].items() if k != "items"]
+            else:
+                lb["items_schema"] = None
+                lb["items_list"] = []
+                lb["settings_list"] = [(setting_labels.get(k, k), k, v) for k, v in lb["settings"].items()]
         snapshots = LayoutConfigurationSnapshot.objects.filter(
             store=store, page_type=LayoutConfiguration.PageType.HOME
         ).order_by("-version")[:10]
@@ -1182,17 +1208,40 @@ class PageEditorView(StoreAccessMixin, TemplateView):
         for bid in block_order:
             block_enabled[bid] = request.POST.get("enabled_" + bid) == "on"
         block_settings = {}
+        # Collect item-based keys: setting_{block_id_safe}_item_{index}_{field}
+        items_by_block = {}
         for key, value in request.POST.items():
+            if key.startswith("setting_") and "_item_" in key:
+                rest = key.replace("setting_", "", 1)
+                if "_item_" not in rest:
+                    continue
+                safe_id, tail = rest.split("_item_", 1)
+                block_id = safe_id.replace("-", "_")
+                parts = tail.split("_", 1)
+                if len(parts) == 2:
+                    try:
+                        idx = int(parts[0])
+                        field = parts[1]
+                        items_by_block.setdefault(block_id, {}).setdefault(idx, {})[field] = value
+                    except ValueError:
+                        pass
+                continue
             if key.startswith("setting_") and "_" in key:
                 parts = key.replace("setting_", "", 1).split("_", 1)
                 if len(parts) == 2:
-                    block_id, setting_key = parts
-                    if setting_key == "items" and value.strip():
-                        try:
-                            value = json.loads(value)
-                        except (ValueError, TypeError):
-                            value = []
+                    block_id = parts[0].replace("-", "_")
+                    setting_key = parts[1]
+                    if setting_key == "items":
+                        continue
                     block_settings.setdefault(block_id, {})[setting_key] = value
+        for block_id, indices_map in items_by_block.items():
+            max_i = max(indices_map.keys()) if indices_map else -1
+            items_list = []
+            for i in range(max_i + 1):
+                row = indices_map.get(i, {})
+                if any(v and str(v).strip() for v in row.values()):
+                    items_list.append(row)
+            block_settings.setdefault(block_id, {})["items"] = items_list
         layout, _ = LayoutConfiguration.objects.get_or_create(
             store=store,
             page_type=LayoutConfiguration.PageType.HOME,

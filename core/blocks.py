@@ -35,12 +35,20 @@ _BUILTIN_BLOCKS = [
         "label": "نقل‌قول‌های مشتریان",
         "template": "storefront/blocks/testimonials.html",
         "default_settings": {"title": "نظرات مشتریان", "items": []},
+        "items_schema": [
+            {"key": "author", "label": "نام"},
+            {"key": "text", "label": "متن"},
+        ],
     },
     {
         "id": "faq",
         "label": "سؤالات متداول",
         "template": "storefront/blocks/faq.html",
         "default_settings": {"title": "سوالات متداول", "items": []},
+        "items_schema": [
+            {"key": "question", "label": "سؤال"},
+            {"key": "answer", "label": "پاسخ"},
+        ],
     },
     {
         "id": "newsletter",

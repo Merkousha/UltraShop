@@ -44,16 +44,35 @@
                     <div class="block-settings-panel hidden px-4 pb-4 pt-0 bg-gray-50" id="settings-{{ b.id }}">
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                             {% for label, key, value in b.settings_list %}
-                            <div>
+                            <div class="sm:col-span-2">
                                 <label class="block text-gray-600 mb-1">{{ label }}</label>
-                                {% if key == 'html' or key == 'items' %}
-                                <textarea name="setting_{{ b.id }}_{{ key }}" rows="3" class="w-full border rounded px-2 py-1 font-mono text-xs">{{ value|default:'' }}</textarea>
+                                {% if key == 'html' %}
+                                <textarea name="setting_{{ b.block_id_safe }}_{{ key }}" rows="4" class="w-full border rounded px-2 py-1 font-mono text-xs">{{ value|default:'' }}</textarea>
                                 {% else %}
-                                <input type="text" name="setting_{{ b.id }}_{{ key }}" value="{{ value|default:'' }}" class="w-full border rounded px-2 py-1">
+                                <input type="text" name="setting_{{ b.block_id_safe }}_{{ key }}" value="{{ value|default:'' }}" class="w-full border rounded px-2 py-1">
                                 {% endif %}
                             </div>
                             {% endfor %}
                         </div>
+                        {% if b.items_schema %}
+                        <div class="mt-4 pt-4 border-t border-gray-200">
+                            <p class="text-gray-600 font-medium mb-2">آیتم‌ها</p>
+                            <div class="space-y-3">
+                                {% for row in b.items_display %}
+                                <div class="flex flex-wrap items-start gap-2 p-3 bg-white border rounded">
+                                    <span class="text-xs text-gray-400 w-6">{{ forloop.counter }}.</span>
+                                    {% for key, label, value in row %}
+                                    <div class="flex-1 min-w-[120px]">
+                                        <label class="block text-gray-500 text-xs mb-0.5">{{ label }}</label>
+                                        <input type="text" name="setting_{{ b.block_id_safe }}_item_{{ forloop.parentloop.counter0 }}_{{ key }}" value="{{ value|default:'' }}" class="w-full border rounded px-2 py-1 text-sm">
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {% endfor %}
+                            </div>
+                            <p class="text-xs text-gray-500 mt-2">حداکثر ۱۰ آیتم. ردیف‌های خالی نادیده گرفته می‌شوند.</p>
+                        </div>
+                        {% endif %}
                     </div>
                 </li>
                 {% endfor %}
