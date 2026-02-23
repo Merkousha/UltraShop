@@ -21,6 +21,10 @@ urlpatterns = [
     path("settings/providers/test-sms/", views.TestSMSView.as_view(), name="test-sms"),
     path("settings/providers/test-email/", views.TestEmailView.as_view(), name="test-email"),
 
+    # PA-13: AI config (Sprint 5)
+    path("settings/ai/", views.AISettingsView.as_view(), name="ai-settings"),
+    path("settings/ai/test/", views.TestAIView.as_view(), name="test-ai"),
+
     # PA-20: Shipping toggle
     path("shipping/toggle/", views.ShippingToggleView.as_view(), name="shipping-toggle"),
 

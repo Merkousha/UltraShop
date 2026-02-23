@@ -1,0 +1,74 @@
+{% extends "platform_admin/base.html" %}
+{% block title %}تنظیمات AI{% endblock %}
+{% block content %}
+<h2 class="text-2xl font-bold mb-6">🤖 تنظیمات سرویس‌های AI</h2>
+
+<form method="post" class="bg-white rounded-lg shadow p-6 max-w-2xl space-y-6">
+    {% csrf_token %}
+
+    <div class="flex items-center gap-2">
+        <input type="checkbox" name="ai_enabled" id="ai_enabled" {% if settings.ai_enabled %}checked{% endif %}>
+        <label for="ai_enabled" class="text-sm font-medium">فعال‌سازی سرویس AI برای فروشگاه‌ها</label>
+    </div>
+
+    <fieldset class="border rounded p-4">
+        <legend class="text-lg font-semibold px-2">OpenAI</legend>
+        <div class="space-y-3">
+            <div>
+                <label class="block text-sm font-medium mb-1">API Key</label>
+                <input type="password" name="openai_api_key" placeholder="{% if openai_key_set %}(تنظیم شده){% endif %}"
+                       class="w-full border rounded px-3 py-2">
+                <p class="text-xs text-gray-400 mt-1">فقط در صورت تغییر وارد کنید. رمزنگاری شده ذخیره می‌شود.</p>
+            </div>
+            <button type="button" onclick="testAI()" class="bg-blue-500 text-white px-4 py-1 rounded text-sm hover:bg-blue-600">
+                تست اتصال
+            </button>
+            <span id="ai-result" class="text-sm mr-2"></span>
+        </div>
+    </fieldset>
+
+    <fieldset class="border rounded p-4">
+        <legend class="text-lg font-semibold px-2">Anthropic (اختیاری)</legend>
+        <div>
+            <label class="block text-sm font-medium mb-1">API Key</label>
+            <input type="password" name="anthropic_api_key" placeholder="{% if anthropic_key_set %}(تنظیم شده){% endif %}"
+                   class="w-full border rounded px-3 py-2">
+        </div>
+    </fieldset>
+
+    <fieldset class="border rounded p-4">
+        <legend class="text-lg font-semibold px-2">مدل‌ها</legend>
+        <div class="grid grid-cols-1 gap-3">
+            <div>
+                <label class="block text-sm font-medium mb-1">Vision (استخراج از عکس)</label>
+                <input type="text" name="vision_model" value="{{ settings.vision_model }}" class="w-full border rounded px-3 py-2" placeholder="gpt-4o">
+            </div>
+            <div>
+                <label class="block text-sm font-medium mb-1">متن (SEO و غیره)</label>
+                <input type="text" name="text_model" value="{{ settings.text_model }}" class="w-full border rounded px-3 py-2" placeholder="gpt-4o-mini">
+            </div>
+            <div>
+                <label class="block text-sm font-medium mb-1">تولید تصویر</label>
+                <input type="text" name="image_gen_model" value="{{ settings.image_gen_model }}" class="w-full border rounded px-3 py-2" placeholder="flux">
+            </div>
+        </div>
+    </fieldset>
+
+    <div>
+        <label class="block text-sm font-medium mb-1">حد مجاز درخواست AI به ازای هر فروشگاه در روز</label>
+        <input type="number" name="rate_limit_per_store_daily" min="1" value="{{ settings.rate_limit_per_store_daily }}" class="w-32 border rounded px-3 py-2">
+    </div>
+
+    <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded hover:bg-indigo-700">ذخیره تنظیمات</button>
+</form>
+
+<script>
+function testAI() {
+    document.getElementById('ai-result').textContent = 'در حال تست...';
+    fetch("{% url 'platform_admin:test-ai' %}", {method: 'POST', headers: {'X-CSRFToken': '{{ csrf_token }}', 'Content-Type': 'application/json'}})
+    .then(r => r.json())
+    .then(d => document.getElementById('ai-result').textContent = d.message)
+    .catch(() => document.getElementById('ai-result').textContent = 'خطا در اتصال');
+}
+</script>
+{% endblock %}

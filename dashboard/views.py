@@ -31,6 +31,14 @@ from core.theme_service import generate_color_scale, validate_contrast
 from core.css_sanitizer import sanitize_css
 from orders.models import Order
 
+from core.ai_service import (
+    AIError,
+    get_ai_usage_today,
+    is_ai_available_for_store,
+    text_generate_seo,
+    vision_extract_product,
+)
+
 
 class StoreAccessMixin(LoginRequiredMixin):
     """Ensure user has access to a store (owner or staff)."""
@@ -146,7 +154,46 @@ class ProductListView(StoreAccessMixin, ListView):
         ctx = super().get_context_data(**kwargs)
         ctx["categories"] = Category.objects.filter(store=self.request.current_store)
         ctx["statuses"] = Product.Status.choices
+        ctx["ai_available"] = is_ai_available_for_store(self.request.current_store)
+        ctx["ai_usage"] = get_ai_usage_today(self.request.current_store)
         return ctx
+
+
+class ProductFromImageView(StoreAccessMixin, TemplateView):
+    """SO-16: Upload image → Vision API → pre-fill product create form."""
+    template_name = "dashboard/product_from_image.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["ai_available"] = is_ai_available_for_store(self.request.current_store)
+        ctx["ai_usage"] = get_ai_usage_today(self.request.current_store)
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        store = request.current_store
+        if not is_ai_available_for_store(store):
+            messages.error(request, "سرویس AI غیرفعال یا اعتبار روزانه تمام شده است.")
+            return redirect("dashboard:product-from-image")
+        image_file = request.FILES.get("image")
+        if not image_file:
+            messages.error(request, "لطفاً یک تصویر انتخاب کنید.")
+            return redirect("dashboard:product-from-image")
+        try:
+            import base64
+            data = image_file.read()
+            if len(data) > 10 * 1024 * 1024:  # 10 MB
+                messages.error(request, "حجم تصویر بیش از ۱۰ مگابایت است.")
+                return redirect("dashboard:product-from-image")
+            b64 = base64.b64encode(data).decode("ascii")
+            result = vision_extract_product(b64, store)
+            request.session["vision_prefill"] = result
+            return redirect("dashboard:product-create")
+        except AIError as e:
+            messages.error(request, e.user_message)
+            return redirect("dashboard:product-from-image")
+        except Exception as e:
+            messages.error(request, "خطای غیرمنتظره. لطفاً دوباره امتحان کنید.")
+            return redirect("dashboard:product-from-image")
 
 
 class ProductCreateView(StoreAccessMixin, TemplateView):
@@ -154,7 +201,21 @@ class ProductCreateView(StoreAccessMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["categories"] = Category.objects.filter(store=self.request.current_store)
+        store = self.request.current_store
+        ctx["categories"] = Category.objects.filter(store=store)
+        ctx["product"] = None
+        ctx["selected_categories"] = []
+        ctx["variants"] = []
+        vision_prefill = self.request.session.pop("vision_prefill", None)
+        ctx["vision_prefill"] = vision_prefill
+        ctx["seo_prefill"] = None
+        ctx["ai_available"] = is_ai_available_for_store(store)
+        if vision_prefill and vision_prefill.get("category_suggestion"):
+            suggestion = vision_prefill["category_suggestion"]
+            suggested = list(
+                Category.objects.filter(store=store, name__icontains=suggestion).values_list("pk", flat=True)
+            )
+            ctx["selected_categories"] = suggested[:5]
         return ctx
 
     def post(self, request, *args, **kwargs):
@@ -204,6 +265,9 @@ class ProductEditView(StoreAccessMixin, TemplateView):
         ctx["categories"] = Category.objects.filter(store=self.request.current_store)
         ctx["selected_categories"] = list(product.categories.values_list("pk", flat=True))
         ctx["variants"] = product.variants.all()
+        ctx["ai_available"] = is_ai_available_for_store(self.request.current_store)
+        ctx["ai_usage"] = get_ai_usage_today(self.request.current_store)
+        ctx["seo_prefill"] = self.request.session.pop("seo_prefill", None)
         return ctx
 
     def post(self, request, pk, *args, **kwargs):
@@ -214,6 +278,8 @@ class ProductEditView(StoreAccessMixin, TemplateView):
         product.status = request.POST.get("status", product.status)
         product.meta_title = request.POST.get("meta_title", product.meta_title)
         product.meta_description = request.POST.get("meta_description", product.meta_description)
+        product.focus_keywords = request.POST.get("focus_keywords", product.focus_keywords)
+        product.og_description = request.POST.get("og_description", product.og_description)
         slug = request.POST.get("slug", "").strip()
         if slug:
             product.slug = slug
@@ -261,6 +327,31 @@ class ProductEditView(StoreAccessMixin, TemplateView):
             )
 
         return redirect("dashboard:product-edit", pk=product.pk)
+
+
+class ProductGenerateSEOView(StoreAccessMixin, View):
+    """SO-17: Generate SEO fields via AI (JSON response for AJAX)."""
+    def post(self, request, pk, *args, **kwargs):
+        product = get_object_or_404(Product, pk=pk, store=request.current_store)
+        if not is_ai_available_for_store(request.current_store):
+            return JsonResponse(
+                {"error": "سرویس AI غیرفعال یا اعتبار روزانه تمام شده است."},
+                status=400,
+            )
+        category_names = list(product.categories.values_list("name", flat=True))
+        try:
+            result = text_generate_seo(
+                name=product.name,
+                description=product.description or "",
+                category_names=category_names,
+                lang="fa-IR",
+                store=request.current_store,
+            )
+            return JsonResponse(result)
+        except AIError as e:
+            return JsonResponse({"error": e.user_message}, status=400)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
 
 
 # ─── SO-15: Product Images (reorder, set-primary, delete) ──
@@ -371,6 +462,41 @@ class ProductBulkActionView(StoreAccessMixin, View):
             stock_value = int(request.POST.get("stock_value", 0))
             for variant in ProductVariant.objects.filter(product__in=products):
                 set_default_warehouse_quantity(request.current_store, variant, stock_value)
+        elif action == "generate_seo":
+            used, limit = get_ai_usage_today(store)
+            plist = list(products)
+            if used + len(plist) > limit:
+                messages.error(
+                    request,
+                    f"اعتبار AI کافی نیست. امروز {used}/{limit} استفاده شده؛ برای {len(plist)} محصول به {len(plist)} درخواست دیگر نیاز است.",
+                )
+                return redirect("dashboard:product-list")
+            done = 0
+            for product in plist:
+                try:
+                    cat_names = list(product.categories.values_list("name", flat=True))
+                    result = text_generate_seo(
+                        product.name,
+                        product.description or "",
+                        cat_names,
+                        "fa-IR",
+                        store,
+                    )
+                    product.meta_title = result.get("meta_title", "")[:200]
+                    product.meta_description = result.get("meta_description", "")[:500]
+                    product.focus_keywords = result.get("focus_keywords", "")[:500]
+                    product.og_description = result.get("og_description", "")[:1000]
+                    product.save(update_fields=["meta_title", "meta_description", "focus_keywords", "og_description"])
+                    done += 1
+                except AIError:
+                    pass
+                except Exception:
+                    pass
+            if done:
+                messages.success(request, f"SEO برای {done} محصول با AI تولید شد.")
+            else:
+                messages.error(request, "خطا در تولید SEO یا اعتبار AI تمام شده.")
+            return redirect("dashboard:product-list")
 
         count = products.count()
         if count > 0:

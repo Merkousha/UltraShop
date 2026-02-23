@@ -101,6 +101,15 @@ class PlatformSettings(models.Model):
     # PA-20: Shipping service toggle
     shipping_enabled = models.BooleanField(default=True)
 
+    # PA-13: AI service config (Sprint 5)
+    openai_api_key_encrypted = models.TextField(blank=True, default="")
+    anthropic_api_key_encrypted = models.TextField(blank=True, default="")
+    vision_model = models.CharField(max_length=80, default="gpt-4o")
+    text_model = models.CharField(max_length=80, default="gpt-4o-mini")
+    image_gen_model = models.CharField(max_length=80, default="flux")
+    ai_enabled = models.BooleanField(default=False)
+    rate_limit_per_store_daily = models.PositiveIntegerField(default=50)
+
     class Meta:
         db_table = "platform_settings"
         verbose_name_plural = "Platform Settings"
@@ -260,6 +269,21 @@ class Warehouse(models.Model):
 
 
 # ─── SO-46: Block Page Editor ─────────────────────────────
+class AIDailyUsage(models.Model):
+    """Per-store daily AI usage for rate limiting (Sprint 5 — PA-13)."""
+    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="ai_daily_usage")
+    date = models.DateField(db_index=True)
+    usage_count = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        db_table = "ai_daily_usage"
+        unique_together = ("store", "date")
+        ordering = ["-date"]
+
+    def __str__(self):
+        return f"{self.store.name} — {self.date}: {self.usage_count}"
+
+
 class LayoutConfiguration(models.Model):
     """Per-store, per-page layout: block order and block settings (drag & drop editor)."""
 

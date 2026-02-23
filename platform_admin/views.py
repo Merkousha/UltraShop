@@ -243,6 +243,63 @@ class TestEmailView(PlatformAdminMixin, View):
             return JsonResponse({"status": "error", "message": str(e)}, status=400)
 
 
+# ─── PA-13: AI Service Config (Sprint 5) ─────────────────
+class AISettingsView(PlatformAdminMixin, TemplateView):
+    template_name = "platform_admin/ai_settings.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["settings"] = PlatformSettings.load()
+        ps = ctx["settings"]
+        ctx["openai_key_set"] = bool(ps.openai_api_key_encrypted)
+        ctx["anthropic_key_set"] = bool(ps.anthropic_api_key_encrypted)
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        ps = PlatformSettings.load()
+        openai_key = request.POST.get("openai_api_key", "")
+        if openai_key:
+            ps.openai_api_key_encrypted = encrypt_value(openai_key)
+        anthropic_key = request.POST.get("anthropic_api_key", "")
+        if anthropic_key:
+            ps.anthropic_api_key_encrypted = encrypt_value(anthropic_key)
+        ps.vision_model = request.POST.get("vision_model", "gpt-4o") or "gpt-4o"
+        ps.text_model = request.POST.get("text_model", "gpt-4o-mini") or "gpt-4o-mini"
+        ps.image_gen_model = request.POST.get("image_gen_model", "flux") or "flux"
+        ps.ai_enabled = request.POST.get("ai_enabled") == "on"
+        try:
+            ps.rate_limit_per_store_daily = int(request.POST.get("rate_limit_per_store_daily", 50) or 50)
+        except ValueError:
+            ps.rate_limit_per_store_daily = 50
+        ps.save()
+        log_action(
+            actor=request.user,
+            action="ai_settings_updated",
+            resource_type="PlatformSettings",
+            details={"ai_enabled": ps.ai_enabled, "vision_model": ps.vision_model},
+        )
+        messages.success(request, "تنظیمات AI ذخیره شد.")
+        return redirect("platform_admin:ai-settings")
+
+
+class TestAIView(PlatformAdminMixin, View):
+    """Test OpenAI connection with a minimal chat call."""
+    def post(self, request, *args, **kwargs):
+        try:
+            from core.ai_service import AIError, _get_client
+            client = _get_client()
+            client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": "Say OK in one word."}],
+                max_tokens=5,
+            )
+            return JsonResponse({"status": "ok", "message": "اتصال به OpenAI برقرار شد."})
+        except Exception as e:
+            from core.ai_service import AIError
+            msg = e.user_message if isinstance(e, AIError) else str(e)
+            return JsonResponse({"status": "error", "message": msg}, status=400)
+
+
 # ─── PA-20: Shipping Toggle ───────────────────────────────
 class ShippingToggleView(PlatformAdminMixin, View):
     def post(self, request, *args, **kwargs):

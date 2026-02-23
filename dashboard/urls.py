@@ -12,7 +12,9 @@ urlpatterns = [
     # Products
     path("products/", views.ProductListView.as_view(), name="product-list"),
     path("products/add/", views.ProductCreateView.as_view(), name="product-create"),
+    path("products/add-from-image/", views.ProductFromImageView.as_view(), name="product-from-image"),
     path("products/<int:pk>/edit/", views.ProductEditView.as_view(), name="product-edit"),
+    path("products/<int:pk>/generate-seo/", views.ProductGenerateSEOView.as_view(), name="product-generate-seo"),
     path("products/<int:pk>/images/", views.ProductImagesView.as_view(), name="product-images"),
     path("products/<int:pk>/images/reorder/", views.ProductImageReorderView.as_view(), name="product-image-reorder"),
     path("products/<int:pk>/images/<int:image_id>/delete/", views.ProductImageDeleteView.as_view(), name="product-image-delete"),

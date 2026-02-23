@@ -44,6 +44,8 @@ class Product(models.Model):
     categories = models.ManyToManyField(Category, blank=True, related_name="products")
     meta_title = models.CharField(max_length=200, blank=True, default="")
     meta_description = models.TextField(blank=True, default="")
+    focus_keywords = models.CharField(max_length=500, blank=True, default="", help_text="Comma-separated keywords for SEO (SO-17)")
+    og_description = models.TextField(blank=True, default="", help_text="Open Graph description for social share (SO-17)")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
