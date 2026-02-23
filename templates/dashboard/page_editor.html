@@ -1,4 +1,5 @@
 {% extends "dashboard/base.html" %}
+{% load static %}
 {% block title %}ویرایشگر صفحه{% endblock %}
 {% block content %}
 <div class="max-w-4xl">
@@ -28,10 +29,27 @@
             </div>
             <ul id="block-list" class="divide-y">
                 {% for b in layout_blocks %}
-                <li class="flex items-center gap-4 p-4 hover:bg-gray-50" data-block-id="{{ b.id }}">
-                    <span class="cursor-grab text-gray-400 hover:text-gray-600" title="جابه‌جا کردن">⋮⋮</span>
-                    <input type="checkbox" name="enabled_{{ b.id }}" id="enabled_{{ b.id }}" {% if b.enabled %}checked{% endif %} class="rounded">
-                    <label for="enabled_{{ b.id }}" class="flex-1 font-medium">{{ b.label }}</label>
+                <li class="border-b border-gray-100" data-block-id="{{ b.id }}">
+                    <div class="flex items-center gap-4 p-4 hover:bg-gray-50">
+                        <span class="cursor-grab text-gray-400 hover:text-gray-600" title="جابه‌جا کردن">⋮⋮</span>
+                        <input type="checkbox" name="enabled_{{ b.id }}" id="enabled_{{ b.id }}" {% if b.enabled %}checked{% endif %} class="rounded">
+                        <label for="enabled_{{ b.id }}" class="flex-1 font-medium">{{ b.label }}</label>
+                        <button type="button" class="block-settings-toggle text-indigo-600 text-sm hover:underline" data-block-id="{{ b.id }}" aria-expanded="false">تنظیمات محتوا</button>
+                    </div>
+                    <div class="block-settings-panel hidden px-4 pb-4 pt-0 bg-gray-50" id="settings-{{ b.id }}">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                            {% for label, key, value in b.settings_list %}
+                            <div>
+                                <label class="block text-gray-600 mb-1">{{ label }}</label>
+                                {% if key == 'html' or key == 'items' %}
+                                <textarea name="setting_{{ b.id }}_{{ key }}" rows="3" class="w-full border rounded px-2 py-1 font-mono text-xs">{{ value|default:'' }}</textarea>
+                                {% else %}
+                                <input type="text" name="setting_{{ b.id }}_{{ key }}" value="{{ value|default:'' }}" class="w-full border rounded px-2 py-1">
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
                 </li>
                 {% endfor %}
             </ul>
@@ -39,7 +57,7 @@
     </form>
 
     <div class="flex flex-wrap gap-4">
-        <form method="post" action="{% url 'dashboard:page-publish' %}" class="inline" onsubmit="return confirm('آیا می‌خواهید این چیدمان روی فروشگاه منتشر شود؟');">
+        <form method="post" action="{% url 'dashboard:page-publish' %}" class="inline" id="publish-form">
             {% csrf_token %}
             <button type="submit" class="bg-green-600 text-white px-6 py-2 rounded text-sm hover:bg-green-700">انتشار</button>
         </form>
@@ -60,21 +78,6 @@
     <p class="text-sm text-gray-500 mt-4">نسخه فعلی: {{ layout.version }}</p>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
-<script>
-(function() {
-    var list = document.getElementById('block-list');
-    var input = document.getElementById('block_order');
-    if (!list || !input) return;
-    new Sortable(list, {
-        animation: 150,
-        handle: '.cursor-grab',
-        onEnd: function() {
-            var ids = [];
-            list.querySelectorAll('[data-block-id]').forEach(function(el) { ids.push(el.getAttribute('data-block-id')); });
-            input.value = ids.join(',');
-        }
-    });
-})();
-</script>
+<script src="{% static 'js/sortable.min.js' %}"></script>
+<script src="{% static 'js/page_editor.js' %}"></script>
 {% endblock %}

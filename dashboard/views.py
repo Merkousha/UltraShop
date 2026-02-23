@@ -1104,25 +1104,58 @@ class PageEditorView(StoreAccessMixin, TemplateView):
             )
         order = layout.block_order or get_default_block_order()
         enabled_map = layout.block_enabled or {}
+        settings_map = layout.block_settings or {}
         by_id = {b["id"]: b for b in BLOCK_REGISTRY}
+
+        def _settings_for_display(defaults, saved):
+            out = {}
+            merged = {**defaults, **(saved or {})}
+            for k, v in merged.items():
+                if isinstance(v, (list, dict)):
+                    out[k] = json.dumps(v, ensure_ascii=False)
+                else:
+                    out[k] = v if v is not None else ""
+            return out
+
         layout_blocks = []
         for bid in order:
             if bid in by_id:
+                meta = by_id[bid]
+                defaults = meta.get("default_settings") or {}
                 layout_blocks.append({
                     "id": bid,
-                    "label": by_id[bid]["label"],
+                    "label": meta["label"],
                     "enabled": enabled_map.get(bid, True),
+                    "settings": _settings_for_display(defaults, settings_map.get(bid)),
                 })
         for b in BLOCK_REGISTRY:
             if b["id"] not in order:
+                defaults = b.get("default_settings") or {}
                 layout_blocks.append({
                     "id": b["id"],
                     "label": b["label"],
                     "enabled": enabled_map.get(b["id"], True),
+                    "settings": _settings_for_display(defaults, settings_map.get(b["id"])),
                 })
         ctx["layout"] = layout
         ctx["layout_blocks"] = layout_blocks
         ctx["store_username"] = store.username
+        setting_labels = {
+            "title": "عنوان",
+            "subtitle": "زیرعنوان",
+            "cta_text": "متن دکمه",
+            "cta_url": "لینک دکمه",
+            "image": "آدرس تصویر",
+            "columns": "تعداد ستون",
+            "limit": "تعداد محصول",
+            "link": "لینک",
+            "alt": "متن جایگزین تصویر",
+            "button_text": "متن دکمه",
+            "html": "HTML سفارشی",
+            "items": "آیتم‌ها (JSON)",
+        }
+        for lb in layout_blocks:
+            lb["settings_list"] = [(setting_labels.get(k, k), k, v) for k, v in lb["settings"].items()]
         snapshots = LayoutConfigurationSnapshot.objects.filter(
             store=store, page_type=LayoutConfiguration.PageType.HOME
         ).order_by("-version")[:10]
@@ -1143,6 +1176,11 @@ class PageEditorView(StoreAccessMixin, TemplateView):
                 parts = key.replace("setting_", "", 1).split("_", 1)
                 if len(parts) == 2:
                     block_id, setting_key = parts
+                    if setting_key == "items" and value.strip():
+                        try:
+                            value = json.loads(value)
+                        except (ValueError, TypeError):
+                            value = []
                     block_settings.setdefault(block_id, {})[setting_key] = value
         layout, _ = LayoutConfiguration.objects.get_or_create(
             store=store,
