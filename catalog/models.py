@@ -89,7 +89,10 @@ class ProductVariant(models.Model):
     sku = models.CharField(max_length=100, blank=True, default="")
     price = models.PositiveBigIntegerField(help_text="Price in IRR")
     compare_at_price = models.PositiveBigIntegerField(null=True, blank=True)
-    stock = models.PositiveIntegerField(default=0)
+    stock = models.PositiveIntegerField(
+        default=0,
+        help_text="Legacy: total stock. Prefer total_stock (sum of warehouse_stocks) when using multi-warehouse.",
+    )
     weight = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Weight in grams")
     is_active = models.BooleanField(default=True)
 
@@ -98,3 +101,49 @@ class ProductVariant(models.Model):
 
     def __str__(self):
         return f"{self.product.name} — {self.name}"
+
+    @property
+    def total_stock(self):
+        """Total available quantity across all warehouses (available = quantity - reserved)."""
+        from django.db.models import Sum
+        agg = self.warehouse_stocks.aggregate(s=Sum("quantity"), r=Sum("reserved"))
+        if agg["s"] is not None:
+            return max(0, (agg["s"] or 0) - (agg["r"] or 0))
+        return self.stock  # backward compat when no WarehouseStock rows
+
+    @property
+    def total_reserved(self):
+        from django.db.models import Sum
+        r = self.warehouse_stocks.aggregate(s=Sum("reserved"))["s"]
+        return r or 0
+
+
+class WarehouseStock(models.Model):
+    """Per-warehouse, per-variant stock (Sprint 4 — SO-50, SO-51)."""
+    warehouse = models.ForeignKey(
+        "core.Warehouse", on_delete=models.CASCADE, related_name="stock_lines"
+    )
+    variant = models.ForeignKey(
+        ProductVariant, on_delete=models.CASCADE, related_name="warehouse_stocks"
+    )
+    quantity = models.PositiveIntegerField(default=0)
+    reserved = models.PositiveIntegerField(
+        default=0,
+        help_text="Quantity reserved for orders (e.g. pending shipment).",
+    )
+    last_restocked_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "warehouse_stocks"
+        unique_together = ("warehouse", "variant")
+        indexes = [
+            models.Index(fields=["warehouse"]),
+            models.Index(fields=["variant"]),
+        ]
+
+    def __str__(self):
+        return f"{self.variant} @ {self.warehouse.name}: {self.quantity}"
+
+    @property
+    def available(self):
+        return max(0, self.quantity - self.reserved)

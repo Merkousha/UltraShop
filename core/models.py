@@ -210,6 +210,12 @@ class StoreStaff(models.Model):
     store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="staff_members")
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="staff_roles")
     role = models.CharField(max_length=10, choices=Role.choices, default=Role.STAFF)
+    warehouses = models.ManyToManyField(
+        "Warehouse",
+        related_name="staff_members",
+        blank=True,
+        help_text="Empty = access to all warehouses; otherwise only listed warehouses.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -218,6 +224,39 @@ class StoreStaff(models.Model):
 
     def __str__(self):
         return f"{self.user.email} @ {self.store.name} ({self.role})"
+
+
+# ─── Sprint 4: Multi-Warehouse (SO-50) ─────────────────────
+class Warehouse(models.Model):
+    """Per-store warehouse for inventory and shipping routing."""
+    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="warehouses")
+    name = models.CharField(max_length=200)
+    address = models.TextField(blank=True, default="")
+    city = models.CharField(max_length=100, blank=True, default="")
+    province = models.CharField(max_length=100, blank=True, default="")
+    postal_code = models.CharField(max_length=20, blank=True, default="")
+    phone = models.CharField(max_length=20, blank=True, default="")
+    is_active = models.BooleanField(default=True)
+    is_default = models.BooleanField(
+        default=False,
+        help_text="First warehouse for this store; used when no warehouse is specified.",
+    )
+    priority = models.PositiveIntegerField(
+        default=0,
+        help_text="Lower = higher priority for routing (e.g. nearest).",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "warehouses"
+        ordering = ["priority", "name"]
+        indexes = [
+            models.Index(fields=["store", "is_active"]),
+        ]
+
+    def __str__(self):
+        return f"{self.name} — {self.store.name}"
 
 
 # ─── SO-46: Block Page Editor ─────────────────────────────

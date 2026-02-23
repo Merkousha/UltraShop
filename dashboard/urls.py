@@ -23,6 +23,14 @@ urlpatterns = [
     path("categories/", views.CategoryListView.as_view(), name="category-list"),
     path("categories/add/", views.CategoryCreateView.as_view(), name="category-create"),
 
+    # Warehouses (Sprint 4 — SO-50, SO-51, SS-13)
+    path("warehouses/", views.WarehouseListView.as_view(), name="warehouse-list"),
+    path("warehouses/add/", views.WarehouseCreateView.as_view(), name="warehouse-add"),
+    path("warehouses/<int:pk>/edit/", views.WarehouseEditView.as_view(), name="warehouse-edit"),
+    path("warehouses/<int:pk>/inventory/", views.WarehouseInventoryView.as_view(), name="warehouse-inventory"),
+    path("warehouses/transfer/", views.StockTransferView.as_view(), name="stock-transfer"),
+    path("warehouses/staff/", views.StaffWarehouseAssignmentView.as_view(), name="staff-warehouses"),
+
     # Orders
     path("orders/", views.OrderListView.as_view(), name="order-list"),
     path("orders/<int:pk>/", views.OrderDetailView.as_view(), name="order-detail"),

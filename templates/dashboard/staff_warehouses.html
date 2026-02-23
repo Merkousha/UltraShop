@@ -1,0 +1,42 @@
+{% extends "dashboard/base.html" %}
+{% block title %}دسترسی انبار استاف{% endblock %}
+{% block content %}
+<div class="flex items-center gap-3 mb-6">
+    <a href="{% url 'dashboard:warehouse-list' %}" class="text-indigo-600 text-sm hover:underline">← انبارها</a>
+    <h2 class="text-2xl font-bold">دسترسی انبار استاف</h2>
+</div>
+
+{% if messages %}
+<div class="mb-4">
+    {% for msg in messages %}
+    <div class="p-3 rounded text-sm {% if msg.tags == 'error' %}bg-red-100 text-red-700{% else %}bg-green-100 text-green-700{% endif %}">{{ msg }}</div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<p class="text-sm text-gray-600 mb-4">خالی = دسترسی به همه انبارها. در غیر این صورت فقط انبارهای انتخاب‌شده.</p>
+
+<div class="space-y-6">
+{% for s in staff_list %}
+<div class="bg-white rounded-lg shadow p-4">
+    <form method="post" class="flex flex-wrap items-center gap-4">
+        {% csrf_token %}
+        <input type="hidden" name="staff_id" value="{{ s.pk }}">
+        <span class="font-medium">{{ s.user.email }}</span>
+        <span class="text-gray-500 text-sm">({{ s.get_role_display }})</span>
+        <div class="flex flex-wrap gap-3">
+            {% for wh in warehouses %}
+            <label class="flex items-center gap-1 text-sm">
+                <input type="checkbox" name="warehouse_ids" value="{{ wh.pk }}" {% if wh in s.warehouses.all %}checked{% endif %}>
+                {{ wh.name }}
+            </label>
+            {% endfor %}
+        </div>
+        <button type="submit" class="bg-indigo-600 text-white px-3 py-1 rounded text-sm hover:bg-indigo-700">ذخیره</button>
+    </form>
+</div>
+{% empty %}
+<p class="text-gray-500">استافی در این فروشگاه نیست.</p>
+{% endfor %}
+</div>
+{% endblock %}

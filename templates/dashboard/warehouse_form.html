@@ -1,0 +1,72 @@
+{% extends "dashboard/base.html" %}
+{% block title %}{% if is_edit %}ویرایش انبار{% else %}افزودن انبار{% endif %}{% endblock %}
+{% block content %}
+<div class="max-w-xl">
+    <div class="flex items-center gap-3 mb-6">
+        <a href="{% url 'dashboard:warehouse-list' %}" class="text-indigo-600 text-sm hover:underline">← انبارها</a>
+        <h2 class="text-2xl font-bold">{% if is_edit %}ویرایش انبار{% else %}افزودن انبار{% endif %}</h2>
+    </div>
+
+    {% if messages %}
+    <div class="mb-4">
+        {% for msg in messages %}
+        <div class="p-3 rounded text-sm {% if msg.tags == 'error' %}bg-red-100 text-red-700{% else %}bg-green-100 text-green-700{% endif %}">{{ msg }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <form method="post" class="bg-white rounded-lg shadow p-6 space-y-4">
+        {% csrf_token %}
+        <div>
+            <label class="block text-sm font-medium mb-1">نام انبار <span class="text-red-500">*</span></label>
+            <input type="text" name="name" required class="w-full border rounded px-3 py-2 text-sm" placeholder="مثال: انبار تهران" value="{{ warehouse.name|default:'' }}">
+        </div>
+        <div>
+            <label class="block text-sm font-medium mb-1">آدرس</label>
+            <textarea name="address" rows="2" class="w-full border rounded px-3 py-2 text-sm" placeholder="آدرس کامل">{{ warehouse.address|default:'' }}</textarea>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+            <div>
+                <label class="block text-sm font-medium mb-1">شهر</label>
+                <input type="text" name="city" class="w-full border rounded px-3 py-2 text-sm" value="{{ warehouse.city|default:'' }}">
+            </div>
+            <div>
+                <label class="block text-sm font-medium mb-1">استان</label>
+                <input type="text" name="province" class="w-full border rounded px-3 py-2 text-sm" value="{{ warehouse.province|default:'' }}">
+            </div>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+            <div>
+                <label class="block text-sm font-medium mb-1">کد پستی</label>
+                <input type="text" name="postal_code" class="w-full border rounded px-3 py-2 text-sm" dir="ltr" value="{{ warehouse.postal_code|default:'' }}">
+            </div>
+            <div>
+                <label class="block text-sm font-medium mb-1">تلفن</label>
+                <input type="text" name="phone" class="w-full border rounded px-3 py-2 text-sm" dir="ltr" value="{{ warehouse.phone|default:'' }}">
+            </div>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+            <div>
+                <label class="block text-sm font-medium mb-1">اولویت (کمتر = نزدیک‌تر در مسیریابی)</label>
+                <input type="number" name="priority" min="0" class="w-full border rounded px-3 py-2 text-sm" value="{{ warehouse.priority|default:0 }}">
+            </div>
+            {% if is_edit %}
+            <div class="flex items-center gap-4 pt-6">
+                <label class="flex items-center gap-2">
+                    <input type="checkbox" name="is_active" {% if warehouse.is_active %}checked{% endif %}>
+                    <span class="text-sm">فعال</span>
+                </label>
+                <label class="flex items-center gap-2">
+                    <input type="checkbox" name="is_default" {% if warehouse.is_default %}checked{% endif %}>
+                    <span class="text-sm">انبار پیش‌فرض</span>
+                </label>
+            </div>
+            {% endif %}
+        </div>
+        <div class="flex gap-3 pt-2">
+            <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded text-sm hover:bg-indigo-700">ذخیره</button>
+            <a href="{% url 'dashboard:warehouse-list' %}" class="bg-gray-200 text-gray-700 px-6 py-2 rounded text-sm hover:bg-gray-300">انصراف</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

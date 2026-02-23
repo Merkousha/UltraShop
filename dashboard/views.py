@@ -9,7 +9,7 @@ from django.utils.text import slugify
 from django.views import View
 from django.views.generic import ListView, TemplateView
 
-from catalog.models import Category, Product, ProductImage, ProductVariant
+from catalog.models import Category, Product, ProductImage, ProductVariant, WarehouseStock
 from core.blocks import BLOCK_REGISTRY, get_block_by_id, get_default_block_order
 from core.models import (
     LayoutConfiguration,
@@ -19,6 +19,13 @@ from core.models import (
     StoreStaff,
     StoreTheme,
     ThemePreset,
+    Warehouse,
+)
+from core.warehouse_service import (
+    get_default_warehouse,
+    get_warehouses_for_user,
+    MAX_WAREHOUSES_PER_STORE,
+    set_default_warehouse_quantity,
 )
 from core.theme_service import generate_color_scale, validate_contrast
 from core.css_sanitizer import sanitize_css
@@ -165,13 +172,14 @@ class ProductCreateView(StoreAccessMixin, TemplateView):
 
         # Create default variant
         price = request.POST.get("price", "0")
-        stock = request.POST.get("stock", "0")
-        ProductVariant.objects.create(
+        stock_val = int(stock) if (stock := request.POST.get("stock", "0")) else 0
+        variant = ProductVariant.objects.create(
             product=product,
             name="پیش‌فرض",
             price=int(price) if price else 0,
-            stock=int(stock) if stock else 0,
+            stock=stock_val,
         )
+        set_default_warehouse_quantity(store, variant, stock_val)
 
         # Upload images
         for f in request.FILES.getlist("images"):
@@ -223,20 +231,26 @@ class ProductEditView(StoreAccessMixin, TemplateView):
         variant_stocks = request.POST.getlist("variant_stock")
         variant_weights = request.POST.getlist("variant_weight")
 
+        default_wh = get_default_warehouse(request.current_store)
         for i in range(len(variant_names)):
             vid = variant_ids[i] if i < len(variant_ids) else ""
+            stock_val = int(variant_stocks[i]) if i < len(variant_stocks) and variant_stocks[i] else 0
             data = {
                 "name": variant_names[i],
                 "sku": variant_skus[i] if i < len(variant_skus) else "",
                 "price": int(variant_prices[i]) if i < len(variant_prices) and variant_prices[i] else 0,
                 "compare_at_price": int(variant_compares[i]) if i < len(variant_compares) and variant_compares[i] else None,
-                "stock": int(variant_stocks[i]) if i < len(variant_stocks) and variant_stocks[i] else 0,
+                "stock": stock_val,
                 "weight": variant_weights[i] if i < len(variant_weights) and variant_weights[i] else None,
             }
             if vid:
-                ProductVariant.objects.filter(pk=vid, product=product).update(**data)
+                v = ProductVariant.objects.filter(pk=vid, product=product).first()
+                if v:
+                    ProductVariant.objects.filter(pk=vid, product=product).update(**data)
+                    set_default_warehouse_quantity(request.current_store, v, stock_val)
             else:
-                ProductVariant.objects.create(product=product, **data)
+                v = ProductVariant.objects.create(product=product, **data)
+                set_default_warehouse_quantity(request.current_store, v, stock_val)
 
         # Upload new images
         for f in request.FILES.getlist("images"):
@@ -355,7 +369,8 @@ class ProductBulkActionView(StoreAccessMixin, View):
                     v.save(update_fields=["price"])
         elif action == "set_stock":
             stock_value = int(request.POST.get("stock_value", 0))
-            ProductVariant.objects.filter(product__in=products).update(stock=stock_value)
+            for variant in ProductVariant.objects.filter(product__in=products):
+                set_default_warehouse_quantity(request.current_store, variant, stock_value)
 
         count = products.count()
         if count > 0:
@@ -401,6 +416,205 @@ class CategoryCreateView(StoreAccessMixin, TemplateView):
         )
         messages.success(request, f"دسته‌بندی «{name}» اضافه شد.")
         return redirect("dashboard:category-list")
+
+
+# ─── Sprint 4: Warehouses (SO-50, SS-13) ─────────────────────
+class WarehouseListView(StoreAccessMixin, ListView):
+    template_name = "dashboard/warehouse_list.html"
+    context_object_name = "warehouses"
+
+    def get_queryset(self):
+        return get_warehouses_for_user(self.request.current_store, self.request.user)
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        store = self.request.current_store
+        ctx["max_warehouses"] = MAX_WAREHOUSES_PER_STORE
+        ctx["can_add"] = (
+            store.owner == self.request.user
+            and Warehouse.objects.filter(store=store).count() < MAX_WAREHOUSES_PER_STORE
+        )
+        return ctx
+
+
+class WarehouseCreateView(StoreAccessMixin, TemplateView):
+    template_name = "dashboard/warehouse_form.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["warehouse"] = None
+        ctx["is_edit"] = False
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        store = request.current_store
+        if store.owner_id != request.user.id:
+            messages.error(request, "فقط مالک فروشگاه می‌تواند انبار جدید اضافه کند.")
+            return redirect("dashboard:warehouse-list")
+        if Warehouse.objects.filter(store=store).count() >= MAX_WAREHOUSES_PER_STORE:
+            messages.error(request, f"حداکثر {MAX_WAREHOUSES_PER_STORE} انبار برای این فروشگاه مجاز است.")
+            return redirect("dashboard:warehouse-list")
+        name = (request.POST.get("name") or "").strip()
+        if not name:
+            messages.error(request, "نام انبار را وارد کنید.")
+            return redirect("dashboard:warehouse-add")
+        is_first = not Warehouse.objects.filter(store=store).exists()
+        Warehouse.objects.create(
+            store=store,
+            name=name,
+            address=(request.POST.get("address") or "").strip(),
+            city=(request.POST.get("city") or "").strip(),
+            province=(request.POST.get("province") or "").strip(),
+            postal_code=(request.POST.get("postal_code") or "").strip(),
+            phone=(request.POST.get("phone") or "").strip(),
+            is_default=is_first,
+            priority=int(request.POST.get("priority") or 0),
+        )
+        messages.success(request, f"انبار «{name}» اضافه شد.")
+        return redirect("dashboard:warehouse-list")
+
+
+class WarehouseEditView(StoreAccessMixin, TemplateView):
+    template_name = "dashboard/warehouse_form.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        warehouse = get_object_or_404(
+            Warehouse, pk=self.kwargs["pk"], store=self.request.current_store
+        )
+        if not get_warehouses_for_user(self.request.current_store, self.request.user).filter(pk=warehouse.pk).exists():
+            from django.http import Http404
+            raise Http404
+        ctx["warehouse"] = warehouse
+        ctx["is_edit"] = True
+        return ctx
+
+    def post(self, request, pk, *args, **kwargs):
+        warehouse = get_object_or_404(Warehouse, pk=pk, store=request.current_store)
+        if not get_warehouses_for_user(request.current_store, request.user).filter(pk=warehouse.pk).exists():
+            from django.http import Http404
+            raise Http404
+        name = (request.POST.get("name") or "").strip()
+        if not name:
+            messages.error(request, "نام انبار را وارد کنید.")
+            return redirect("dashboard:warehouse-edit", pk=pk)
+        warehouse.name = name
+        warehouse.address = (request.POST.get("address") or "").strip()
+        warehouse.city = (request.POST.get("city") or "").strip()
+        warehouse.province = (request.POST.get("province") or "").strip()
+        warehouse.postal_code = (request.POST.get("postal_code") or "").strip()
+        warehouse.phone = (request.POST.get("phone") or "").strip()
+        warehouse.is_active = request.POST.get("is_active") == "on"
+        warehouse.priority = int(request.POST.get("priority") or 0)
+        if request.POST.get("is_default") == "on":
+            Warehouse.objects.filter(store=warehouse.store).update(is_default=False)
+            warehouse.is_default = True
+        warehouse.save()
+        messages.success(request, f"انبار «{name}» به‌روزرسانی شد.")
+        return redirect("dashboard:warehouse-list")
+
+
+class WarehouseInventoryView(StoreAccessMixin, TemplateView):
+    """SO-51: Per-warehouse stock list (SS-13: only allowed warehouses)."""
+    template_name = "dashboard/warehouse_inventory.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        warehouse = get_object_or_404(Warehouse, pk=self.kwargs["pk"], store=self.request.current_store)
+        if not get_warehouses_for_user(self.request.current_store, self.request.user).filter(pk=warehouse.pk).exists():
+            from django.http import Http404
+            raise Http404
+        ctx["warehouse"] = warehouse
+        ctx["stock_lines"] = (
+            WarehouseStock.objects.filter(warehouse=warehouse)
+            .select_related("variant", "variant__product")
+            .order_by("variant__product__name", "variant__name")
+        )
+        return ctx
+
+
+class StockTransferView(StoreAccessMixin, TemplateView):
+    """SO-51: Transfer stock between warehouses."""
+    template_name = "dashboard/stock_transfer.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["warehouses"] = get_warehouses_for_user(self.request.current_store, self.request.user)
+        ctx["variants"] = ProductVariant.objects.filter(
+            product__store=self.request.current_store
+        ).select_related("product").order_by("product__name", "name")
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        store = request.current_store
+        warehouses_qs = get_warehouses_for_user(store, request.user)
+        from_id = request.POST.get("from_warehouse")
+        to_id = request.POST.get("to_warehouse")
+        variant_id = request.POST.get("variant_id")
+        qty = int(request.POST.get("quantity") or 0)
+        if not from_id or not to_id or from_id == to_id or not variant_id or qty <= 0:
+            messages.error(request, "ورودی‌ها را بررسی کنید (انبار مبدأ و مقصد متفاوت، تعداد مثبت).")
+            return redirect("dashboard:stock-transfer")
+        from_wh = get_object_or_404(Warehouse, pk=from_id, store=store)
+        to_wh = get_object_or_404(Warehouse, pk=to_id, store=store)
+        allowed_ids = set(warehouses_qs.values_list("pk", flat=True))
+        if from_wh.pk not in allowed_ids or to_wh.pk not in allowed_ids:
+            messages.error(request, "دسترسی به یکی از انبارها مجاز نیست.")
+            return redirect("dashboard:stock-transfer")
+        variant = get_object_or_404(
+            ProductVariant, pk=variant_id, product__store=store
+        )
+        from_ws = WarehouseStock.objects.filter(
+            warehouse=from_wh, variant=variant
+        ).first()
+        if not from_ws or from_ws.available < qty:
+            messages.error(request, "موجودی کافی در انبار مبدأ نیست.")
+            return redirect("dashboard:stock-transfer")
+        to_ws, _ = WarehouseStock.objects.get_or_create(
+            warehouse=to_wh, variant=variant, defaults={"quantity": 0}
+        )
+        from_ws.quantity -= qty
+        to_ws.quantity += qty
+        from_ws.save(update_fields=["quantity"])
+        to_ws.save(update_fields=["quantity"])
+        from django.db.models import Sum
+        agg = variant.warehouse_stocks.aggregate(s=Sum("quantity"), r=Sum("reserved"))
+        variant.stock = max(0, (agg["s"] or 0) - (agg["r"] or 0))
+        variant.save(update_fields=["stock"])
+        messages.success(request, f"{qty} عدد از «{variant.product.name} — {variant.name}» به انبار «{to_wh.name}» منتقل شد.")
+        return redirect("dashboard:warehouse-inventory", pk=to_wh.pk)
+
+
+class StaffWarehouseAssignmentView(StoreAccessMixin, TemplateView):
+    """SS-13: Owner assigns which warehouses each staff can access."""
+    template_name = "dashboard/staff_warehouses.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        if request.current_store.owner_id != request.user.id:
+            messages.error(request, "فقط مالک فروشگاه می‌تواند دسترسی انبار استاف را تنظیم کند.")
+            return redirect("dashboard:warehouse-list")
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["staff_list"] = StoreStaff.objects.filter(store=self.request.current_store).prefetch_related("warehouses")
+        ctx["warehouses"] = Warehouse.objects.filter(store=self.request.current_store)
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        store = request.current_store
+        if store.owner_id != request.user.id:
+            return redirect("dashboard:warehouse-list")
+        staff_id = request.POST.get("staff_id")
+        warehouse_ids = request.POST.getlist("warehouse_ids")
+        if staff_id:
+            staff = StoreStaff.objects.filter(pk=staff_id, store=store).first()
+            if staff:
+                staff.warehouses.set(
+                    Warehouse.objects.filter(pk__in=warehouse_ids, store=store)
+                )
+                messages.success(request, "دسترسی انبار استاف به‌روزرسانی شد.")
+        return redirect("dashboard:staff-warehouses")
 
 
 # ─── Orders ────────────────────────────────────────────────

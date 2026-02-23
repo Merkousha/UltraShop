@@ -1,0 +1,33 @@
+{% extends "dashboard/base.html" %}
+{% block title %}موجودی — {{ warehouse.name }}{% endblock %}
+{% block content %}
+<div class="flex items-center gap-3 mb-6">
+    <a href="{% url 'dashboard:warehouse-list' %}" class="text-indigo-600 text-sm hover:underline">← انبارها</a>
+    <h2 class="text-2xl font-bold">موجودی: {{ warehouse.name }}</h2>
+    <a href="{% url 'dashboard:stock-transfer' %}" class="bg-gray-600 text-white px-3 py-1.5 rounded text-sm hover:bg-gray-700">انتقال موجودی</a>
+</div>
+
+<div class="bg-white rounded-lg shadow overflow-x-auto">
+    <table class="w-full text-sm">
+        <thead class="bg-gray-50"><tr>
+            <th class="px-4 py-3 text-right">محصول / تنوع</th>
+            <th class="px-4 py-3 text-right">تعداد</th>
+            <th class="px-4 py-3 text-right">رزرو</th>
+            <th class="px-4 py-3 text-right">قابل فروش</th>
+        </tr></thead>
+        <tbody>
+        {% for line in stock_lines %}
+        <tr class="border-t hover:bg-gray-50">
+            <td class="px-4 py-3">{{ line.variant.product.name }} — {{ line.variant.name }}</td>
+            <td class="px-4 py-3" dir="ltr">{{ line.quantity }}</td>
+            <td class="px-4 py-3" dir="ltr">{{ line.reserved }}</td>
+            <td class="px-4 py-3" dir="ltr">{{ line.available }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4" class="px-4 py-8 text-center text-gray-500">موجودی در این انبار ثبت نشده.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+<p class="mt-2 text-sm text-gray-500">مجموع موجودی هر محصول در همه انبارها در صفحه ویرایش محصول نمایش داده می‌شود.</p>
+{% endblock %}

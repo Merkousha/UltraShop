@@ -1,0 +1,58 @@
+{% extends "dashboard/base.html" %}
+{% block title %}انتقال موجودی{% endblock %}
+{% block content %}
+<div class="max-w-xl">
+    <div class="flex items-center gap-3 mb-6">
+        <a href="{% url 'dashboard:warehouse-list' %}" class="text-indigo-600 text-sm hover:underline">← انبارها</a>
+        <h2 class="text-2xl font-bold">انتقال موجودی بین انبارها</h2>
+    </div>
+
+    {% if messages %}
+    <div class="mb-4">
+        {% for msg in messages %}
+        <div class="p-3 rounded text-sm {% if msg.tags == 'error' %}bg-red-100 text-red-700{% else %}bg-green-100 text-green-700{% endif %}">{{ msg }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <form method="post" class="bg-white rounded-lg shadow p-6 space-y-4">
+        {% csrf_token %}
+        <div>
+            <label class="block text-sm font-medium mb-1">از انبار (مبدأ)</label>
+            <select name="from_warehouse" required class="w-full border rounded px-3 py-2 text-sm">
+                <option value="">— انتخاب کنید</option>
+                {% for wh in warehouses %}
+                <option value="{{ wh.pk }}">{{ wh.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="block text-sm font-medium mb-1">به انبار (مقصد)</label>
+            <select name="to_warehouse" required class="w-full border rounded px-3 py-2 text-sm">
+                <option value="">— انتخاب کنید</option>
+                {% for wh in warehouses %}
+                <option value="{{ wh.pk }}">{{ wh.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="block text-sm font-medium mb-1">محصول (تنوع)</label>
+            <select name="variant_id" required class="w-full border rounded px-3 py-2 text-sm">
+                <option value="">— انتخاب کنید</option>
+                {% for v in variants %}
+                <option value="{{ v.pk }}">{{ v.product.name }} — {{ v.name }} (موجودی کل: {{ v.total_stock }})</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="block text-sm font-medium mb-1">تعداد</label>
+            <input type="number" name="quantity" min="1" required class="w-full border rounded px-3 py-2 text-sm" dir="ltr" placeholder="0">
+        </div>
+        <div class="flex gap-3">
+            <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded text-sm hover:bg-indigo-700">انتقال</button>
+            <a href="{% url 'dashboard:warehouse-list' %}" class="bg-gray-200 text-gray-700 px-6 py-2 rounded text-sm hover:bg-gray-300">انصراف</a>
+        </div>
+    </form>
+</div>
+
+{% endblock %}
