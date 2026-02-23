@@ -10,7 +10,14 @@ from django.views import View
 from django.views.generic import ListView, TemplateView
 
 from catalog.models import Category, Product, ProductImage, ProductVariant, WarehouseStock
-from core.blocks import BLOCK_REGISTRY, get_block_by_id, get_default_block_order
+from core.blocks import (
+    BLOCK_REGISTRY,
+    get_block_by_id,
+    get_default_block_order,
+    get_block_type_id,
+    get_instance_number,
+    next_instance_id,
+)
 from core.models import (
     LayoutConfiguration,
     LayoutConfigurationSnapshot,
@@ -1105,7 +1112,7 @@ class PageEditorView(StoreAccessMixin, TemplateView):
         order = layout.block_order or get_default_block_order()
         enabled_map = layout.block_enabled or {}
         settings_map = layout.block_settings or {}
-        by_id = {b["id"]: b for b in BLOCK_REGISTRY}
+        types_in_order = {get_block_type_id(bid) for bid in order}
 
         def _settings_for_display(defaults, saved):
             out = {}
@@ -1119,17 +1126,20 @@ class PageEditorView(StoreAccessMixin, TemplateView):
 
         layout_blocks = []
         for bid in order:
-            if bid in by_id:
-                meta = by_id[bid]
-                defaults = meta.get("default_settings") or {}
-                layout_blocks.append({
-                    "id": bid,
-                    "label": meta["label"],
-                    "enabled": enabled_map.get(bid, True),
-                    "settings": _settings_for_display(defaults, settings_map.get(bid)),
-                })
+            meta = get_block_by_id(bid)
+            if not meta:
+                continue
+            defaults = meta.get("default_settings") or {}
+            instance_num = get_instance_number(bid)
+            label = meta["label"] + (f" ({instance_num})" if instance_num > 1 else "")
+            layout_blocks.append({
+                "id": bid,
+                "label": label,
+                "enabled": enabled_map.get(bid, True),
+                "settings": _settings_for_display(defaults, settings_map.get(bid)),
+            })
         for b in BLOCK_REGISTRY:
-            if b["id"] not in order:
+            if b["id"] not in types_in_order:
                 defaults = b.get("default_settings") or {}
                 layout_blocks.append({
                     "id": b["id"],
@@ -1140,6 +1150,7 @@ class PageEditorView(StoreAccessMixin, TemplateView):
         ctx["layout"] = layout
         ctx["layout_blocks"] = layout_blocks
         ctx["store_username"] = store.username
+        ctx["block_types"] = [{"id": b["id"], "label": b["label"]} for b in BLOCK_REGISTRY]
         setting_labels = {
             "title": "عنوان",
             "subtitle": "زیرعنوان",
@@ -1192,6 +1203,58 @@ class PageEditorView(StoreAccessMixin, TemplateView):
         layout.block_enabled = block_enabled
         layout.save()
         messages.success(request, "چیدمان ذخیره شد. برای اعمال روی فروشگاه «انتشار» را بزنید.")
+        return redirect("dashboard:page-editor")
+
+
+class PageEditorAddBlockView(StoreAccessMixin, View):
+    """Add another instance of a block type (e.g. second banner). POST: block_type_id."""
+    def post(self, request, *args, **kwargs):
+        store = request.current_store
+        block_type_id = (request.POST.get("block_type_id") or "").strip()
+        if not block_type_id or not get_block_by_id(block_type_id):
+            messages.error(request, "نوع بلوک نامعتبر است.")
+            return redirect("dashboard:page-editor")
+        layout, _ = LayoutConfiguration.objects.get_or_create(
+            store=store,
+            page_type=LayoutConfiguration.PageType.HOME,
+            defaults={"block_order": get_default_block_order(), "block_settings": {}, "block_enabled": {}},
+        )
+        order = list(layout.block_order or get_default_block_order())
+        new_id = next_instance_id(block_type_id, order)
+        order.append(new_id)
+        layout.block_order = order
+        layout.block_enabled = {**layout.block_enabled, new_id: True}
+        meta = get_block_by_id(block_type_id)
+        if meta and meta.get("default_settings"):
+            layout.block_settings = {**layout.block_settings, new_id: dict(meta["default_settings"])}
+        layout.save()
+        messages.success(request, f"بلوک «{meta.get('label', new_id)}» اضافه شد. ذخیره و انتشار را بزنید.")
+        return redirect("dashboard:page-editor")
+
+
+class PageEditorRemoveBlockView(StoreAccessMixin, View):
+    """Remove one block instance from the layout. POST: block_id."""
+    def post(self, request, *args, **kwargs):
+        store = request.current_store
+        block_id = (request.POST.get("block_id") or "").strip()
+        if not block_id:
+            return redirect("dashboard:page-editor")
+        try:
+            layout = LayoutConfiguration.objects.get(store=store, page_type=LayoutConfiguration.PageType.HOME)
+        except LayoutConfiguration.DoesNotExist:
+            return redirect("dashboard:page-editor")
+        order = list(layout.block_order or [])
+        if block_id in order:
+            order.remove(block_id)
+            layout.block_order = order
+            enabled = dict(layout.block_enabled or {})
+            enabled.pop(block_id, None)
+            layout.block_enabled = enabled
+            settings = dict(layout.block_settings or {})
+            settings.pop(block_id, None)
+            layout.block_settings = settings
+            layout.save()
+            messages.success(request, "بلوک حذف شد.")
         return redirect("dashboard:page-editor")
 
 

@@ -35,6 +35,11 @@
                         <input type="checkbox" name="enabled_{{ b.id }}" id="enabled_{{ b.id }}" {% if b.enabled %}checked{% endif %} class="rounded">
                         <label for="enabled_{{ b.id }}" class="flex-1 font-medium">{{ b.label }}</label>
                         <button type="button" class="block-settings-toggle text-indigo-600 text-sm hover:underline" data-block-id="{{ b.id }}" aria-expanded="false">تنظیمات محتوا</button>
+                        <form method="post" action="{% url 'dashboard:page-editor-remove-block' %}" class="inline remove-block-form">
+                            {% csrf_token %}
+                            <input type="hidden" name="block_id" value="{{ b.id }}">
+                            <button type="submit" class="text-red-600 text-sm hover:underline">حذف</button>
+                        </form>
                     </div>
                     <div class="block-settings-panel hidden px-4 pb-4 pt-0 bg-gray-50" id="settings-{{ b.id }}">
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
@@ -53,6 +58,19 @@
                 </li>
                 {% endfor %}
             </ul>
+            <div class="p-4 border-t bg-gray-50 flex flex-wrap items-center gap-2">
+                <span class="text-sm text-gray-600">افزودن بلوک:</span>
+                <form method="post" action="{% url 'dashboard:page-editor-add-block' %}" class="inline flex items-center gap-2">
+                    {% csrf_token %}
+                    <select name="block_type_id" class="border rounded px-2 py-1 text-sm">
+                        {% for bt in block_types %}
+                        <option value="{{ bt.id }}">{{ bt.label }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="bg-indigo-600 text-white px-3 py-1 rounded text-sm hover:bg-indigo-700">افزودن</button>
+                </form>
+                <span class="text-xs text-gray-500">می‌توانید چند بار یک نوع (مثلاً بنر) اضافه کنید.</span>
+            </div>
         </div>
     </form>
 

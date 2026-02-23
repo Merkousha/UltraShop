@@ -56,6 +56,8 @@ urlpatterns = [
 
     # SO-46: Block page editor
     path("pages/edit/", views.PageEditorView.as_view(), name="page-editor"),
+    path("pages/add-block/", views.PageEditorAddBlockView.as_view(), name="page-editor-add-block"),
+    path("pages/remove-block/", views.PageEditorRemoveBlockView.as_view(), name="page-editor-remove-block"),
     path("pages/publish/", views.PagePublishView.as_view(), name="page-publish"),
     path("pages/rollback/", views.PageRollbackView.as_view(), name="page-rollback"),
 ]

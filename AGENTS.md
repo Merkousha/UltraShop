@@ -84,6 +84,7 @@ python manage.py seed_platform
 - **Shipment state machine:** Use `Shipment.ALLOWED_TRANSITIONS` dict, validate with `can_transition_to()`
 - **Commission:** Auto-calculated at `PLATFORM_COMMISSION_RATE` (default 5%) via `accounting.services.post_order_paid()`
 - **Persian text:** Use Vazirmatn font. All user-facing text in Persian. `dir="rtl"` on HTML root
+- **Block system (extensible):** Page editor blocks are registered in `core.blocks`. To add a new block (WordPress-style), call `core.blocks.register_block({"id": "...", "label": "...", "template": "...", "default_settings": {...}})` from your app’s `AppConfig.ready()`. Create the block template under `storefront/blocks/` or your app’s templates; it receives `block.settings`. Blocks that need extra context (e.g. product_grid injects `products`) are handled in `core.layout_service.get_layout_blocks`; for custom data you can extend that or add a similar hook later.
 
 ## Documentation
 

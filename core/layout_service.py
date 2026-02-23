@@ -1,7 +1,7 @@
 """
 SO-46: Resolve layout blocks for storefront rendering.
 """
-from core.blocks import get_block_by_id, get_default_block_order
+from core.blocks import get_block_by_id, get_block_type_id, get_default_block_order
 from core.models import LayoutConfiguration
 
 
@@ -27,19 +27,20 @@ def get_layout_blocks(store, page_type="home"):
         if not meta:
             continue
         block_settings = {**(meta.get("default_settings") or {}), **(settings_map.get(block_id) or {})}
+        type_id = get_block_type_id(block_id)
         block_data = {
             "id": block_id,
             "template": meta["template"],
             "settings": block_settings,
         }
-        if block_id == "product_grid":
+        if type_id == "product_grid":
             from catalog.models import Product
             limit = int(block_settings.get("limit") or 8)
             block_data["products"] = list(
                 Product.objects.filter(store=store, status="active")
                 .prefetch_related("images", "variants")[:limit]
             )
-        elif block_id == "category_grid":
+        elif type_id == "category_grid":
             from catalog.models import Category
             block_data["categories"] = list(
                 Category.objects.filter(store=store, parent__isnull=True)

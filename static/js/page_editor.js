@@ -37,4 +37,12 @@
             btn.setAttribute('aria-expanded', isHidden ? 'false' : 'true');
         });
     });
+
+    document.querySelectorAll('.remove-block-form').forEach(function(form) {
+        form.addEventListener('submit', function(e) {
+            if (!confirm('این بلوک حذف شود؟')) {
+                e.preventDefault();
+            }
+        });
+    });
 })();
