@@ -1,0 +1,11 @@
+<section class="mb-6">
+    {% if block.settings.link %}
+    <a href="{{ block.settings.link }}" class="block rounded-xl overflow-hidden shadow hover:shadow-md transition">
+        {% if block.settings.image %}<img src="{{ block.settings.image }}" alt="{{ block.settings.alt|default:'' }}" class="w-full h-48 object-cover">{% else %}<div class="w-full h-48 bg-[var(--color-primary-100)] flex items-center justify-center text-[var(--color-primary-500)] font-bold">بنر</div>{% endif %}
+    </a>
+    {% else %}
+    <div class="rounded-xl overflow-hidden shadow">
+        {% if block.settings.image %}<img src="{{ block.settings.image }}" alt="{{ block.settings.alt|default:'' }}" class="w-full h-48 object-cover">{% else %}<div class="w-full h-48 bg-[var(--color-primary-100)] flex items-center justify-center text-[var(--color-primary-500)]">بنر</div>{% endif %}
+    </div>
+    {% endif %}
+</section>

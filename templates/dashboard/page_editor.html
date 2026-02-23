@@ -1,0 +1,80 @@
+{% extends "dashboard/base.html" %}
+{% block title %}ویرایشگر صفحه{% endblock %}
+{% block content %}
+<div class="max-w-4xl">
+    <div class="flex items-center justify-between mb-6">
+        <h2 class="text-2xl font-bold">ویرایشگر بلوکی صفحه اصلی</h2>
+        <div class="flex gap-2">
+            <a href="{% url 'storefront:home' store_username=store_username %}" target="_blank" rel="noopener" class="bg-gray-600 text-white px-4 py-2 rounded text-sm hover:bg-gray-700">پیش‌نمایش فروشگاه</a>
+        </div>
+    </div>
+
+    {% if messages %}
+    <div class="mb-4">
+        {% for msg in messages %}
+        <div class="p-3 rounded text-sm {% if msg.tags == 'error' %}bg-red-100 text-red-700{% elif msg.tags == 'warning' %}bg-yellow-100 text-yellow-700{% else %}bg-green-100 text-green-700{% endif %}">{{ msg }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <form method="post" id="page-editor-form">
+        {% csrf_token %}
+        <input type="hidden" name="block_order" id="block_order" value="{% for b in layout_blocks %}{{ b.id }}{% if not forloop.last %},{% endif %}{% endfor %}">
+
+        <div class="bg-white rounded-lg shadow mb-6">
+            <div class="p-4 border-b flex items-center justify-between">
+                <span class="text-sm text-gray-500">بلوک‌ها را بکشید و رها کنید تا ترتیب را تغییر دهید. برای اعمال روی فروشگاه بعد از ذخیره، «انتشار» بزنید.</span>
+                <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded text-sm hover:bg-indigo-700">ذخیره چیدمان</button>
+            </div>
+            <ul id="block-list" class="divide-y">
+                {% for b in layout_blocks %}
+                <li class="flex items-center gap-4 p-4 hover:bg-gray-50" data-block-id="{{ b.id }}">
+                    <span class="cursor-grab text-gray-400 hover:text-gray-600" title="جابه‌جا کردن">⋮⋮</span>
+                    <input type="checkbox" name="enabled_{{ b.id }}" id="enabled_{{ b.id }}" {% if b.enabled %}checked{% endif %} class="rounded">
+                    <label for="enabled_{{ b.id }}" class="flex-1 font-medium">{{ b.label }}</label>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </form>
+
+    <div class="flex flex-wrap gap-4">
+        <form method="post" action="{% url 'dashboard:page-publish' %}" class="inline" onsubmit="return confirm('آیا می‌خواهید این چیدمان روی فروشگاه منتشر شود؟');">
+            {% csrf_token %}
+            <button type="submit" class="bg-green-600 text-white px-6 py-2 rounded text-sm hover:bg-green-700">انتشار</button>
+        </form>
+        {% if snapshots %}
+        <form method="post" action="{% url 'dashboard:page-rollback' %}" class="inline flex items-center gap-2">
+            {% csrf_token %}
+            <label for="rollback-version" class="text-sm text-gray-600">بازگشت به نسخه:</label>
+            <select name="version" id="rollback-version" class="border rounded px-2 py-1 text-sm">
+                {% for snap in snapshots %}
+                <option value="{{ snap.version }}">نسخه {{ snap.version }} — {{ snap.created_at|date:"Y/m/d H:i" }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="bg-amber-600 text-white px-4 py-2 rounded text-sm hover:bg-amber-700">بازگشت</button>
+        </form>
+        {% endif %}
+    </div>
+
+    <p class="text-sm text-gray-500 mt-4">نسخه فعلی: {{ layout.version }}</p>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<script>
+(function() {
+    var list = document.getElementById('block-list');
+    var input = document.getElementById('block_order');
+    if (!list || !input) return;
+    new Sortable(list, {
+        animation: 150,
+        handle: '.cursor-grab',
+        onEnd: function() {
+            var ids = [];
+            list.querySelectorAll('[data-block-id]').forEach(function(el) { ids.push(el.getAttribute('data-block-id')); });
+            input.value = ids.join(',');
+        }
+    });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,13 @@
+<section class="mb-8">
+    <h2 class="text-xl font-bold mb-4" style="color: var(--text-heading);">{{ block.settings.title|default:"سوالات متداول" }}</h2>
+    <div class="space-y-2">
+        {% for item in block.settings.items %}
+        <details class="bg-white rounded-lg shadow p-4">
+            <summary class="font-medium cursor-pointer" style="color: var(--color-primary-700);">{{ item.question|default:"" }}</summary>
+            <p class="text-gray-600 text-sm mt-2 pr-4">{{ item.answer|default:"" }}</p>
+        </details>
+        {% empty %}
+        <p class="text-center text-gray-400 py-4">سوالی ثبت نشده.</p>
+        {% endfor %}
+    </div>
+</section>

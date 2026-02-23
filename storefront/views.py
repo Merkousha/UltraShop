@@ -28,6 +28,8 @@ class StoreHomeView(StoreMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
+        from core.layout_service import get_layout_blocks
+        ctx["layout_blocks"] = get_layout_blocks(self.store, "home")
         ctx["categories"] = Category.objects.filter(store=self.store, parent__isnull=True)
         ctx["featured_products"] = Product.objects.filter(
             store=self.store, status="active"

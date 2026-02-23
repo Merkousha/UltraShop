@@ -1,0 +1,13 @@
+<section class="mb-8">
+    <h2 class="text-xl font-bold mb-4" style="color: var(--text-heading);">{{ block.settings.title|default:"دسته‌بندی‌ها" }}</h2>
+    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+        {% for cat in block.categories %}
+        <a href="{% url 'storefront:category-detail' store.username cat.slug %}" class="bg-white rounded-lg shadow p-4 text-center hover:shadow-md transition">
+            <p class="font-medium">{{ cat.name }}</p>
+            <p class="text-xs text-gray-400 mt-1">{{ cat.products.count }} محصول</p>
+        </a>
+        {% empty %}
+        <p class="col-span-full text-center text-gray-400 py-6">دسته‌بندی وجود ندارد.</p>
+        {% endfor %}
+    </div>
+</section>

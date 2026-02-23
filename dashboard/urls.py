@@ -37,4 +37,9 @@ urlpatterns = [
     path("theme/", views.ThemeSelectView.as_view(), name="theme-select"),
     path("theme/customize/", views.ThemeCustomizeView.as_view(), name="theme-customize"),
     path("theme/custom-css/", views.ThemeCustomCSSView.as_view(), name="theme-custom-css"),
+
+    # SO-46: Block page editor
+    path("pages/edit/", views.PageEditorView.as_view(), name="page-editor"),
+    path("pages/publish/", views.PagePublishView.as_view(), name="page-publish"),
+    path("pages/rollback/", views.PageRollbackView.as_view(), name="page-rollback"),
 ]

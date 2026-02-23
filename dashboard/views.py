@@ -10,7 +10,16 @@ from django.views import View
 from django.views.generic import ListView, TemplateView
 
 from catalog.models import Category, Product, ProductImage, ProductVariant
-from core.models import PlatformSettings, Store, StoreStaff, StoreTheme, ThemePreset
+from core.blocks import BLOCK_REGISTRY, get_block_by_id, get_default_block_order
+from core.models import (
+    LayoutConfiguration,
+    LayoutConfigurationSnapshot,
+    PlatformSettings,
+    Store,
+    StoreStaff,
+    StoreTheme,
+    ThemePreset,
+)
 from core.theme_service import generate_color_scale, validate_contrast
 from core.css_sanitizer import sanitize_css
 from orders.models import Order
@@ -571,3 +580,125 @@ class ThemeCustomCSSView(StoreAccessMixin, TemplateView):
             messages.warning(request, w)
         messages.success(request, "CSS سفارشی با موفقیت ذخیره شد.")
         return redirect("dashboard:theme-custom-css")
+
+
+# ─── SO-46: Block Page Editor ─────────────────────────────────
+class PageEditorView(StoreAccessMixin, TemplateView):
+    template_name = "dashboard/page_editor.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        store = self.request.current_store
+        try:
+            layout = LayoutConfiguration.objects.get(store=store, page_type=LayoutConfiguration.PageType.HOME)
+        except LayoutConfiguration.DoesNotExist:
+            layout = LayoutConfiguration(
+                store=store,
+                page_type=LayoutConfiguration.PageType.HOME,
+                block_order=get_default_block_order(),
+                block_settings={},
+                block_enabled={b["id"]: True for b in BLOCK_REGISTRY},
+            )
+        order = layout.block_order or get_default_block_order()
+        enabled_map = layout.block_enabled or {}
+        by_id = {b["id"]: b for b in BLOCK_REGISTRY}
+        layout_blocks = []
+        for bid in order:
+            if bid in by_id:
+                layout_blocks.append({
+                    "id": bid,
+                    "label": by_id[bid]["label"],
+                    "enabled": enabled_map.get(bid, True),
+                })
+        for b in BLOCK_REGISTRY:
+            if b["id"] not in order:
+                layout_blocks.append({
+                    "id": b["id"],
+                    "label": b["label"],
+                    "enabled": enabled_map.get(b["id"], True),
+                })
+        ctx["layout"] = layout
+        ctx["layout_blocks"] = layout_blocks
+        ctx["store_username"] = store.username
+        snapshots = LayoutConfigurationSnapshot.objects.filter(
+            store=store, page_type=LayoutConfiguration.PageType.HOME
+        ).order_by("-version")[:10]
+        ctx["snapshots"] = snapshots
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        store = request.current_store
+        order_raw = request.POST.get("block_order", "")
+        block_order = [x.strip() for x in order_raw.split(",") if x.strip()]
+        block_order = block_order or get_default_block_order()
+        block_enabled = {}
+        for bid in block_order:
+            block_enabled[bid] = request.POST.get("enabled_" + bid) == "on"
+        block_settings = {}
+        for key, value in request.POST.items():
+            if key.startswith("setting_") and "_" in key:
+                parts = key.replace("setting_", "", 1).split("_", 1)
+                if len(parts) == 2:
+                    block_id, setting_key = parts
+                    block_settings.setdefault(block_id, {})[setting_key] = value
+        layout, _ = LayoutConfiguration.objects.get_or_create(
+            store=store,
+            page_type=LayoutConfiguration.PageType.HOME,
+            defaults={"block_order": get_default_block_order(), "block_settings": {}, "block_enabled": {}},
+        )
+        layout.block_order = block_order
+        layout.block_settings = {**layout.block_settings, **block_settings}
+        layout.block_enabled = block_enabled
+        layout.save()
+        messages.success(request, "چیدمان ذخیره شد. برای اعمال روی فروشگاه «انتشار» را بزنید.")
+        return redirect("dashboard:page-editor")
+
+
+class PagePublishView(StoreAccessMixin, View):
+    def post(self, request, *args, **kwargs):
+        store = request.current_store
+        try:
+            layout = LayoutConfiguration.objects.get(store=store, page_type=LayoutConfiguration.PageType.HOME)
+        except LayoutConfiguration.DoesNotExist:
+            messages.warning(request, "ابتدا چیدمان را ذخیره کنید.")
+            return redirect("dashboard:page-editor")
+        LayoutConfigurationSnapshot.objects.create(
+            store=store,
+            page_type=layout.page_type,
+            version=layout.version,
+            block_order=layout.block_order,
+            block_settings=layout.block_settings,
+            block_enabled=layout.block_enabled,
+        )
+        layout.version += 1
+        layout.save()
+        messages.success(request, f"صفحه اصلی منتشر شد (نسخه {layout.version}).")
+        return redirect("dashboard:page-editor")
+
+
+class PageRollbackView(StoreAccessMixin, View):
+    def post(self, request, *args, **kwargs):
+        store = request.current_store
+        version = request.POST.get("version")
+        if not version:
+            messages.error(request, "نسخه انتخاب نشده.")
+            return redirect("dashboard:page-editor")
+        try:
+            snap = LayoutConfigurationSnapshot.objects.get(
+                store=store, page_type=LayoutConfiguration.PageType.HOME, version=int(version)
+            )
+        except (LayoutConfigurationSnapshot.DoesNotExist, ValueError):
+            messages.error(request, "نسخه یافت نشد.")
+            return redirect("dashboard:page-editor")
+        layout, _ = LayoutConfiguration.objects.get_or_create(
+            store=store,
+            page_type=LayoutConfiguration.PageType.HOME,
+            defaults={"block_order": [], "block_settings": {}, "block_enabled": {}},
+        )
+        layout.block_order = snap.block_order
+        layout.block_settings = snap.block_settings
+        layout.block_enabled = snap.block_enabled
+        layout.version += 1
+        layout.save()
+        messages.success(request, f"بازگشت به نسخه {snap.version} انجام شد.")
+        return redirect("dashboard:page-editor")

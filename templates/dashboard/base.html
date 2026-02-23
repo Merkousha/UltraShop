@@ -15,6 +15,7 @@
             <hr class="border-gray-700 my-2">
             <a href="{% url 'dashboard:store-settings' %}" class="block px-3 py-2 rounded hover:bg-gray-800">⚙️ تنظیمات</a>
             <a href="{% url 'dashboard:theme-select' %}" class="block px-3 py-2 rounded hover:bg-gray-800">🎨 پوسته فروشگاه</a>
+            <a href="{% url 'dashboard:page-editor' %}" class="block px-3 py-2 rounded hover:bg-gray-800">📄 ویرایشگر صفحه</a>
             <form method="post" action="{% url 'accounts:logout' %}" class="block">
                 {% csrf_token %}
                 <button type="submit" class="w-full text-right px-3 py-2 rounded hover:bg-gray-800 text-red-400 text-sm">خروج</button>

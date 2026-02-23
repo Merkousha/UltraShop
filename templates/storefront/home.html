@@ -1,13 +1,17 @@
 {% extends "storefront/base.html" %}
 {% block title %}{{ store.name }}{% endblock %}
 {% block content %}
+{% if layout_blocks %}
+{% for block in layout_blocks %}
+{% include block.template with block=block store=store %}
+{% endfor %}
+{% else %}
+{# Fallback: legacy home content when no layout config #}
 {% if store.description %}
 <div class="bg-white rounded-lg shadow p-6 mb-6 text-center">
     <p class="text-gray-600">{{ store.description }}</p>
 </div>
 {% endif %}
-
-<!-- Categories -->
 {% if categories %}
 <section class="mb-8">
     <h2 class="text-xl font-bold mb-4">دسته‌بندی‌ها</h2>
@@ -21,8 +25,6 @@
     </div>
 </section>
 {% endif %}
-
-<!-- Featured Products -->
 <section>
     <h2 class="text-xl font-bold mb-4">جدیدترین محصولات</h2>
     <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
@@ -50,4 +52,5 @@
         {% endfor %}
     </div>
 </section>
+{% endif %}
 {% endblock %}

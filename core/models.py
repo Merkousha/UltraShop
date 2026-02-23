@@ -218,3 +218,47 @@ class StoreStaff(models.Model):
 
     def __str__(self):
         return f"{self.user.email} @ {self.store.name} ({self.role})"
+
+
+# ─── SO-46: Block Page Editor ─────────────────────────────
+class LayoutConfiguration(models.Model):
+    """Per-store, per-page layout: block order and block settings (drag & drop editor)."""
+
+    class PageType(models.TextChoices):
+        HOME = "home", "صفحه اصلی"
+        CATEGORY = "category", "صفحه دسته‌بندی"
+        PRODUCT = "product", "صفحه محصول"
+        CUSTOM = "custom", "صفحه سفارشی"
+
+    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="layout_configs")
+    page_type = models.CharField(max_length=20, choices=PageType.choices, default=PageType.HOME)
+    block_order = models.JSONField(default=list, help_text="Ordered list of block IDs, e.g. ['hero', 'product_grid', 'category_grid']")
+    block_settings = models.JSONField(default=dict, help_text="Per-block settings: { block_id: { ... } }")
+    block_enabled = models.JSONField(default=dict, help_text="Per-block enabled: { block_id: true/false }")
+    version = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "layout_configurations"
+        unique_together = ("store", "page_type")
+        ordering = ["store", "page_type"]
+
+    def __str__(self):
+        return f"Layout {self.get_page_type_display()} — {self.store.name}"
+
+
+class LayoutConfigurationSnapshot(models.Model):
+    """Snapshot of a layout for rollback (version history)."""
+    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="layout_snapshots")
+    page_type = models.CharField(max_length=20)
+    version = models.PositiveIntegerField()
+    block_order = models.JSONField(default=list)
+    block_settings = models.JSONField(default=dict)
+    block_enabled = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "layout_configuration_snapshots"
+        ordering = ["-created_at"]
+        unique_together = ("store", "page_type", "version")
