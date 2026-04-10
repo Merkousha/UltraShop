@@ -8,15 +8,22 @@
         </div>
         <nav class="p-4 space-y-1 text-sm" aria-label="منوی داشبورد">
             <a href="{% url 'dashboard:home' %}" class="block px-3 py-2 rounded hover:bg-gray-800">🏠 خانه</a>
+            {% if current_role in "owner,manager,staff,sales_agent,accountant" or current_role == "owner" %}
             <a href="{% url 'dashboard:onboarding' %}" class="block px-3 py-2 rounded hover:bg-gray-800">✨ راه‌اندازی با AI</a>
             <a href="{% url 'dashboard:brand-identity' %}" class="block px-3 py-2 rounded hover:bg-gray-800">🎨 هویت برند (AI)</a>
+            {% endif %}
+            {% if current_role != "accountant" %}
             <a href="{% url 'dashboard:product-list' %}" class="block px-3 py-2 rounded hover:bg-gray-800">📦 محصولات</a>
             <a href="{% url 'dashboard:category-list' %}" class="block px-3 py-2 rounded hover:bg-gray-800">📁 دسته‌بندی‌ها</a>
             <a href="{% url 'dashboard:order-list' %}" class="block px-3 py-2 rounded hover:bg-gray-800">🛒 سفارشات</a>
             <a href="{% url 'dashboard:warehouse-list' %}" class="block px-3 py-2 rounded hover:bg-gray-800">🏭 انبارها</a>
+            {% endif %}
+            {% if current_role == "owner" or current_role == "manager" or current_role == "accountant" %}
             <a href="{% url 'dashboard:accounting-ledger' %}" class="block px-3 py-2 rounded hover:bg-gray-800">💰 حسابداری</a>
             <a href="{% url 'dashboard:analytics' %}" class="block px-3 py-2 rounded hover:bg-gray-800">📊 تحلیل فروش</a>
+            {% endif %}
             <hr class="border-gray-700 my-2">
+            {% if current_role == "owner" or current_role == "manager" or current_role == "sales_agent" %}
             <!-- مدیریت فروش -->
             <p class="px-3 py-1 text-xs text-gray-500 uppercase tracking-wide">مدیریت ارتباط با مشتری</p>
             <a href="{% url 'dashboard:crm:dashboard' %}" class="block px-3 py-2 rounded hover:bg-gray-800">📊 داشبورد فروش</a>
@@ -25,15 +32,20 @@
             <a href="{% url 'dashboard:crm:task-list' %}" class="block px-3 py-2 rounded hover:bg-gray-800">✅ وظایف فروش</a>
             <a href="{% url 'dashboard:crm:contact-history' %}" class="block px-3 py-2 rounded hover:bg-gray-800">📋 تاریخچه تماس</a>
             <hr class="border-gray-700 my-2">
+            {% endif %}
+            {% if current_role != "accountant" %}
             <!-- Phase 3 -->
             <p class="px-3 py-1 text-xs text-gray-500 uppercase tracking-wide">بازاریابی</p>
             <a href="{% url 'dashboard:abandoned-carts' %}" class="block px-3 py-2 rounded hover:bg-gray-800">🛒 سبدهای رها شده</a>
             <a href="{% url 'dashboard:chat-history' %}" class="block px-3 py-2 rounded hover:bg-gray-800">🤖 چت‌های AI</a>
             <hr class="border-gray-700 my-2">
+            {% endif %}
+            {% if current_role == "owner" or current_role == "manager" %}
             <a href="{% url 'dashboard:store-settings' %}" class="block px-3 py-2 rounded hover:bg-gray-800">⚙️ تنظیمات</a>
             <a href="{% url 'dashboard:integrations' %}" class="block px-3 py-2 rounded hover:bg-gray-800">🔌 یکپارچه‌سازی‌ها</a>
             <a href="{% url 'dashboard:theme-select' %}" class="block px-3 py-2 rounded hover:bg-gray-800">🎨 پوسته فروشگاه</a>
             <a href="{% url 'dashboard:page-editor' %}" class="block px-3 py-2 rounded hover:bg-gray-800">📄 ویرایشگر صفحه</a>
+            {% endif %}
             <form method="post" action="{% url 'accounts:logout' %}" class="block">
                 {% csrf_token %}
                 <button type="submit" class="w-full text-right px-3 py-2 rounded hover:bg-gray-800 text-red-400 text-sm">خروج</button>

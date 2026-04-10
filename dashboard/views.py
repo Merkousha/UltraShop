@@ -90,6 +90,49 @@ class StoreAccessMixin(LoginRequiredMixin):
         return ctx
 
 
+def _get_current_role(request) -> str:
+    """Return the role string for the current user in the active store."""
+    store = request.current_store
+    user = request.user
+    if store.owner == user:
+        return "owner"
+    staff = StoreStaff.objects.filter(store=store, user=user).first()
+    return staff.role if staff else "staff"
+
+
+class AccountingAccessMixin(StoreAccessMixin):
+    """Restrict access to owner, manager, and accountant roles only."""
+
+    _ACCOUNTING_ROLES = {"owner", "manager", StoreStaff.Role.ACCOUNTANT}
+
+    def dispatch(self, request, *args, **kwargs):
+        result = super().dispatch(request, *args, **kwargs)
+        # super() sets request.current_store; if it redirected, return early.
+        if hasattr(result, "status_code") and result.status_code in (302, 301):
+            return result
+        role = _get_current_role(request)
+        if role not in self._ACCOUNTING_ROLES:
+            messages.error(request, "شما دسترسی به بخش مالی را ندارید.")
+            return redirect("dashboard:home")
+        return result
+
+
+class SalesAccessMixin(StoreAccessMixin):
+    """Restrict CRM/sales views to owner, manager, and sales_agent roles."""
+
+    _SALES_ROLES = {"owner", "manager", StoreStaff.Role.SALES_AGENT}
+
+    def dispatch(self, request, *args, **kwargs):
+        result = super().dispatch(request, *args, **kwargs)
+        if hasattr(result, "status_code") and result.status_code in (302, 301):
+            return result
+        role = _get_current_role(request)
+        if role not in self._SALES_ROLES:
+            messages.error(request, "شما دسترسی به بخش مدیریت ارتباط با مشتری را ندارید.")
+            return redirect("dashboard:home")
+        return result
+
+
 class DashboardHomeView(LoginRequiredMixin, TemplateView):
     template_name = "dashboard/home.html"
 
@@ -146,6 +189,21 @@ class DashboardHomeView(LoginRequiredMixin, TemplateView):
         staff = Store.objects.filter(staff_members__user=user)
         ctx["stores"] = (owned | staff).distinct()
         ctx["current_store_id"] = self.request.session.get("current_store_id")
+
+        # Provide current_role for the sidebar role-based menu
+        store_id = self.request.session.get("current_store_id")
+        if store_id:
+            store = Store.objects.filter(pk=store_id).first()
+            if store:
+                if store.owner == user:
+                    ctx["current_role"] = "owner"
+                else:
+                    s = StoreStaff.objects.filter(store=store, user=user).first()
+                    ctx["current_role"] = s.role if s else "staff"
+            else:
+                ctx["current_role"] = "owner"
+        else:
+            ctx["current_role"] = "owner"
         return ctx
 
 
@@ -808,7 +866,7 @@ class OrderDetailView(StoreAccessMixin, TemplateView):
 
 
 # ─── Accounting ────────────────────────────────────────────
-class AccountingLedgerView(StoreAccessMixin, ListView):
+class AccountingLedgerView(AccountingAccessMixin, ListView):
     template_name = "dashboard/accounting_ledger.html"
     context_object_name = "transactions"
     paginate_by = 50
@@ -1502,7 +1560,7 @@ def _enrich_plan_for_display(plan):
 
 
 # ─── Phase 4: BI Analytics ────────────────────────────────────
-class DashboardAnalyticsView(StoreAccessMixin, TemplateView):
+class DashboardAnalyticsView(AccountingAccessMixin, TemplateView):
     """BI Dashboard with KPI cards and revenue trend table."""
 
     template_name = "dashboard/analytics.html"

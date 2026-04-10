@@ -339,6 +339,9 @@ class CheckoutView(StoreMixin, TemplateView):
         if discount_obj:
             DiscountCode.objects.filter(pk=discount_obj.pk).update(used_count=discount_obj.used_count + 1)
 
+        # ── Record CRM contact activity for this order ───────────────
+        self._record_order_activity(order, guest_phone)
+
         # ── Mark abandoned cart as recovered ─────────────────────────
         self._mark_cart_recovered(request)
 
@@ -346,6 +349,26 @@ class CheckoutView(StoreMixin, TemplateView):
         _save_cart(request, {})
 
         return redirect("storefront:order-confirm", store_username=self.store.username, pk=order.pk)
+
+    def _record_order_activity(self, order, phone: str) -> None:
+        """Create a CRM ContactActivity entry for the newly placed order."""
+        try:
+            from crm.models import ContactActivity
+            from customers.models import Customer
+
+            customer = None
+            if phone:
+                customer = Customer.objects.filter(store=self.store, phone=phone).first()
+
+            ContactActivity.objects.create(
+                store=self.store,
+                customer=customer,
+                activity_type=ContactActivity.ActivityType.ORDER,
+                description=f"سفارش #{order.pk} به مبلغ {order.total:,} ریال ثبت شد.",
+                reference_id=str(order.pk),
+            )
+        except Exception:
+            pass  # CRM activity failure must never block the checkout
 
 
 class CartRecoverView(StoreMixin, View):
@@ -486,3 +509,41 @@ def _auto_create_chat_lead(chat_session, customer=None):
     except Exception:
         # Lead creation is best-effort — never block the chat response
         logger.exception("Failed to auto-create chat lead")
+
+
+class ContactView(StoreMixin, TemplateView):
+    """
+    GET  — show contact form
+    POST — save lead in CRM and show success message
+    """
+    template_name = "storefront/contact.html"
+
+    def post(self, request, *args, **kwargs):
+        name = request.POST.get("name", "").strip()
+        phone = request.POST.get("phone", "").strip()
+        email = request.POST.get("email", "").strip()
+        message_text = request.POST.get("message", "").strip()
+
+        if not name:
+            ctx = self.get_context_data(**kwargs)
+            ctx["error"] = "نام الزامی است."
+            ctx["form_data"] = {"name": name, "phone": phone, "email": email, "message": message_text}
+            return self.render_to_response(ctx)
+
+        try:
+            from crm.models import Lead
+
+            Lead.objects.create(
+                store=self.store,
+                name=name,
+                phone=phone,
+                email=email,
+                source="contact_form",
+                note=message_text,
+            )
+        except Exception:
+            logger.exception("Failed to save contact-form lead for store %s", self.store.pk)
+
+        ctx = self.get_context_data(**kwargs)
+        ctx["success"] = True
+        return self.render_to_response(ctx)

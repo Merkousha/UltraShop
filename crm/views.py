@@ -7,11 +7,11 @@ from django.views.generic import ListView, TemplateView
 
 from crm.models import ContactActivity, Lead, SaleTask
 from customers.models import Customer
-from dashboard.views import StoreAccessMixin
+from dashboard.views import SalesAccessMixin
 
 
 # ─── CRM Dashboard ────────────────────────────────────────
-class CRMDashboardView(StoreAccessMixin, TemplateView):
+class CRMDashboardView(SalesAccessMixin, TemplateView):
     template_name = "crm/dashboard.html"
 
     def get_context_data(self, **kwargs):
@@ -43,7 +43,7 @@ class CRMDashboardView(StoreAccessMixin, TemplateView):
 
 
 # ─── Lead Kanban ─────────────────────────────────────────
-class LeadKanbanView(StoreAccessMixin, TemplateView):
+class LeadKanbanView(SalesAccessMixin, TemplateView):
     template_name = "crm/lead_kanban.html"
 
     def get_context_data(self, **kwargs):
@@ -64,7 +64,7 @@ class LeadKanbanView(StoreAccessMixin, TemplateView):
 
 
 # ─── Lead Create ──────────────────────────────────────────
-class LeadCreateView(StoreAccessMixin, TemplateView):
+class LeadCreateView(SalesAccessMixin, TemplateView):
     template_name = "crm/lead_form.html"
 
     def get_context_data(self, **kwargs):
@@ -94,7 +94,7 @@ class LeadCreateView(StoreAccessMixin, TemplateView):
 
 
 # ─── Lead Detail ─────────────────────────────────────────
-class LeadDetailView(StoreAccessMixin, TemplateView):
+class LeadDetailView(SalesAccessMixin, TemplateView):
     template_name = "crm/lead_detail.html"
 
     def get_context_data(self, **kwargs):
@@ -108,7 +108,7 @@ class LeadDetailView(StoreAccessMixin, TemplateView):
 
 
 # ─── Lead Update Stage ────────────────────────────────────
-class LeadUpdateStageView(StoreAccessMixin, View):
+class LeadUpdateStageView(SalesAccessMixin, View):
     def post(self, request, pk, *args, **kwargs):
         lead = get_object_or_404(Lead, pk=pk, store=request.current_store)
         new_stage = request.POST.get("stage")
@@ -127,7 +127,7 @@ class LeadUpdateStageView(StoreAccessMixin, View):
 
 
 # ─── Task List ───────────────────────────────────────────
-class TaskListView(StoreAccessMixin, ListView):
+class TaskListView(SalesAccessMixin, ListView):
     template_name = "crm/task_list.html"
     context_object_name = "tasks"
     paginate_by = 25
@@ -149,7 +149,7 @@ class TaskListView(StoreAccessMixin, ListView):
 
 
 # ─── Task Create ─────────────────────────────────────────
-class TaskCreateView(StoreAccessMixin, TemplateView):
+class TaskCreateView(SalesAccessMixin, TemplateView):
     template_name = "crm/task_form.html"
 
     def get_context_data(self, **kwargs):
@@ -188,7 +188,7 @@ class TaskCreateView(StoreAccessMixin, TemplateView):
 
 
 # ─── Task Toggle Done ────────────────────────────────────
-class TaskToggleDoneView(StoreAccessMixin, View):
+class TaskToggleDoneView(SalesAccessMixin, View):
     def post(self, request, pk, *args, **kwargs):
         task = get_object_or_404(SaleTask, pk=pk, store=request.current_store)
         task.is_done = not task.is_done
@@ -200,7 +200,7 @@ class TaskToggleDoneView(StoreAccessMixin, View):
 
 
 # ─── Contact History ─────────────────────────────────────
-class ContactHistoryView(StoreAccessMixin, ListView):
+class ContactHistoryView(SalesAccessMixin, ListView):
     template_name = "crm/contact_history.html"
     context_object_name = "customers"
     paginate_by = 25
