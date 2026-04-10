@@ -2,6 +2,7 @@ import json
 import logging
 
 from django.contrib import messages
+from core.encryption import encrypt_value
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Q, F
 from django.http import JsonResponse
@@ -820,6 +821,7 @@ class StoreSettingsView(StoreAccessMixin, TemplateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["store"] = self.request.current_store
+        ctx["active_tab"] = self.request.GET.get("tab", "general")
         return ctx
 
     def post(self, request, *args, **kwargs):
@@ -827,37 +829,67 @@ class StoreSettingsView(StoreAccessMixin, TemplateView):
         if store.owner != request.user:
             return redirect("dashboard:store-settings")
 
-        store.name = request.POST.get("store_name", request.POST.get("name", store.name))
-        store.description = request.POST.get("store_description", request.POST.get("description", store.description))
-        store.phone = request.POST.get("phone", store.phone)
-        store.support_email = request.POST.get("support_email", store.support_email)
-        store.allow_guest_checkout = request.POST.get("allow_guest_checkout") == "on"
-        if request.FILES.get("logo"):
-            store.logo = request.FILES["logo"]
+        tab = request.POST.get("tab", "general")
 
-        # Editable username: normalize to slug and check availability
-        raw_username = (request.POST.get("username") or "").strip().lower()
-        if raw_username:
-            slug = slugify(raw_username, allow_unicode=False)
-            slug = "".join(c for c in slug if c.isalnum() or c == "-").strip("-") or None
-            if not slug or len(slug) < 2:
-                messages.error(request, "نام‌کاربری باید حداقل ۲ کاراکتر و فقط حروف انگلیسی، عدد و خط تیره باشد.")
-                return redirect("dashboard:store-settings")
-            if len(slug) > 60:
-                messages.error(request, "نام‌کاربری نباید بیشتر از ۶۰ کاراکتر باشد.")
-                return redirect("dashboard:store-settings")
-            reserved = list(PlatformSettings.load().reserved_usernames or [])
-            if slug in reserved:
-                messages.error(request, "این نام‌کاربری رزرو شده و قابل استفاده نیست.")
-                return redirect("dashboard:store-settings")
-            if Store.objects.filter(username=slug).exclude(pk=store.pk).exists():
-                messages.error(request, "این نام‌کاربری قبلاً انتخاب شده. یک نام دیگر وارد کنید.")
-                return redirect("dashboard:store-settings")
-            store.username = slug
+        if tab == "email":
+            store.email_from = request.POST.get("email_from", store.email_from).strip()
+            store.email_host = request.POST.get("email_host", store.email_host).strip()
+            try:
+                store.email_port = int(request.POST.get("email_port", store.email_port))
+            except (ValueError, TypeError):
+                store.email_port = 587
+            store.email_username = request.POST.get("email_username", store.email_username).strip()
+            new_password = request.POST.get("email_password", "").strip()
+            if new_password:
+                store.email_password_encrypted = encrypt_value(new_password)
+            store.email_use_tls = request.POST.get("email_use_tls") == "on"
+            store.save()
+            messages.success(request, "تنظیمات ایمیل ذخیره شد.")
+            return redirect(f"{request.path}?tab=email")
 
-        store.save()
-        messages.success(request, "تنظیمات ذخیره شد.")
-        return redirect("dashboard:store-settings")
+        elif tab == "sms":
+            store.sms_provider = request.POST.get("sms_provider", store.sms_provider).strip()
+            new_api_key = request.POST.get("sms_api_key", "").strip()
+            if new_api_key:
+                store.sms_api_key_encrypted = encrypt_value(new_api_key)
+            store.sms_sender = request.POST.get("sms_sender", store.sms_sender).strip()
+            store.save()
+            messages.success(request, "تنظیمات پیامک ذخیره شد.")
+            return redirect(f"{request.path}?tab=sms")
+
+        else:
+            # general tab — existing behaviour preserved exactly
+            store.name = request.POST.get("store_name", request.POST.get("name", store.name))
+            store.description = request.POST.get("store_description", request.POST.get("description", store.description))
+            store.phone = request.POST.get("phone", store.phone)
+            store.support_email = request.POST.get("support_email", store.support_email)
+            store.allow_guest_checkout = request.POST.get("allow_guest_checkout") == "on"
+            if request.FILES.get("logo"):
+                store.logo = request.FILES["logo"]
+
+            # Editable username: normalize to slug and check availability
+            raw_username = (request.POST.get("username") or "").strip().lower()
+            if raw_username:
+                slug = slugify(raw_username, allow_unicode=False)
+                slug = "".join(c for c in slug if c.isalnum() or c == "-").strip("-") or None
+                if not slug or len(slug) < 2:
+                    messages.error(request, "نام‌کاربری باید حداقل ۲ کاراکتر و فقط حروف انگلیسی، عدد و خط تیره باشد.")
+                    return redirect("dashboard:store-settings")
+                if len(slug) > 60:
+                    messages.error(request, "نام‌کاربری نباید بیشتر از ۶۰ کاراکتر باشد.")
+                    return redirect("dashboard:store-settings")
+                reserved = list(PlatformSettings.load().reserved_usernames or [])
+                if slug in reserved:
+                    messages.error(request, "این نام‌کاربری رزرو شده و قابل استفاده نیست.")
+                    return redirect("dashboard:store-settings")
+                if Store.objects.filter(username=slug).exclude(pk=store.pk).exists():
+                    messages.error(request, "این نام‌کاربری قبلاً انتخاب شده. یک نام دیگر وارد کنید.")
+                    return redirect("dashboard:store-settings")
+                store.username = slug
+
+            store.save()
+            messages.success(request, "تنظیمات ذخیره شد.")
+            return redirect("dashboard:store-settings")
 
 
 # ─── SO-44: Theme Selection ─────────────────────────────────

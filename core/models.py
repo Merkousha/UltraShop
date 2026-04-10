@@ -28,6 +28,23 @@ class Store(models.Model):
     theme_preset = models.CharField(max_length=30, default="minimal")
     phone = models.CharField(max_length=20, blank=True, default="")
     support_email = models.EmailField(blank=True, default="")
+
+    # Per-store notification config (SO-NotifConfig)
+    sms_provider = models.CharField(
+        max_length=50,
+        blank=True,
+        default="",
+        choices=[("kavenegar", "کاوه نگار"), ("smsir", "sms.ir")],
+    )
+    sms_api_key_encrypted = models.TextField(blank=True, default="")
+    sms_sender = models.CharField(max_length=30, blank=True, default="")
+    email_host = models.CharField(max_length=200, blank=True, default="")
+    email_port = models.PositiveIntegerField(default=587)
+    email_username = models.CharField(max_length=200, blank=True, default="")
+    email_password_encrypted = models.TextField(blank=True, default="")
+    email_use_tls = models.BooleanField(default=True)
+    email_from = models.EmailField(blank=True, default="")
+
     timezone = models.CharField(max_length=50, default="Asia/Tehran")
     currency = models.CharField(max_length=10, default="IRR")
     allow_guest_checkout = models.BooleanField(default=True)
