@@ -4,6 +4,14 @@ from django.utils.safestring import mark_safe
 register = template.Library()
 
 
+@register.filter
+def get_item(dictionary, key):
+    """Lookup a dictionary value by key in templates: {{ my_dict|get_item:key }}"""
+    if isinstance(dictionary, dict):
+        return dictionary.get(key, 0)
+    return 0
+
+
 @register.simple_tag
 def store_theme_css(store):
     """Output <style> block with compiled CSS variables for the store."""

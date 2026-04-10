@@ -240,7 +240,7 @@ class StoreStaff(models.Model):
 
     store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="staff_members")
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="staff_roles")
-    role = models.CharField(max_length=15, choices=Role.choices, default=Role.STAFF)
+    role = models.CharField(max_length=20, choices=Role.choices, default=Role.STAFF)
     warehouses = models.ManyToManyField(
         "Warehouse",
         related_name="staff_members",

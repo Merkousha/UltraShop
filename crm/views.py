@@ -194,7 +194,7 @@ class TaskToggleDoneView(StoreAccessMixin, View):
         task.is_done = not task.is_done
         task.save(update_fields=["is_done"])
         next_url = request.POST.get("next", "")
-        if next_url:
+        if next_url and next_url.startswith("/"):
             return redirect(next_url)
         return redirect("dashboard:crm:task-list")
 
