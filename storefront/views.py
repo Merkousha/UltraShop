@@ -1,4 +1,9 @@
+import logging
+
 from django.db.models import Q
+
+logger = logging.getLogger(__name__)
+
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.utils import timezone
@@ -480,5 +485,4 @@ def _auto_create_chat_lead(chat_session, customer=None):
         )
     except Exception:
         # Lead creation is best-effort — never block the chat response
-        import logging
-        logging.getLogger(__name__).exception("Failed to auto-create chat lead")
+        logger.exception("Failed to auto-create chat lead")

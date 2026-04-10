@@ -41,10 +41,8 @@ class CustomersConfig(AppConfig):
         # - Gunicorn / Uvicorn workers: their entry point is in sys.argv[0].
         # Avoid starting during `migrate`, `shell`, `test`, etc.
         is_devserver_worker = os.environ.get("RUN_MAIN") == "true"
-        is_prod_worker = any(
-            name in (sys.argv[0] if sys.argv else "")
-            for name in ("gunicorn", "uvicorn", "daphne")
-        )
+        argv0_basename = os.path.basename(sys.argv[0]) if sys.argv else ""
+        is_prod_worker = argv0_basename in ("gunicorn", "uvicorn", "daphne")
         if not (is_devserver_worker or is_prod_worker):
             return
 

@@ -105,29 +105,9 @@ def _compute_ltv(paid_qs):
 def _compute_new_customers(store, period_start):
     """
     Count customers whose first paid order is within the given period.
-    These are newly acquired customers.
+    These are newly acquired customers (i.e. they had no paid order before period_start).
     """
-    # Find all paying customers (ever)
-    paying_customers = (
-        Order.objects.filter(store=store, status__in=PAID_STATUSES, customer__isnull=False)
-        .values("customer")
-        .annotate(first_order=Count("id"))  # we only need the group, not count
-    )
-
-    # Among those, find ones whose earliest paid order falls in the period
-    new_customer_count = (
-        Order.objects.filter(
-            store=store,
-            status__in=PAID_STATUSES,
-            customer__isnull=False,
-            created_at__gte=period_start,
-        )
-        .values("customer")
-        .annotate(earliest=Count("id"))
-        .count()
-    )
-
-    # Subtract customers who also had a paid order *before* the period
+    # Customers who had a paid order *before* the period (returning customers)
     returning_customers = (
         Order.objects.filter(
             store=store,
@@ -139,6 +119,7 @@ def _compute_new_customers(store, period_start):
         .distinct()
     )
 
+    # Customers with a paid order in the period who are NOT returning customers
     first_time = (
         Order.objects.filter(
             store=store,
