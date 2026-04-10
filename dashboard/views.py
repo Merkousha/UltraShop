@@ -849,7 +849,8 @@ class StoreSettingsView(StoreAccessMixin, TemplateView):
             return redirect(reverse("dashboard:store-settings") + "?tab=email")
 
         elif tab == "sms":
-            allowed_providers = {"kavenegar", "smsir", ""}
+            from core.models import Store as StoreModel
+            allowed_providers = {c[0] for c in StoreModel._meta.get_field("sms_provider").choices} | {""}
             sms_provider = request.POST.get("sms_provider", store.sms_provider).strip()
             if sms_provider in allowed_providers:
                 store.sms_provider = sms_provider
