@@ -12,31 +12,36 @@
         .btn-primary { background-color: var(--btn-primary-bg, var(--color-primary-500, #4f46e5)); }
         .btn-primary:hover { background-color: var(--btn-primary-hover, var(--color-primary-600, #4338ca)); }
         .text-primary { color: var(--color-primary-500, #4f46e5); }
+        .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border-width:0}
+        .focus\:not-sr-only:focus{position:static;width:auto;height:auto;padding:inherit;margin:inherit;overflow:visible;clip:auto;white-space:normal}
     </style>
     {% block extra_head %}{% endblock %}
 </head>
 <body class="bg-gray-50 min-h-screen flex flex-col">
+<a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:right-2 focus:z-50 focus:bg-indigo-600 focus:text-white focus:px-4 focus:py-2 focus:rounded focus:outline-none focus:ring-2 focus:ring-white">
+    رد شدن به محتوا
+</a>
     <!-- Header -->
-    <header class="bg-white shadow-sm">
+    <header class="bg-white shadow-sm" role="banner">
         <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
             <a href="{% url 'storefront:home' store.username %}" class="text-xl font-bold text-primary">{{ store.name }}</a>
-            <nav class="flex items-center gap-4 text-sm">
+            <nav class="flex items-center gap-4 text-sm" role="navigation" aria-label="ناوبری اصلی">
                 <a href="{% url 'storefront:category-list' store.username %}" class="hover:text-primary">دسته‌بندی‌ها</a>
                 <form action="{% url 'storefront:product-search' store.username %}" method="get" class="flex">
                     <input type="text" name="q" placeholder="جستجو..." class="border rounded-r px-3 py-1 text-sm w-40">
-                    <button type="submit" class="btn-primary text-white px-3 py-1 rounded-l text-sm">🔍</button>
+                    <button type="submit" class="btn-primary text-white px-3 py-1 rounded-l text-sm" aria-label="جستجو">🔍</button>
                 </form>
             </nav>
         </div>
     </header>
 
     <!-- Content -->
-    <main class="flex-1 max-w-6xl mx-auto w-full px-4 py-6">
+    <main class="flex-1 max-w-6xl mx-auto w-full px-4 py-6" id="main-content" role="main" tabindex="-1">
         {% block content %}{% endblock %}
     </main>
 
     <!-- Footer -->
-    <footer class="bg-white border-t mt-auto">
+    <footer class="bg-white border-t mt-auto" role="contentinfo">
         <div class="max-w-6xl mx-auto px-4 py-4 text-center text-sm text-gray-500">
             {{ store.name }} — قدرت گرفته از UltraShop
         </div>
@@ -74,6 +79,9 @@
         <!-- Bubble Button -->
         <button onclick="toggleChat()"
                 id="chat-bubble"
+                aria-expanded="false"
+                aria-controls="chat-panel"
+                aria-label="باز کردن دستیار هوشمند"
                 style="width:3.25rem;height:3.25rem;border-radius:50%;background:var(--color-primary-500,#4f46e5);color:#fff;border:none;cursor:pointer;font-size:1.4rem;box-shadow:0 4px 14px rgba(79,70,229,.5);display:flex;align-items:center;justify-content:center;transition:transform .2s;"
                 title="دستیار هوشمند">
             💬

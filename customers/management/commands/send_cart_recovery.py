@@ -68,8 +68,25 @@ class Command(BaseCommand):
                 f"سلام! سبد خرید شما در فروشگاه «{store_name}» با {item_count} قلم محصول "
                 f"هنوز منتظر است. برای تکمیل خرید بازگردید."
             )
+            from django.urls import reverse
+            from django.conf import settings as django_settings
+            try:
+                recovery_path = reverse(
+                    "storefront:cart-recover",
+                    kwargs={
+                        "store_username": cart.store.username,
+                        "token": str(cart.recovery_token),
+                    },
+                )
+                platform_domain = getattr(django_settings, "PLATFORM_DOMAIN", "localhost:8080")
+                recovery_url = f"https://{platform_domain}{recovery_path}"
+            except Exception:
+                recovery_url = ""
 
-            # Try to use core notification service if available, otherwise log
+            message = (
+                f"سلام! سبد خرید شما در فروشگاه «{store_name}» با {item_count} قلم محصول "
+                f"هنوز منتظر است. برای تکمیل خرید اینجا کلیک کنید: {recovery_url}"
+            )
             sent = False
             if recipient and not dry_run:
                 try:

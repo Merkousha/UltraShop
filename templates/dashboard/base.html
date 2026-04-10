@@ -2,11 +2,11 @@
 {% block body %}
 <div class="flex min-h-screen">
     <!-- Sidebar -->
-    <aside class="w-60 bg-gray-900 text-white flex-shrink-0">
+    <aside class="w-60 bg-gray-900 text-white flex-shrink-0" role="navigation" aria-label="ناوبری داشبورد">
         <div class="p-4 border-b border-gray-700">
             <h1 class="text-lg font-bold">📦 داشبورد فروشگاه</h1>
         </div>
-        <nav class="p-4 space-y-1 text-sm">
+        <nav class="p-4 space-y-1 text-sm" aria-label="منوی داشبورد">
             <a href="{% url 'dashboard:home' %}" class="block px-3 py-2 rounded hover:bg-gray-800">🏠 خانه</a>
             <a href="{% url 'dashboard:onboarding' %}" class="block px-3 py-2 rounded hover:bg-gray-800">✨ راه‌اندازی با AI</a>
             <a href="{% url 'dashboard:brand-identity' %}" class="block px-3 py-2 rounded hover:bg-gray-800">🎨 هویت برند (AI)</a>
@@ -40,7 +40,7 @@
             </form>
         </nav>
     </aside>
-    <main class="flex-1 p-6">
+    <main class="flex-1 p-6" id="main-content" role="main">
         {% if messages %}
         <div class="mb-4">
             {% for msg in messages %}

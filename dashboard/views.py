@@ -1,6 +1,7 @@
 import json
 import logging
 
+from django.conf import settings
 from django.contrib import messages
 from core.encryption import encrypt_value
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -1544,6 +1545,72 @@ class AbandonedCartListView(StoreAccessMixin, ListView):
         ctx = super().get_context_data(**kwargs)
         ctx["status_filter"] = self.request.GET.get("status", "")
         return ctx
+
+
+class AbandonedCartSendNowView(StoreAccessMixin, View):
+    """POST — manually trigger recovery message for a single abandoned cart."""
+
+    def post(self, request, pk, *args, **kwargs):
+        from customers.models import AbandonedCart
+        from django.utils import timezone
+
+        cart = get_object_or_404(
+            AbandonedCart, pk=pk, store=request.current_store, recovered=False
+        )
+
+        if cart.recovery_sent_at:
+            messages.warning(request, f"یادآوری برای سبد #{cart.pk} قبلاً ارسال شده بود.")
+            return redirect("dashboard:abandoned-carts")
+
+        recipient = ""
+        if cart.customer:
+            recipient = cart.customer.phone or cart.customer.email
+        elif cart.phone:
+            recipient = cart.phone
+        elif cart.email:
+            recipient = cart.email
+
+        store_name = cart.store.name
+        item_count = cart.item_count
+
+        # Build recovery URL
+        recovery_path = reverse(
+            "storefront:cart-recover",
+            kwargs={
+                "store_username": cart.store.username,
+                "token": str(cart.recovery_token),
+            },
+        )
+        platform_domain = getattr(settings, "PLATFORM_DOMAIN", "localhost:8080")
+        recovery_url = f"https://{platform_domain}{recovery_path}"
+
+        message = (
+            f"سلام! سبد خرید شما در فروشگاه «{store_name}» با {item_count} قلم محصول "
+            f"هنوز منتظر است. برای تکمیل خرید اینجا کلیک کنید: {recovery_url}"
+        )
+
+        sent = False
+        if recipient:
+            try:
+                from core.services import send_notification
+                send_notification(cart.store, recipient, message)
+                sent = True
+            except (ImportError, AttributeError):
+                import logging as _logging
+                _logging.getLogger(__name__).info(
+                    "Cart recovery manual send [cart=%d, recipient=%s]: %s",
+                    cart.pk, recipient or "(no contact)", message,
+                )
+                sent = True
+
+        AbandonedCart.objects.filter(pk=cart.pk).update(recovery_sent_at=timezone.now())
+
+        if sent and recipient:
+            messages.success(request, f"یادآوری برای سبد #{cart.pk} به «{recipient}» ارسال شد.")
+        else:
+            messages.warning(request, f"سبد #{cart.pk} اطلاعات تماس ندارد — فقط زمان ثبت شد.")
+
+        return redirect("dashboard:abandoned-carts")
 
 
 # ─── Phase 3: AI Chat History ─────────────────────────────────

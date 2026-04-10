@@ -3,25 +3,51 @@
 {% block title %}ساخت محصول از عکس{% endblock %}
 
 {% block content %}
-<!-- ─── Full-screen AI loading overlay ──────────────────────── -->
+<!-- ─── Multi-step AI progress overlay ──────────────────────── -->
 <div id="ai-overlay"
      class="hidden fixed inset-0 z-50 flex flex-col items-center justify-center"
-     style="background: rgba(17,24,39,0.82); backdrop-filter: blur(4px);">
-    <!-- Spinner -->
-    <div class="relative mb-6">
-        <div class="w-20 h-20 rounded-full border-4 border-indigo-200 border-t-indigo-600"
+     style="background: rgba(17,24,39,0.88); backdrop-filter: blur(6px);"
+     role="status" aria-live="polite" aria-label="در حال پردازش تصویر با هوش مصنوعی">
+
+    <!-- Icon -->
+    <div class="relative mb-5">
+        <div class="w-20 h-20 rounded-full border-4 border-indigo-200 border-t-indigo-500"
              style="animation: spin-ai 0.9s linear infinite;"></div>
-        <!-- Pulsing inner circle -->
-        <div class="absolute inset-0 flex items-center justify-center">
-            <div class="w-10 h-10 rounded-full bg-indigo-600 opacity-20"
-                 style="animation: pulse-ai 1.4s ease-in-out infinite;"></div>
+        <div class="absolute inset-0 flex items-center justify-center text-2xl select-none" id="step-icon">🔍</div>
+    </div>
+
+    <!-- Step title -->
+    <p id="step-title" class="text-white text-lg font-semibold mb-1 text-center px-4">در حال آپلود تصویر...</p>
+    <!-- Step subtitle -->
+    <p id="step-subtitle" class="text-indigo-300 text-sm mb-5 text-center px-4">لطفاً صبر کنید.</p>
+
+    <!-- Step progress bar -->
+    <div class="w-64 bg-gray-700 rounded-full h-2 mb-4 overflow-hidden">
+        <div id="step-progress-bar"
+             class="h-2 rounded-full bg-indigo-400 transition-all duration-700"
+             style="width: 10%"></div>
+    </div>
+
+    <!-- Step bullets -->
+    <div class="flex gap-4 mt-2" id="step-bullets">
+        <div class="flex flex-col items-center gap-1">
+            <span id="step-dot-1" class="w-3 h-3 rounded-full bg-indigo-400" style="transition: background .4s"></span>
+            <span class="text-xs text-indigo-200">آپلود</span>
+        </div>
+        <div class="w-8 h-px bg-gray-600 mt-1.5"></div>
+        <div class="flex flex-col items-center gap-1">
+            <span id="step-dot-2" class="w-3 h-3 rounded-full bg-gray-600" style="transition: background .4s"></span>
+            <span class="text-xs text-gray-400">تحلیل AI</span>
+        </div>
+        <div class="w-8 h-px bg-gray-600 mt-1.5"></div>
+        <div class="flex flex-col items-center gap-1">
+            <span id="step-dot-3" class="w-3 h-3 rounded-full bg-gray-600" style="transition: background .4s"></span>
+            <span class="text-xs text-gray-400">ساخت فرم</span>
         </div>
     </div>
-    <!-- Persian progress message -->
-    <p class="text-white text-lg font-semibold mb-2">در حال تحلیل تصویر با هوش مصنوعی...</p>
-    <p class="text-indigo-300 text-sm">لطفاً صبر کنید. این فرآیند ممکن است چند ثانیه طول بکشد.</p>
+
     <!-- Animated dots -->
-    <div class="flex gap-2 mt-5">
+    <div class="flex gap-2 mt-6">
         <span class="w-2 h-2 rounded-full bg-indigo-400" style="animation: bounce-ai 1.2s ease-in-out 0s infinite;"></span>
         <span class="w-2 h-2 rounded-full bg-indigo-400" style="animation: bounce-ai 1.2s ease-in-out 0.2s infinite;"></span>
         <span class="w-2 h-2 rounded-full bg-indigo-400" style="animation: bounce-ai 1.2s ease-in-out 0.4s infinite;"></span>
@@ -31,10 +57,6 @@
 <style>
 @keyframes spin-ai {
     to { transform: rotate(360deg); }
-}
-@keyframes pulse-ai {
-    0%, 100% { transform: scale(0.8); opacity: 0.2; }
-    50%       { transform: scale(1.3); opacity: 0.5; }
 }
 @keyframes bounce-ai {
     0%, 80%, 100% { transform: translateY(0);    opacity: 0.4; }
@@ -143,11 +165,44 @@
         reader.readAsDataURL(file);
     });
 
-    /* ── Show overlay on submit ── */
+    /* ── Multi-step progress on submit ── */
+    var steps = [
+        { icon: '🔍', title: 'در حال آپلود تصویر...', subtitle: 'تصویر به سرور ارسال می‌شود.', progress: 20, dot: 1 },
+        { icon: '🤖', title: 'در حال تحلیل با هوش مصنوعی...', subtitle: 'مدل AI در حال بررسی تصویر است.', progress: 55, dot: 2 },
+        { icon: '📝', title: 'در حال ساخت اطلاعات محصول...', subtitle: 'نام، توضیحات و قیمت پیشنهادی استخراج می‌شود.', progress: 85, dot: 3 },
+        { icon: '✅', title: 'آماده‌سازی فرم...', subtitle: 'به‌زودی به فرم محصول منتقل می‌شوید.', progress: 100, dot: 3 },
+    ];
+    var stepTitleEl   = document.getElementById('step-title');
+    var stepSubEl     = document.getElementById('step-subtitle');
+    var stepIconEl    = document.getElementById('step-icon');
+    var progressBarEl = document.getElementById('step-progress-bar');
+    var dots = [
+        document.getElementById('step-dot-1'),
+        document.getElementById('step-dot-2'),
+        document.getElementById('step-dot-3'),
+    ];
+
+    function activateDot(idx) {
+        dots.forEach(function(d, i) {
+            d.style.background = i < idx ? '#818cf8' : (i === idx ? '#6366f1' : '#4b5563');
+        });
+    }
+
     form.addEventListener('submit', function () {
         if (submitBtn.disabled) return;
         overlay.classList.remove('hidden');
         submitBtn.disabled = true;
+
+        var timings = [0, 1200, 3500, 6000];
+        steps.forEach(function(step, idx) {
+            setTimeout(function() {
+                stepIconEl.textContent   = step.icon;
+                stepTitleEl.textContent  = step.title;
+                stepSubEl.textContent    = step.subtitle;
+                progressBarEl.style.width = step.progress + '%';
+                activateDot(step.dot - 1);
+            }, timings[idx]);
+        });
     });
 })();
 </script>

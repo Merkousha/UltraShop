@@ -72,6 +72,7 @@ urlpatterns = [
 
     # Phase 3: Abandoned Cart Recovery
     path("abandoned-carts/", views.AbandonedCartListView.as_view(), name="abandoned-carts"),
+    path("abandoned-carts/<int:pk>/send-now/", views.AbandonedCartSendNowView.as_view(), name="abandoned-cart-send-now"),
 
     # Phase 3: AI Chat History
     path("chat-history/", views.ChatHistoryView.as_view(), name="chat-history"),

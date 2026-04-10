@@ -3,11 +3,11 @@
 {% block title %}سبد خرید — {{ store.name }}{% endblock %}
 {% block content %}
 <div class="max-w-3xl mx-auto">
-    <h1 class="text-2xl font-bold mb-6">🛒 سبد خرید</h1>
+    <h1 class="text-2xl font-bold mb-6" id="cart-heading">🛒 سبد خرید</h1>
 
     {% if cart_items %}
     <div class="bg-white rounded-lg shadow overflow-hidden mb-6">
-        <table class="w-full text-sm">
+        <table class="w-full text-sm" aria-labelledby="cart-heading">
             <thead class="bg-gray-50 border-b">
                 <tr>
                     <th class="p-4 text-right font-semibold">محصول</th>
@@ -29,7 +29,7 @@
                         <form method="post" action="{% url 'storefront:cart-remove' store.username %}">
                             {% csrf_token %}
                             <input type="hidden" name="variant_id" value="{{ item.variant.pk }}">
-                            <button type="submit" class="text-red-500 hover:text-red-700 text-xs">حذف</button>
+                            <button type="submit" class="text-red-500 hover:text-red-700 text-xs" aria-label="حذف {{ item.product.name }}">حذف</button>
                         </form>
                     </td>
                 </tr>
