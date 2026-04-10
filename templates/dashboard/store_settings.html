@@ -62,7 +62,7 @@
                    class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
                    dir="ltr" pattern="[a-zA-Z0-9\-]+" minlength="2" maxlength="60" placeholder="my-shop">
             <p class="text-xs text-gray-500 mt-1">فقط حروف انگلیسی، عدد و خط تیره. آدرس:
-                <span dir="ltr" class="text-indigo-400">{{ store.username }}.ultra-shop.com</span>
+                <span dir="ltr" class="text-indigo-400">{{ store.username }}.{{ platform_settings.domain|default:"ultra-shop.com" }}</span>
             </p>
         </div>
 

@@ -7,6 +7,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Q, F
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.text import slugify
 from django.views import View
@@ -845,17 +846,20 @@ class StoreSettingsView(StoreAccessMixin, TemplateView):
             store.email_use_tls = request.POST.get("email_use_tls") == "on"
             store.save()
             messages.success(request, "تنظیمات ایمیل ذخیره شد.")
-            return redirect(f"{request.path}?tab=email")
+            return redirect(reverse("dashboard:store-settings") + "?tab=email")
 
         elif tab == "sms":
-            store.sms_provider = request.POST.get("sms_provider", store.sms_provider).strip()
+            allowed_providers = {"kavenegar", "smsir", ""}
+            sms_provider = request.POST.get("sms_provider", store.sms_provider).strip()
+            if sms_provider in allowed_providers:
+                store.sms_provider = sms_provider
             new_api_key = request.POST.get("sms_api_key", "").strip()
             if new_api_key:
                 store.sms_api_key_encrypted = encrypt_value(new_api_key)
             store.sms_sender = request.POST.get("sms_sender", store.sms_sender).strip()
             store.save()
             messages.success(request, "تنظیمات پیامک ذخیره شد.")
-            return redirect(f"{request.path}?tab=sms")
+            return redirect(reverse("dashboard:store-settings") + "?tab=sms")
 
         else:
             # general tab — existing behaviour preserved exactly
