@@ -33,6 +33,12 @@ class Order(models.Model):
     )
     discount_code_used = models.CharField(max_length=50, blank=True, default="")
     discount_amount = models.PositiveBigIntegerField(default=0, help_text="Discount applied in IRR")
+    fiscal_id = models.CharField(
+        max_length=200,
+        blank=True,
+        default="",
+        help_text="Fiscal ID from Moadian tax system after invoice submission.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

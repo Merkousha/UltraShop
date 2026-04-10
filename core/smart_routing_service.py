@@ -50,6 +50,13 @@ class SmartRoutingService:
             ).order_by("priority", "pk")
         )
 
+        # ── Sort warehouses by geographic proximity to the customer ──────
+        shipping_city = self.order.shipping_city or ""
+        shipping_province = self.order.shipping_province or ""
+        warehouses = self._sort_warehouses_by_proximity(
+            warehouses, shipping_city, shipping_province
+        )
+
         # ── 1. Try single-warehouse fulfillment ──────────────────────────
         for wh in warehouses:
             if self._can_fulfill_all(wh, lines):
@@ -76,6 +83,32 @@ class SmartRoutingService:
     # ------------------------------------------------------------------ #
     # Helpers                                                              #
     # ------------------------------------------------------------------ #
+
+    def _sort_warehouses_by_proximity(self, warehouses, shipping_city, shipping_province):
+        """
+        Return warehouses sorted by geographic proximity to the customer:
+          1. Same city (case-insensitive)
+          2. Same province (case-insensitive)
+          3. All others (original priority order preserved within each tier)
+        """
+        city_lower = shipping_city.strip().lower()
+        province_lower = shipping_province.strip().lower()
+
+        tier_city = []
+        tier_province = []
+        tier_other = []
+
+        for wh in warehouses:
+            wh_city = (wh.city or "").strip().lower()
+            wh_province = (wh.province or "").strip().lower()
+            if city_lower and wh_city == city_lower:
+                tier_city.append(wh)
+            elif province_lower and wh_province == province_lower:
+                tier_province.append(wh)
+            else:
+                tier_other.append(wh)
+
+        return tier_city + tier_province + tier_other
 
     def _can_fulfill_all(self, warehouse, lines):
         """Return True if `warehouse` has enough available stock for every line."""
