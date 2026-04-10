@@ -72,6 +72,7 @@ if USE_DJANGO_TENANTS:
         "accounting",
         "payments",
         "storefront",
+        "crm",
     )
 
     INSTALLED_APPS = list(SHARED_APPS) + [a for a in TENANT_APPS if a not in SHARED_APPS]
@@ -94,6 +95,7 @@ else:
         "platform_admin",
         "dashboard",
         "storefront",
+        "crm",
     ]
 
 MIDDLEWARE = [

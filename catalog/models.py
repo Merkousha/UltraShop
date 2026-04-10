@@ -46,6 +46,7 @@ class Product(models.Model):
     meta_description = models.TextField(blank=True, default="")
     focus_keywords = models.CharField(max_length=500, blank=True, default="", help_text="Comma-separated keywords for SEO (SO-17)")
     og_description = models.TextField(blank=True, default="", help_text="Open Graph description for social share (SO-17)")
+    requires_shipping = models.BooleanField(default=True, help_text="آیا این محصول نیاز به ارسال فیزیکی دارد؟")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

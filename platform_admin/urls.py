@@ -53,4 +53,9 @@ urlpatterns = [
     path("theme-presets/create/", views.ThemePresetCreateView.as_view(), name="theme-preset-create"),
     path("theme-presets/<int:pk>/edit/", views.ThemePresetEditView.as_view(), name="theme-preset-edit"),
     path("theme-presets/<int:pk>/deprecate/", views.ThemePresetDeprecateView.as_view(), name="theme-preset-deprecate"),
+
+    # Plans
+    path("plans/", views.PlanListView.as_view(), name="plan-list"),
+    path("plans/create/", views.PlanCreateView.as_view(), name="plan-create"),
+    path("plans/<int:pk>/edit/", views.PlanEditView.as_view(), name="plan-edit"),
 ]

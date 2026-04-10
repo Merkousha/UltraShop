@@ -31,6 +31,7 @@ class Store(models.Model):
     timezone = models.CharField(max_length=50, default="Asia/Tehran")
     currency = models.CharField(max_length=10, default="IRR")
     allow_guest_checkout = models.BooleanField(default=True)
+    plan = models.ForeignKey("StorePlan", on_delete=models.SET_NULL, null=True, blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -212,14 +213,34 @@ class AuditLog(models.Model):
         return f"{self.action} by {self.actor} at {self.created_at}"
 
 
+class StorePlan(models.Model):
+    """Platform-level subscription plan with feature limits."""
+    name = models.CharField(max_length=100)
+    slug = models.SlugField(unique=True)
+    max_warehouses = models.PositiveIntegerField(default=1)
+    max_products = models.PositiveIntegerField(default=100)
+    max_ai_requests_daily = models.PositiveIntegerField(default=10)
+    allow_custom_domain = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "store_plans"
+
+    def __str__(self):
+        return self.name
+
+
 class StoreStaff(models.Model):
     class Role(models.TextChoices):
         STAFF = "staff", "Staff"
         MANAGER = "manager", "Manager"
+        SALES_AGENT = "sales_agent", "مسئول فروش"
+        ACCOUNTANT = "accountant", "حسابدار"
 
     store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="staff_members")
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="staff_roles")
-    role = models.CharField(max_length=10, choices=Role.choices, default=Role.STAFF)
+    role = models.CharField(max_length=15, choices=Role.choices, default=Role.STAFF)
     warehouses = models.ManyToManyField(
         "Warehouse",
         related_name="staff_members",

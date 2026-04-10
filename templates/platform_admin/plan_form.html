@@ -1,0 +1,89 @@
+{% extends "platform_admin/base.html" %}
+{% block title %}{% if action == "create" %}ایجاد پلن جدید{% else %}ویرایش پلن{% endif %}{% endblock %}
+{% block content %}
+<div class="p-6 max-w-2xl">
+    <h1 class="text-2xl font-bold mb-6">
+        {% if action == "create" %}➕ ایجاد پلن جدید{% else %}✏️ ویرایش پلن «{{ plan.name }}»{% endif %}
+    </h1>
+
+    {% if messages %}
+    {% for msg in messages %}
+    <div class="mb-4 p-3 rounded {% if msg.tags == 'error' %}bg-red-100 text-red-700{% else %}bg-green-100 text-green-700{% endif %}">
+        {{ msg }}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <form method="post" class="bg-white rounded-lg shadow p-6 space-y-4">
+        {% csrf_token %}
+
+        <div>
+            <label class="block text-sm font-medium mb-1">نام پلن *</label>
+            <input type="text" name="name" required
+                   value="{% if plan %}{{ plan.name }}{% endif %}"
+                   class="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                   placeholder="مثال: استارتر">
+        </div>
+
+        {% if action == "create" %}
+        <div>
+            <label class="block text-sm font-medium mb-1">شناسه (slug) *</label>
+            <input type="text" name="slug" required dir="ltr"
+                   class="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                   placeholder="starter">
+            <p class="text-xs text-gray-400 mt-1">فقط حروف انگلیسی، عدد و خط تیره. قابل تغییر نیست.</p>
+        </div>
+        {% endif %}
+
+        <div class="grid grid-cols-3 gap-4">
+            <div>
+                <label class="block text-sm font-medium mb-1">حداکثر انبار</label>
+                <input type="number" name="max_warehouses" min="0"
+                       value="{% if plan %}{{ plan.max_warehouses }}{% else %}1{% endif %}"
+                       class="w-full border rounded px-3 py-2 text-sm" dir="ltr">
+                <p class="text-xs text-gray-400 mt-1">۰ = نامحدود</p>
+            </div>
+            <div>
+                <label class="block text-sm font-medium mb-1">حداکثر محصول</label>
+                <input type="number" name="max_products" min="0"
+                       value="{% if plan %}{{ plan.max_products }}{% else %}100{% endif %}"
+                       class="w-full border rounded px-3 py-2 text-sm" dir="ltr">
+                <p class="text-xs text-gray-400 mt-1">۰ = نامحدود</p>
+            </div>
+            <div>
+                <label class="block text-sm font-medium mb-1">درخواست AI روزانه</label>
+                <input type="number" name="max_ai_requests_daily" min="0"
+                       value="{% if plan %}{{ plan.max_ai_requests_daily }}{% else %}10{% endif %}"
+                       class="w-full border rounded px-3 py-2 text-sm" dir="ltr">
+                <p class="text-xs text-gray-400 mt-1">۰ = نامحدود</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-6">
+            <label class="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" name="allow_custom_domain"
+                       {% if plan and plan.allow_custom_domain %}checked{% endif %}
+                       class="w-4 h-4 text-indigo-600 rounded border-gray-300">
+                دامنه اختصاصی مجاز است
+            </label>
+            <label class="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" name="is_active"
+                       {% if not plan or plan.is_active %}checked{% endif %}
+                       class="w-4 h-4 text-indigo-600 rounded border-gray-300">
+                پلن فعال است
+            </label>
+        </div>
+
+        <div class="flex gap-3 pt-2">
+            <button type="submit"
+                    class="bg-indigo-600 text-white px-6 py-2 rounded hover:bg-indigo-700 text-sm">
+                ذخیره
+            </button>
+            <a href="{% url 'platform_admin:plan-list' %}"
+               class="bg-gray-200 text-gray-700 px-6 py-2 rounded hover:bg-gray-300 text-sm">
+                انصراف
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}
