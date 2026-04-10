@@ -1,0 +1,91 @@
+{% extends "platform_admin/base.html" %}
+{% block title %}مدیریت پلن‌ها{% endblock %}
+{% block content %}
+<div class="p-6">
+    <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold">📋 پلن‌های اشتراک</h1>
+        <a href="{% url 'platform_admin:plan-create' %}"
+           class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 text-sm">
+            + ایجاد پلن جدید
+        </a>
+    </div>
+
+    {% if messages %}
+    {% for msg in messages %}
+    <div class="mb-4 p-3 rounded {% if msg.tags == 'error' %}bg-red-100 text-red-700{% else %}bg-green-100 text-green-700{% endif %}">
+        {{ msg }}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <div class="bg-white rounded-lg shadow overflow-hidden">
+        <table class="w-full text-sm">
+            <thead class="bg-gray-50 border-b">
+                <tr>
+                    <th class="p-4 text-right font-semibold">نام</th>
+                    <th class="p-4 text-center font-semibold">شناسه</th>
+                    <th class="p-4 text-center font-semibold">انبار</th>
+                    <th class="p-4 text-center font-semibold">محصول</th>
+                    <th class="p-4 text-center font-semibold">AI روزانه</th>
+                    <th class="p-4 text-center font-semibold">دامنه اختصاصی</th>
+                    <th class="p-4 text-center font-semibold">وضعیت</th>
+                    <th class="p-4 text-center font-semibold">عملیات</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for plan in plans %}
+                <tr class="border-b last:border-0 hover:bg-gray-50">
+                    <td class="p-4 font-medium">{{ plan.name }}</td>
+                    <td class="p-4 text-center text-gray-500 ltr">{{ plan.slug }}</td>
+                    <td class="p-4 text-center">
+                        {% if plan.max_warehouses == 0 %}
+                        <span class="text-green-600 font-bold">نامحدود</span>
+                        {% else %}
+                        {{ plan.max_warehouses }}
+                        {% endif %}
+                    </td>
+                    <td class="p-4 text-center">
+                        {% if plan.max_products == 0 %}
+                        <span class="text-green-600 font-bold">نامحدود</span>
+                        {% else %}
+                        {{ plan.max_products }}
+                        {% endif %}
+                    </td>
+                    <td class="p-4 text-center">
+                        {% if plan.max_ai_requests_daily == 0 %}
+                        <span class="text-green-600 font-bold">نامحدود</span>
+                        {% else %}
+                        {{ plan.max_ai_requests_daily }}
+                        {% endif %}
+                    </td>
+                    <td class="p-4 text-center">
+                        {% if plan.allow_custom_domain %}
+                        <span class="text-green-600">✔</span>
+                        {% else %}
+                        <span class="text-gray-300">✘</span>
+                        {% endif %}
+                    </td>
+                    <td class="p-4 text-center">
+                        {% if plan.is_active %}
+                        <span class="bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs">فعال</span>
+                        {% else %}
+                        <span class="bg-gray-100 text-gray-500 px-2 py-0.5 rounded text-xs">غیرفعال</span>
+                        {% endif %}
+                    </td>
+                    <td class="p-4 text-center">
+                        <a href="{% url 'platform_admin:plan-edit' plan.pk %}"
+                           class="text-indigo-600 hover:underline text-xs">ویرایش</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="p-8 text-center text-gray-400">هنوز پلنی ایجاد نشده.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <p class="text-xs text-gray-400 mt-3">مقدار ۰ برای انبار، محصول و AI به معنای نامحدود است.</p>
+</div>
+{% endblock %}

@@ -16,6 +16,14 @@
             <a href="{% url 'dashboard:warehouse-list' %}" class="block px-3 py-2 rounded hover:bg-gray-800">🏭 انبارها</a>
             <a href="{% url 'dashboard:accounting-ledger' %}" class="block px-3 py-2 rounded hover:bg-gray-800">💰 حسابداری</a>
             <hr class="border-gray-700 my-2">
+            <!-- مدیریت فروش -->
+            <p class="px-3 py-1 text-xs text-gray-500 uppercase tracking-wide">مدیریت ارتباط با مشتری</p>
+            <a href="{% url 'dashboard:crm:dashboard' %}" class="block px-3 py-2 rounded hover:bg-gray-800">📊 داشبورد فروش</a>
+            <a href="{% url 'dashboard:crm:lead-kanban' %}" class="block px-3 py-2 rounded hover:bg-gray-800">🗂 سرنخ‌ها (کانبان)</a>
+            <a href="{% url 'dashboard:crm:lead-create' %}" class="block px-3 py-2 rounded hover:bg-gray-800">➕ سرنخ جدید</a>
+            <a href="{% url 'dashboard:crm:task-list' %}" class="block px-3 py-2 rounded hover:bg-gray-800">✅ وظایف فروش</a>
+            <a href="{% url 'dashboard:crm:contact-history' %}" class="block px-3 py-2 rounded hover:bg-gray-800">📋 تاریخچه تماس</a>
+            <hr class="border-gray-700 my-2">
             <a href="{% url 'dashboard:store-settings' %}" class="block px-3 py-2 rounded hover:bg-gray-800">⚙️ تنظیمات</a>
             <a href="{% url 'dashboard:theme-select' %}" class="block px-3 py-2 rounded hover:bg-gray-800">🎨 پوسته فروشگاه</a>
             <a href="{% url 'dashboard:page-editor' %}" class="block px-3 py-2 rounded hover:bg-gray-800">📄 ویرایشگر صفحه</a>

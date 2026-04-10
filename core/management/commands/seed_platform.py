@@ -1,11 +1,11 @@
 from django.core.management.base import BaseCommand
 from django.contrib.auth.models import Group
 
-from core.models import PlatformSettings, User
+from core.models import PlatformSettings, StorePlan, User
 
 
 class Command(BaseCommand):
-    help = "Seed initial platform data: PlatformAdmin group, PlatformSettings, superuser"
+    help = "Seed initial platform data: PlatformAdmin group, PlatformSettings, superuser, plans"
 
     def handle(self, *args, **options):
         # 1. Create PlatformAdmin group
@@ -46,5 +46,40 @@ class Command(BaseCommand):
         # 4. Seed theme presets
         from django.core.management import call_command
         call_command("seed_theme_presets")
+
+        # 5. Seed default store plans
+        plans_data = [
+            {
+                "slug": "starter",
+                "name": "استارتر",
+                "max_warehouses": 1,
+                "max_products": 100,
+                "max_ai_requests_daily": 10,
+                "allow_custom_domain": False,
+            },
+            {
+                "slug": "growth",
+                "name": "رشد",
+                "max_warehouses": 3,
+                "max_products": 500,
+                "max_ai_requests_daily": 50,
+                "allow_custom_domain": False,
+            },
+            {
+                "slug": "pro",
+                "name": "حرفه‌ای",
+                "max_warehouses": 0,   # 0 = unlimited
+                "max_products": 0,     # 0 = unlimited
+                "max_ai_requests_daily": 0,  # 0 = unlimited
+                "allow_custom_domain": True,
+            },
+        ]
+        for pdata in plans_data:
+            slug = pdata.pop("slug")
+            plan, created = StorePlan.objects.get_or_create(slug=slug, defaults=pdata)
+            if created:
+                self.stdout.write(self.style.SUCCESS(f"Created plan: {plan.name}"))
+            else:
+                self.stdout.write(f"Plan already exists: {plan.name}")
 
         self.stdout.write(self.style.SUCCESS("Seed complete!"))

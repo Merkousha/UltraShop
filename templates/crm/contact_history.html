@@ -1,0 +1,123 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+{% block title %}تاریخچه تماس مشتریان{% endblock %}
+{% block content %}
+<div class="space-y-6">
+    <div class="flex items-center justify-between">
+        <h1 class="text-2xl font-bold text-gray-800">📋 تاریخچه تماس مشتریان</h1>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- Customer List -->
+        <div class="lg:col-span-2">
+            <div class="bg-white rounded-xl shadow overflow-hidden">
+                <div class="p-4 border-b bg-gray-50">
+                    <h2 class="font-semibold text-sm text-gray-700">مشتریان ({{ page_obj.paginator.count }})</h2>
+                </div>
+                {% if customers %}
+                <ul class="divide-y">
+                    {% for customer in customers %}
+                    <li class="p-4 hover:bg-gray-50">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="font-medium text-sm text-gray-800">
+                                    {{ customer.name|default:"بدون نام" }}
+                                </p>
+                                <p class="text-xs text-gray-500 ltr mt-0.5">{{ customer.phone }}</p>
+                                {% if customer.email %}
+                                <p class="text-xs text-gray-400">{{ customer.email }}</p>
+                                {% endif %}
+                            </div>
+                            <div class="text-left">
+                                <span class="bg-indigo-50 text-indigo-600 text-xs px-2 py-0.5 rounded-full">
+                                    {{ customer.activity_count }} فعالیت
+                                </span>
+                                <p class="text-xs text-gray-400 mt-1 ltr">{{ customer.created_at|date:"Y-m-d" }}</p>
+                            </div>
+                        </div>
+
+                        <!-- Recent activities for this customer -->
+                        {% with acts=customer.activities.all|slice:":3" %}
+                        {% if acts %}
+                        <div class="mt-2 space-y-1">
+                            {% for act in acts %}
+                            <div class="flex items-center gap-2 text-xs text-gray-500">
+                                <span class="px-1.5 py-0.5 rounded
+                                    {% if act.activity_type == 'order' %}bg-indigo-100 text-indigo-600
+                                    {% elif act.activity_type == 'call' %}bg-green-100 text-green-600
+                                    {% else %}bg-gray-100 text-gray-500{% endif %}">
+                                    {{ act.get_activity_type_display }}
+                                </span>
+                                <span>{{ act.description|truncatechars:50 }}</span>
+                                <span class="ltr">{{ act.created_at|date:"m-d H:i" }}</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                        {% endwith %}
+                    </li>
+                    {% endfor %}
+                </ul>
+
+                <!-- Pagination -->
+                {% if is_paginated %}
+                <div class="p-4 border-t flex gap-2 text-sm justify-center">
+                    {% if page_obj.has_previous %}
+                    <a href="?page={{ page_obj.previous_page_number }}"
+                       class="px-3 py-1 bg-gray-100 rounded hover:bg-gray-200">قبلی</a>
+                    {% endif %}
+                    <span class="px-3 py-1 text-gray-500">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+                    {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}"
+                       class="px-3 py-1 bg-gray-100 rounded hover:bg-gray-200">بعدی</a>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                {% else %}
+                <div class="p-12 text-center">
+                    <div class="text-5xl mb-3">👥</div>
+                    <p class="text-gray-400">هنوز مشتری‌ای ثبت نشده.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Recent Activities Sidebar -->
+        <div>
+            <div class="bg-white rounded-xl shadow p-4">
+                <h2 class="font-semibold text-sm text-gray-700 mb-3 border-b pb-2">📡 آخرین فعالیت‌ها</h2>
+                {% if recent_activities %}
+                <ul class="space-y-3">
+                    {% for act in recent_activities %}
+                    <li class="text-xs">
+                        <div class="flex items-center gap-2 mb-0.5">
+                            <span class="px-1.5 py-0.5 rounded
+                                {% if act.activity_type == 'order' %}bg-indigo-100 text-indigo-600
+                                {% elif act.activity_type == 'call' %}bg-green-100 text-green-600
+                                {% elif act.activity_type == 'email' %}bg-blue-100 text-blue-600
+                                {% else %}bg-gray-100 text-gray-500{% endif %}">
+                                {{ act.get_activity_type_display }}
+                            </span>
+                            <span class="text-gray-400 ltr">{{ act.created_at|date:"m-d H:i" }}</span>
+                        </div>
+                        {% if act.customer %}
+                        <p class="text-gray-600">{{ act.customer.name|default:act.customer.phone }}</p>
+                        {% elif act.lead %}
+                        <p class="text-gray-600">سرنخ: {{ act.lead.name }}</p>
+                        {% endif %}
+                        {% if act.description %}
+                        <p class="text-gray-400 truncate">{{ act.description }}</p>
+                        {% endif %}
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-gray-400 text-sm">هنوز فعالیتی ثبت نشده.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

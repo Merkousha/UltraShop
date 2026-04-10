@@ -1,0 +1,90 @@
+{% extends "storefront/base.html" %}
+{% load static %}
+{% block title %}تکمیل سفارش — {{ store.name }}{% endblock %}
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <h1 class="text-2xl font-bold mb-6">📦 تکمیل سفارش</h1>
+
+    {% if not cart_items %}
+    <div class="bg-white rounded-lg shadow p-8 text-center">
+        <p class="text-gray-500">سبد خرید شما خالی است.</p>
+        <a href="{% url 'storefront:home' store.username %}" class="btn-primary text-white px-4 py-2 rounded mt-4 inline-block">بازگشت</a>
+    </div>
+    {% else %}
+
+    <!-- Order Summary -->
+    <div class="bg-white rounded-lg shadow p-4 mb-6">
+        <h2 class="font-semibold text-base mb-3 border-b pb-2">خلاصه سفارش</h2>
+        {% for item in cart_items %}
+        <div class="flex justify-between text-sm py-1">
+            <span>{{ item.product.name }} — {{ item.variant.name }} × {{ item.quantity }}</span>
+            <span class="ltr">{{ item.line_total|stringformat:",.0f" }} ریال</span>
+        </div>
+        {% endfor %}
+        <div class="border-t mt-2 pt-2 flex justify-between font-bold">
+            <span>جمع کل</span>
+            <span class="ltr">{{ cart_total|stringformat:",.0f" }} ریال</span>
+        </div>
+    </div>
+
+    <!-- Checkout Form -->
+    <form method="post" class="bg-white rounded-lg shadow p-6 space-y-4">
+        {% csrf_token %}
+
+        <h2 class="font-semibold text-base border-b pb-2">اطلاعات تماس</h2>
+
+        <div>
+            <label class="block text-sm font-medium mb-1">نام و نام خانوادگی *</label>
+            <input type="text" name="name" required
+                   class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                   placeholder="نام خود را وارد کنید">
+        </div>
+        <div>
+            <label class="block text-sm font-medium mb-1">شماره تماس *</label>
+            <input type="tel" name="phone" required dir="ltr"
+                   class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                   placeholder="09xxxxxxxxx">
+        </div>
+
+        {% if needs_shipping %}
+        <h2 class="font-semibold text-base border-b pb-2 pt-2">آدرس ارسال</h2>
+        <div>
+            <label class="block text-sm font-medium mb-1">آدرس کامل *</label>
+            <textarea name="address" required rows="2"
+                      class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                      placeholder="آدرس دقیق خود را وارد کنید"></textarea>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+            <div>
+                <label class="block text-sm font-medium mb-1">شهر *</label>
+                <input type="text" name="city" required
+                       class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
+            </div>
+            <div>
+                <label class="block text-sm font-medium mb-1">استان *</label>
+                <input type="text" name="province" required
+                       class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
+            </div>
+        </div>
+        <div>
+            <label class="block text-sm font-medium mb-1">کد پستی</label>
+            <input type="text" name="postal_code" dir="ltr"
+                   class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
+        </div>
+        {% else %}
+        <p class="text-sm text-gray-500 bg-blue-50 border border-blue-200 rounded p-3">
+            ✉️ این سفارش شامل محصولات دانلودی یا غیرفیزیکی است و نیاز به آدرس ارسال ندارد.
+        </p>
+        {% endif %}
+
+        <div class="pt-2">
+            <button type="submit"
+                    class="w-full btn-primary text-white py-3 rounded-lg font-semibold hover:opacity-90 transition text-base">
+                ثبت سفارش
+            </button>
+        </div>
+    </form>
+
+    {% endif %}
+</div>
+{% endblock %}

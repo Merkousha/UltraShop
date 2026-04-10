@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import path, include
 from dashboard import views
 
 app_name = "dashboard"
@@ -60,4 +60,7 @@ urlpatterns = [
     path("pages/remove-block/", views.PageEditorRemoveBlockView.as_view(), name="page-editor-remove-block"),
     path("pages/publish/", views.PagePublishView.as_view(), name="page-publish"),
     path("pages/rollback/", views.PageRollbackView.as_view(), name="page-rollback"),
+
+    # CRM
+    path("crm/", include("crm.urls")),
 ]

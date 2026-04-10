@@ -72,6 +72,17 @@ class StoreAccessMixin(LoginRequiredMixin):
             return store
         return None
 
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        store = self.request.current_store
+        user = self.request.user
+        if store.owner == user:
+            ctx["current_role"] = "owner"
+        else:
+            staff = StoreStaff.objects.filter(store=store, user=user).first()
+            ctx["current_role"] = staff.role if staff else "staff"
+        return ctx
+
 
 class DashboardHomeView(LoginRequiredMixin, TemplateView):
     template_name = "dashboard/home.html"
@@ -235,6 +246,7 @@ class ProductCreateView(StoreAccessMixin, TemplateView):
             description=request.POST.get("description", ""),
             sku=request.POST.get("sku", ""),
             status=request.POST.get("status", "draft"),
+            requires_shipping=request.POST.get("requires_shipping") == "on",
         )
         cats = request.POST.getlist("categories")
         if cats:
@@ -289,6 +301,7 @@ class ProductEditView(StoreAccessMixin, TemplateView):
         product.meta_description = request.POST.get("meta_description", product.meta_description)
         product.focus_keywords = request.POST.get("focus_keywords", product.focus_keywords)
         product.og_description = request.POST.get("og_description", product.og_description)
+        product.requires_shipping = request.POST.get("requires_shipping") == "on"
         slug = request.POST.get("slug", "").strip()
         if slug:
             product.slug = slug
@@ -586,8 +599,12 @@ class WarehouseCreateView(StoreAccessMixin, TemplateView):
         if store.owner_id != request.user.id:
             messages.error(request, "فقط مالک فروشگاه می‌تواند انبار جدید اضافه کند.")
             return redirect("dashboard:warehouse-list")
-        if Warehouse.objects.filter(store=store).count() >= MAX_WAREHOUSES_PER_STORE:
-            messages.error(request, f"حداکثر {MAX_WAREHOUSES_PER_STORE} انبار برای این فروشگاه مجاز است.")
+        from core.services import check_plan_limit, PlanLimitExceeded
+        current_count = Warehouse.objects.filter(store=store).count()
+        try:
+            check_plan_limit(store, "warehouses", current_count)
+        except PlanLimitExceeded as e:
+            messages.error(request, str(e))
             return redirect("dashboard:warehouse-list")
         name = (request.POST.get("name") or "").strip()
         if not name:

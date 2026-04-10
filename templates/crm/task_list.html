@@ -1,0 +1,93 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+{% block title %}وظایف فروش{% endblock %}
+{% block content %}
+<div class="space-y-4">
+    <div class="flex items-center justify-between">
+        <h1 class="text-2xl font-bold text-gray-800">✅ وظایف فروش</h1>
+        <a href="{% url 'dashboard:crm:task-create' %}" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-indigo-700">+ وظیفه جدید</a>
+    </div>
+
+    <!-- Filter -->
+    <div class="bg-white rounded-xl shadow p-3 flex gap-3 text-sm">
+        <a href="{% url 'dashboard:crm:task-list' %}"
+           class="px-3 py-1.5 rounded {% if not done_filter %}bg-indigo-600 text-white{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">
+            همه
+        </a>
+        <a href="?done=0"
+           class="px-3 py-1.5 rounded {% if done_filter == '0' %}bg-indigo-600 text-white{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">
+            در انتظار
+        </a>
+        <a href="?done=1"
+           class="px-3 py-1.5 rounded {% if done_filter == '1' %}bg-indigo-600 text-white{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">
+            انجام شده
+        </a>
+    </div>
+
+    <!-- Task List -->
+    <div class="bg-white rounded-xl shadow overflow-hidden">
+        {% if tasks %}
+        <ul class="divide-y">
+            {% for task in tasks %}
+            <li class="p-4 flex items-center gap-4 hover:bg-gray-50">
+                <!-- Toggle checkbox -->
+                <form method="post" action="{% url 'dashboard:crm:task-toggle' task.pk %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    <button type="submit"
+                            class="w-5 h-5 rounded border flex-shrink-0
+                                   {% if task.is_done %}bg-green-500 border-green-500{% else %}border-gray-400 hover:border-indigo-400{% endif %}">
+                    </button>
+                </form>
+
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium {% if task.is_done %}line-through text-gray-400{% else %}text-gray-800{% endif %} truncate">
+                        {{ task.title }}
+                    </p>
+                    {% if task.lead %}
+                    <p class="text-xs text-indigo-500 mt-0.5">
+                        <a href="{% url 'dashboard:crm:lead-detail' task.lead.pk %}" class="hover:underline">{{ task.lead.name }}</a>
+                    </p>
+                    {% endif %}
+                </div>
+
+                <!-- Priority -->
+                <span class="text-xs px-2 py-0.5 rounded flex-shrink-0
+                    {% if task.priority == 'high' %}bg-red-100 text-red-600
+                    {% elif task.priority == 'medium' %}bg-yellow-100 text-yellow-600
+                    {% else %}bg-gray-100 text-gray-500{% endif %}">
+                    {{ task.get_priority_display }}
+                </span>
+
+                <!-- Due Date -->
+                {% if task.due_date %}
+                <span class="text-xs text-gray-400 ltr flex-shrink-0">{{ task.due_date }}</span>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+
+        <!-- Pagination -->
+        {% if is_paginated %}
+        <div class="p-4 border-t flex gap-2 text-sm justify-center">
+            {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}{% if done_filter %}&done={{ done_filter }}{% endif %}"
+               class="px-3 py-1 bg-gray-100 rounded hover:bg-gray-200">قبلی</a>
+            {% endif %}
+            <span class="px-3 py-1 text-gray-500">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+            {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}{% if done_filter %}&done={{ done_filter }}{% endif %}"
+               class="px-3 py-1 bg-gray-100 rounded hover:bg-gray-200">بعدی</a>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="p-12 text-center">
+            <div class="text-5xl mb-3">✅</div>
+            <p class="text-gray-400">هیچ وظیفه‌ای یافت نشد.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

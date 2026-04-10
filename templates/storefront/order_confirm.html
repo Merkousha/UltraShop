@@ -1,0 +1,68 @@
+{% extends "storefront/base.html" %}
+{% load static %}
+{% block title %}تأیید سفارش — {{ store.name }}{% endblock %}
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="bg-white rounded-lg shadow p-8 text-center mb-6">
+        <div class="text-6xl mb-4">✅</div>
+        <h1 class="text-2xl font-bold text-green-600 mb-2">سفارش شما ثبت شد!</h1>
+        <p class="text-gray-500">با تشکر از خرید شما. سفارش‌تان در حال پردازش است.</p>
+    </div>
+
+    <div class="bg-white rounded-lg shadow p-6 mb-6">
+        <h2 class="font-semibold text-lg mb-4 border-b pb-2">جزئیات سفارش</h2>
+
+        <div class="space-y-2 text-sm mb-4">
+            <div class="flex justify-between">
+                <span class="text-gray-500">شماره سفارش:</span>
+                <span class="font-bold">#{{ order.pk }}</span>
+            </div>
+            {% if order.guest_name %}
+            <div class="flex justify-between">
+                <span class="text-gray-500">نام:</span>
+                <span>{{ order.guest_name }}</span>
+            </div>
+            {% endif %}
+            {% if order.guest_phone %}
+            <div class="flex justify-between">
+                <span class="text-gray-500">شماره تماس:</span>
+                <span dir="ltr">{{ order.guest_phone }}</span>
+            </div>
+            {% endif %}
+            {% if order.shipping_address %}
+            <div class="flex justify-between">
+                <span class="text-gray-500">آدرس ارسال:</span>
+                <span class="text-right max-w-xs">{{ order.shipping_address }}{% if order.shipping_city %}، {{ order.shipping_city }}{% endif %}{% if order.shipping_province %}، {{ order.shipping_province }}{% endif %}</span>
+            </div>
+            {% endif %}
+            <div class="flex justify-between">
+                <span class="text-gray-500">وضعیت:</span>
+                <span class="bg-yellow-100 text-yellow-700 text-xs px-2 py-1 rounded">در انتظار پرداخت</span>
+            </div>
+        </div>
+
+        <h3 class="font-semibold text-sm mb-2 border-t pt-3">اقلام سفارش</h3>
+        {% for line in order.lines.all %}
+        <div class="flex justify-between text-sm py-1 border-b last:border-0">
+            <span>{{ line.product_name }}
+                {% if line.variant_name %}<span class="text-xs text-gray-400">— {{ line.variant_name }}</span>{% endif %}
+                × {{ line.quantity }}
+            </span>
+            <span class="ltr">{{ line.line_total|stringformat:",.0f" }} ریال</span>
+        </div>
+        {% endfor %}
+
+        <div class="flex justify-between font-bold text-base mt-3 pt-2 border-t">
+            <span>جمع کل</span>
+            <span class="ltr">{{ order.total|stringformat:",.0f" }} ریال</span>
+        </div>
+    </div>
+
+    <div class="text-center">
+        <a href="{% url 'storefront:home' store.username %}"
+           class="btn-primary text-white px-8 py-3 rounded-lg font-semibold hover:opacity-90 transition inline-block">
+            بازگشت به فروشگاه
+        </a>
+    </div>
+</div>
+{% endblock %}

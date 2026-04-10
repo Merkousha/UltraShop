@@ -598,3 +598,89 @@ class ThemePresetDeprecateView(PlatformAdminMixin, View):
         )
         messages.success(request, f"پوسته «{preset.name}» منسوخ شد. {store_count} فروشگاه تحت‌تأثیر.")
         return redirect("platform_admin:theme-preset-list")
+
+
+# ─── Plan Management ────────────────────────────────────────
+class PlanListView(PlatformAdminMixin, ListView):
+    template_name = "platform_admin/plan_list.html"
+    context_object_name = "plans"
+
+    def get_queryset(self):
+        from core.models import StorePlan
+        return StorePlan.objects.all().order_by("slug")
+
+
+class PlanCreateView(PlatformAdminMixin, TemplateView):
+    template_name = "platform_admin/plan_form.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["plan"] = None
+        ctx["action"] = "create"
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        from core.models import StorePlan
+        name = request.POST.get("name", "").strip()
+        slug = request.POST.get("slug", "").strip()
+        if not name or not slug:
+            messages.error(request, "نام و شناسه پلن را وارد کنید.")
+            return redirect("platform_admin:plan-create")
+        try:
+            max_wh = int(request.POST.get("max_warehouses", 1) or 1)
+            max_prod = int(request.POST.get("max_products", 100) or 100)
+            max_ai = int(request.POST.get("max_ai_requests_daily", 10) or 10)
+        except ValueError:
+            max_wh, max_prod, max_ai = 1, 100, 10
+        plan = StorePlan.objects.create(
+            name=name,
+            slug=slug,
+            max_warehouses=max_wh,
+            max_products=max_prod,
+            max_ai_requests_daily=max_ai,
+            allow_custom_domain=request.POST.get("allow_custom_domain") == "on",
+            is_active=request.POST.get("is_active") == "on",
+        )
+        log_action(
+            actor=request.user,
+            action="plan_created",
+            resource_type="StorePlan",
+            resource_id=str(plan.pk),
+            details={"name": name, "slug": slug},
+        )
+        messages.success(request, f"پلن «{plan.name}» ایجاد شد.")
+        return redirect("platform_admin:plan-list")
+
+
+class PlanEditView(PlatformAdminMixin, TemplateView):
+    template_name = "platform_admin/plan_form.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        from core.models import StorePlan
+        ctx["plan"] = get_object_or_404(StorePlan, pk=self.kwargs["pk"])
+        ctx["action"] = "edit"
+        return ctx
+
+    def post(self, request, pk, *args, **kwargs):
+        from core.models import StorePlan
+        plan = get_object_or_404(StorePlan, pk=pk)
+        plan.name = request.POST.get("name", plan.name).strip()
+        try:
+            plan.max_warehouses = int(request.POST.get("max_warehouses", plan.max_warehouses) or 0)
+            plan.max_products = int(request.POST.get("max_products", plan.max_products) or 0)
+            plan.max_ai_requests_daily = int(request.POST.get("max_ai_requests_daily", plan.max_ai_requests_daily) or 0)
+        except ValueError:
+            pass
+        plan.allow_custom_domain = request.POST.get("allow_custom_domain") == "on"
+        plan.is_active = request.POST.get("is_active") == "on"
+        plan.save()
+        log_action(
+            actor=request.user,
+            action="plan_updated",
+            resource_type="StorePlan",
+            resource_id=str(plan.pk),
+            details={"name": plan.name},
+        )
+        messages.success(request, f"پلن «{plan.name}» ویرایش شد.")
+        return redirect("platform_admin:plan-list")
