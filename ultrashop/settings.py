@@ -4,6 +4,7 @@ Django settings for ultrashop project.
 
 import os
 from pathlib import Path
+from urllib.parse import parse_qs, unquote, urlparse
 
 from dotenv import load_dotenv
 
@@ -17,6 +18,7 @@ SECRET_KEY = os.environ.get(
 )
 
 DEBUG = os.environ.get("DJANGO_DEBUG", "True").lower() in ("true", "1", "yes")
+USE_DJANGO_TENANTS = os.environ.get("USE_DJANGO_TENANTS", "False").lower() in ("true", "1", "yes")
 
 ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "*").split(",")
 if "helpio.ir" not in ALLOWED_HOSTS:
@@ -64,6 +66,13 @@ INSTALLED_APPS = [
     "storefront",
 ]
 
+if USE_DJANGO_TENANTS:
+    INSTALLED_APPS = [
+        "django_tenants",
+        "tenancy",
+        *[app for app in INSTALLED_APPS if app not in ("django_tenants", "tenancy")],
+    ]
+
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
@@ -74,7 +83,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "core.middleware.CSPMiddleware",
-    "core.middleware.StoreMiddleware",
+    "core.middleware.StoreMiddleware" if not USE_DJANGO_TENANTS else "tenancy.middleware.URLPathTenantMiddleware",
 ]
 
 ROOT_URLCONF = "ultrashop.urls"
@@ -106,14 +115,52 @@ CACHES = {
 }
 THEME_CSS_CACHE_TIMEOUT = 300  # seconds (5 min)
 
-# Database path: set DJANGO_DB_PATH in Docker to persist db (e.g. /app/data/db.sqlite3)
-_db_path = os.environ.get("DJANGO_DB_PATH")
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": _db_path if _db_path else str(BASE_DIR / "db.sqlite3"),
+# Database
+# Priority:
+# 1) DATABASE_URL / POSTGRES_URL (PostgreSQL)
+# 2) sqlite fallback via DJANGO_DB_PATH
+database_url = os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL")
+
+if database_url and database_url.startswith(("postgres://", "postgresql://")):
+    parsed = urlparse(database_url)
+    query = parse_qs(parsed.query)
+    db_engine = "django.db.backends.postgresql"
+    if USE_DJANGO_TENANTS:
+        db_engine = "django_tenants.postgresql_backend"
+
+    DATABASES = {
+        "default": {
+            "ENGINE": db_engine,
+            "NAME": (parsed.path or "").lstrip("/"),
+            "USER": unquote(parsed.username or ""),
+            "PASSWORD": unquote(parsed.password or ""),
+            "HOST": parsed.hostname or "localhost",
+            "PORT": str(parsed.port or 5432),
+            "CONN_MAX_AGE": int(os.environ.get("DB_CONN_MAX_AGE", "60")),
+        }
     }
-}
+
+    sslmode = os.environ.get("DB_SSLMODE") or (query.get("sslmode", [""])[0])
+    if sslmode:
+        DATABASES["default"]["OPTIONS"] = {"sslmode": sslmode}
+else:
+    if USE_DJANGO_TENANTS:
+        raise RuntimeError("USE_DJANGO_TENANTS=True requires PostgreSQL DATABASE_URL/POSTGRES_URL")
+    # Database path: set DJANGO_DB_PATH in Docker to persist db (e.g. /app/data/db.sqlite3)
+    _db_path = os.environ.get("DJANGO_DB_PATH")
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": _db_path if _db_path else str(BASE_DIR / "db.sqlite3"),
+        }
+    }
+
+if USE_DJANGO_TENANTS:
+    TENANT_MODEL = "tenancy.Tenant"
+    TENANT_DOMAIN_MODEL = "tenancy.Domain"
+    PUBLIC_SCHEMA_NAME = "public"
+    TENANT_PATH_PREFIX = os.environ.get("TENANT_PATH_PREFIX", "s")
+    DATABASE_ROUTERS = ("django_tenants.routers.TenantSyncRouter",)
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},

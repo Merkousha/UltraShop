@@ -1,6 +1,11 @@
+# python -m venv venv
+# venv\Scripts\activate
+# pip install -r requirements.txt
 Django==5.2.11
 openai>=1.0.0
 pillow==12.1.1
 python-dotenv==1.2.1
 whitenoise==6.11.0
 gunicorn==23.0.0
+psycopg[binary]==3.2.10
+django-tenants
