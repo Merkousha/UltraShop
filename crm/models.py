@@ -66,6 +66,45 @@ class SaleTask(models.Model):
         return self.title
 
 
+class ChatSession(models.Model):
+    """Browser chat session with AI assistant on the storefront."""
+    store = models.ForeignKey("core.Store", on_delete=models.CASCADE, related_name="chat_sessions")
+    customer = models.ForeignKey(
+        "customers.Customer", on_delete=models.SET_NULL,
+        null=True, blank=True, related_name="chat_sessions"
+    )
+    session_key = models.CharField(max_length=100)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "chat_sessions"
+        unique_together = [("store", "session_key")]
+
+    def __str__(self):
+        return f"ChatSession {self.session_key[:12]}… @ {self.store.name}"
+
+
+class ChatMessage(models.Model):
+    """A single message in a storefront chat session."""
+
+    class Role(models.TextChoices):
+        USER = "user", "کاربر"
+        ASSISTANT = "assistant", "دستیار"
+
+    session = models.ForeignKey(ChatSession, on_delete=models.CASCADE, related_name="messages")
+    role = models.CharField(max_length=10, choices=Role.choices)
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "chat_messages"
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return f"{self.role}: {self.content[:50]}"
+
+
 class ContactActivity(models.Model):
     class ActivityType(models.TextChoices):
         ORDER = "order", "سفارش"

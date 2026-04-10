@@ -1,6 +1,47 @@
 {% extends "dashboard/base.html" %}
+{% load static %}
 {% block title %}ساخت محصول از عکس{% endblock %}
+
 {% block content %}
+<!-- ─── Full-screen AI loading overlay ──────────────────────── -->
+<div id="ai-overlay"
+     class="hidden fixed inset-0 z-50 flex flex-col items-center justify-center"
+     style="background: rgba(17,24,39,0.82); backdrop-filter: blur(4px);">
+    <!-- Spinner -->
+    <div class="relative mb-6">
+        <div class="w-20 h-20 rounded-full border-4 border-indigo-200 border-t-indigo-600"
+             style="animation: spin-ai 0.9s linear infinite;"></div>
+        <!-- Pulsing inner circle -->
+        <div class="absolute inset-0 flex items-center justify-center">
+            <div class="w-10 h-10 rounded-full bg-indigo-600 opacity-20"
+                 style="animation: pulse-ai 1.4s ease-in-out infinite;"></div>
+        </div>
+    </div>
+    <!-- Persian progress message -->
+    <p class="text-white text-lg font-semibold mb-2">در حال تحلیل تصویر با هوش مصنوعی...</p>
+    <p class="text-indigo-300 text-sm">لطفاً صبر کنید. این فرآیند ممکن است چند ثانیه طول بکشد.</p>
+    <!-- Animated dots -->
+    <div class="flex gap-2 mt-5">
+        <span class="w-2 h-2 rounded-full bg-indigo-400" style="animation: bounce-ai 1.2s ease-in-out 0s infinite;"></span>
+        <span class="w-2 h-2 rounded-full bg-indigo-400" style="animation: bounce-ai 1.2s ease-in-out 0.2s infinite;"></span>
+        <span class="w-2 h-2 rounded-full bg-indigo-400" style="animation: bounce-ai 1.2s ease-in-out 0.4s infinite;"></span>
+    </div>
+</div>
+
+<style>
+@keyframes spin-ai {
+    to { transform: rotate(360deg); }
+}
+@keyframes pulse-ai {
+    0%, 100% { transform: scale(0.8); opacity: 0.2; }
+    50%       { transform: scale(1.3); opacity: 0.5; }
+}
+@keyframes bounce-ai {
+    0%, 80%, 100% { transform: translateY(0);    opacity: 0.4; }
+    40%           { transform: translateY(-8px); opacity: 1;   }
+}
+</style>
+
 <div class="max-w-xl">
     <div class="flex items-center gap-3 mb-6">
         <a href="{% url 'dashboard:product-list' %}" class="text-indigo-600 text-sm hover:underline">← محصولات</a>
@@ -16,24 +57,98 @@
     {% endif %}
 
     {% if not ai_available %}
-    <p class="text-amber-700 bg-amber-50 p-4 rounded mb-4">سرویس AI غیرفعال است یا اعتبار روزانه شما تمام شده ({{ ai_usage.0 }}/{{ ai_usage.1 }}). از پنل ادمین یا فردا امتحان کنید.</p>
+    <p class="text-amber-700 bg-amber-50 p-4 rounded mb-4">
+        سرویس AI غیرفعال است یا اعتبار روزانه شما تمام شده
+        ({{ ai_usage.0 }}/{{ ai_usage.1 }}).
+        از پنل ادمین یا فردا امتحان کنید.
+    </p>
     {% endif %}
 
-    <form method="post" enctype="multipart/form-data" class="bg-white rounded-lg shadow p-6 space-y-4">
+    <form id="vision-form" method="post" enctype="multipart/form-data"
+          class="bg-white rounded-lg shadow p-6 space-y-5">
         {% csrf_token %}
+
+        <!-- Image picker + live preview -->
         <div>
-            <label class="block text-sm font-medium mb-1">تصویر محصول</label>
-            <input type="file" name="image" accept="image/*" required class="w-full border rounded px-3 py-2 text-sm">
-            <p class="text-xs text-gray-500 mt-1">فرمت‌های رایج: JPG, PNG. حداکثر ۱۰ مگابایت.</p>
+            <label class="block text-sm font-medium mb-2">تصویر محصول</label>
+
+            <!-- Drag-and-drop / click area -->
+            <label for="vision-file-input"
+                   id="drop-zone"
+                   class="flex flex-col items-center justify-center w-full h-44 border-2 border-dashed border-indigo-300 rounded-lg cursor-pointer bg-indigo-50 hover:bg-indigo-100 transition-colors relative overflow-hidden">
+                <!-- Preview image (hidden until a file is chosen) -->
+                <img id="image-preview"
+                     src="#"
+                     alt="پیش‌نمایش"
+                     class="hidden absolute inset-0 w-full h-full object-contain p-1">
+                <!-- Placeholder icon + text -->
+                <div id="drop-placeholder" class="flex flex-col items-center gap-2 text-indigo-400">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10" fill="none"
+                         viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                              d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
+                    </svg>
+                    <span class="text-sm font-medium">کلیک کنید یا تصویر را اینجا رها کنید</span>
+                    <span class="text-xs text-gray-400">JPG, PNG — حداکثر ۱۰ مگابایت</span>
+                </div>
+            </label>
+            <input type="file" id="vision-file-input" name="image"
+                   accept="image/*" required class="sr-only">
+
+            <!-- File name badge -->
+            <p id="file-name-badge"
+               class="hidden mt-2 text-xs text-indigo-700 bg-indigo-50 border border-indigo-200 rounded px-3 py-1 inline-block"></p>
         </div>
+
         <div class="flex gap-3">
-            <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded text-sm hover:bg-indigo-700" {% if not ai_available %}disabled{% endif %}>
+            <button type="submit"
+                    id="submit-btn"
+                    class="bg-indigo-600 text-white px-6 py-2 rounded text-sm hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    {% if not ai_available %}disabled{% endif %}>
                 استخراج با AI و رفتن به فرم محصول
             </button>
-            <a href="{% url 'dashboard:product-list' %}" class="bg-gray-200 px-6 py-2 rounded text-sm hover:bg-gray-300">انصراف</a>
+            <a href="{% url 'dashboard:product-list' %}"
+               class="bg-gray-200 px-6 py-2 rounded text-sm hover:bg-gray-300">انصراف</a>
         </div>
     </form>
 
     <p class="mt-4 text-sm text-gray-500">اعتبار AI امروز: {{ ai_usage.0 }} از {{ ai_usage.1 }} درخواست.</p>
 </div>
+
+<script>
+(function () {
+    var fileInput    = document.getElementById('vision-file-input');
+    var preview      = document.getElementById('image-preview');
+    var placeholder  = document.getElementById('drop-placeholder');
+    var fileNameBadge = document.getElementById('file-name-badge');
+    var form         = document.getElementById('vision-form');
+    var overlay      = document.getElementById('ai-overlay');
+    var submitBtn    = document.getElementById('submit-btn');
+
+    /* ── Image preview ── */
+    fileInput.addEventListener('change', function () {
+        var file = fileInput.files[0];
+        if (!file) return;
+
+        // Show file name
+        fileNameBadge.textContent = file.name;
+        fileNameBadge.classList.remove('hidden');
+
+        var reader = new FileReader();
+        reader.onload = function (e) {
+            preview.src = e.target.result;
+            preview.classList.remove('hidden');
+            placeholder.classList.add('hidden');
+        };
+        reader.readAsDataURL(file);
+    });
+
+    /* ── Show overlay on submit ── */
+    form.addEventListener('submit', function () {
+        if (submitBtn.disabled) return;
+        overlay.classList.remove('hidden');
+        submitBtn.disabled = true;
+    });
+})();
+</script>
 {% endblock %}

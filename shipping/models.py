@@ -26,6 +26,14 @@ class Shipment(models.Model):
     store = models.ForeignKey("core.Store", on_delete=models.CASCADE, related_name="shipments")
     order = models.ForeignKey("orders.Order", on_delete=models.CASCADE, related_name="shipments")
     carrier = models.ForeignKey(ShippingCarrier, on_delete=models.SET_NULL, null=True, blank=True)
+    warehouse = models.ForeignKey(
+        "core.Warehouse",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="shipments",
+        help_text="Originating warehouse for this shipment (SO-52).",
+    )
     tracking_number = models.CharField(max_length=200, blank=True, default="")
     status = models.CharField(max_length=12, choices=Status.choices, default=Status.CREATED)
     cost = models.PositiveBigIntegerField(default=0, help_text="Shipping cost in IRR")

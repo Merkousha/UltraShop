@@ -21,10 +21,25 @@
             <span class="ltr">{{ item.line_total|stringformat:",.0f" }} ریال</span>
         </div>
         {% endfor %}
+        <div class="border-t mt-2 pt-2 flex justify-between font-semibold text-sm">
+            <span>جمع اقلام</span>
+            <span class="ltr">{{ cart_total|stringformat:",.0f" }} ریال</span>
+        </div>
+        {% if discount_amount %}
+        <div class="flex justify-between text-sm text-green-600 mt-1">
+            <span>🎉 تخفیف کد «{{ discount_code }}»</span>
+            <span class="ltr">−{{ discount_amount|stringformat:",.0f" }} ریال</span>
+        </div>
+        <div class="flex justify-between font-bold text-base border-t mt-2 pt-2">
+            <span>مبلغ قابل پرداخت</span>
+            <span class="ltr">{{ final_total|stringformat:",.0f" }} ریال</span>
+        </div>
+        {% else %}
         <div class="border-t mt-2 pt-2 flex justify-between font-bold">
             <span>جمع کل</span>
             <span class="ltr">{{ cart_total|stringformat:",.0f" }} ریال</span>
         </div>
+        {% endif %}
     </div>
 
     <!-- Checkout Form -->
@@ -76,6 +91,23 @@
             ✉️ این سفارش شامل محصولات دانلودی یا غیرفیزیکی است و نیاز به آدرس ارسال ندارد.
         </p>
         {% endif %}
+
+        <!-- Discount Code -->
+        <div class="border-t pt-4">
+            <label class="block text-sm font-medium mb-1">کد تخفیف (اختیاری)</label>
+            <div class="flex gap-2">
+                <input type="text" name="discount_code" dir="ltr"
+                       value="{{ discount_code }}"
+                       class="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 uppercase"
+                       placeholder="CODE">
+            </div>
+            {% if discount_error %}
+            <p class="text-red-600 text-xs mt-1">⚠️ {{ discount_error }}</p>
+            {% elif discount_amount %}
+            <p class="text-green-600 text-xs mt-1">✅ کد تخفیف اعمال شد: {{ discount_amount|stringformat:",.0f" }} ریال تخفیف</p>
+            {% endif %}
+            <p class="text-xs text-gray-400 mt-1">کد تخفیف هنگام ثبت سفارش اعتبارسنجی می‌شود.</p>
+        </div>
 
         <div class="pt-2">
             <button type="submit"

@@ -1,0 +1,78 @@
+{% extends "dashboard/base.html" %}
+{% block title %}تاریخچه چت‌های AI{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+    <h2 class="text-2xl font-bold">🤖 تاریخچه چت‌های دستیار هوشمند</h2>
+    <span class="text-sm text-gray-500">گفتگوهای مشتریان با دستیار AI فروشگاه</span>
+</div>
+
+<div class="bg-white rounded-lg shadow overflow-x-auto">
+    <table class="w-full text-sm">
+        <thead class="bg-gray-50">
+            <tr>
+                <th class="px-4 py-3 text-right">#</th>
+                <th class="px-4 py-3 text-right">مشتری / جلسه</th>
+                <th class="px-4 py-3 text-right">تعداد پیام‌ها</th>
+                <th class="px-4 py-3 text-right">آخرین پیام کاربر</th>
+                <th class="px-4 py-3 text-right">ایجاد شده</th>
+                <th class="px-4 py-3 text-right">آخرین فعالیت</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for session in chat_sessions %}
+        <tr class="border-t hover:bg-gray-50 align-top">
+            <td class="px-4 py-3 font-mono text-xs text-gray-400">{{ session.pk }}</td>
+            <td class="px-4 py-3">
+                {% if session.customer %}
+                    <span class="font-medium">{{ session.customer.name|default:session.customer.phone }}</span>
+                    {% if session.customer.name %}
+                    <span class="text-gray-400 text-xs block">{{ session.customer.phone }}</span>
+                    {% endif %}
+                {% else %}
+                    <span class="text-gray-400 text-xs" dir="ltr">{{ session.session_key|slice:":16" }}…</span>
+                    <span class="block text-xs text-gray-400">مهمان</span>
+                {% endif %}
+            </td>
+            <td class="px-4 py-3 text-center">
+                <span class="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded text-xs font-semibold">
+                    {{ session.messages.count }}
+                </span>
+            </td>
+            <td class="px-4 py-3 max-w-xs">
+                {% with last_user_msg=session.messages.all|dictsortreversed:"created_at"|first %}
+                {% if last_user_msg %}
+                <p class="text-gray-700 truncate" title="{{ last_user_msg.content }}">
+                    {{ last_user_msg.content|truncatechars:80 }}
+                </p>
+                {% else %}
+                <span class="text-gray-400">—</span>
+                {% endif %}
+                {% endwith %}
+            </td>
+            <td class="px-4 py-3 text-xs text-gray-500">{{ session.created_at|date:"Y/m/d H:i" }}</td>
+            <td class="px-4 py-3 text-xs text-gray-500">{{ session.updated_at|date:"Y/m/d H:i" }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="6" class="px-4 py-10 text-center text-gray-400">
+                هیچ گفتگویی ثبت نشده است.
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Pagination -->
+{% if page_obj.has_other_pages %}
+<div class="flex justify-center gap-2 mt-6 text-sm">
+    {% if page_obj.has_previous %}
+    <a href="?page={{ page_obj.previous_page_number }}" class="px-3 py-1 rounded border hover:bg-gray-100">قبلی</a>
+    {% endif %}
+    <span class="px-3 py-1 rounded bg-indigo-600 text-white">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+    {% if page_obj.has_next %}
+    <a href="?page={{ page_obj.next_page_number }}" class="px-3 py-1 rounded border hover:bg-gray-100">بعدی</a>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

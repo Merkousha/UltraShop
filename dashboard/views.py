@@ -1,10 +1,12 @@
 import json
+import logging
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Q, F
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect
+from django.utils import timezone
 from django.utils.text import slugify
 from django.views import View
 from django.views.generic import ListView, TemplateView
@@ -23,6 +25,7 @@ from core.models import (
     LayoutConfigurationSnapshot,
     PlatformSettings,
     Store,
+    StoreIntegration,
     StoreStaff,
     StoreTheme,
     ThemePreset,
@@ -1372,3 +1375,270 @@ class PageRollbackView(StoreAccessMixin, View):
         layout.save()
         messages.success(request, f"بازگشت به نسخه {snap.version} انجام شد.")
         return redirect("dashboard:page-editor")
+
+
+# ─── SO-52: Smart Routing ─────────────────────────────────────
+class OrderSmartRouteView(StoreAccessMixin, TemplateView):
+    """
+    GET  → compute smart routing plan and show it for operator review.
+    POST → confirm plan: reserve stock + persist routing_plan on the order.
+    """
+
+    template_name = "dashboard/order_smart_route.html"
+
+    def _get_order(self, request, pk):
+        return get_object_or_404(Order, pk=pk, store=request.current_store)
+
+    def get(self, request, *args, **kwargs):
+        from core.smart_routing_service import SmartRoutingService
+
+        order = self._get_order(request, kwargs["pk"])
+        service = SmartRoutingService(order)
+        plan = service.compute_plan()
+        # Enrich plan entries with per-line available stock info for display
+        enriched = _enrich_plan_for_display(plan)
+        return self.render_to_response(
+            self.get_context_data(order=order, plan=enriched, confirmed=False)
+        )
+
+    def post(self, request, *args, **kwargs):
+        from core.smart_routing_service import SmartRoutingService
+
+        order = self._get_order(request, kwargs["pk"])
+        service = SmartRoutingService(order)
+        plan = service.compute_plan()
+
+        # Reserve stock atomically
+        service.reserve_stock_for_plan(plan)
+
+        # Persist the routing plan on the order
+        order.routing_plan = SmartRoutingService.plan_to_json(plan)
+        order.save(update_fields=["routing_plan"])
+
+        messages.success(
+            request,
+            f"مسیریابی سفارش #{order.pk} تأیید شد و موجودی رزرو گردید.",
+        )
+        return redirect("dashboard:order-detail", pk=order.pk)
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        # Allow callers to inject order/plan/confirmed directly (GET path)
+        ctx.setdefault("order", None)
+        ctx.setdefault("plan", [])
+        ctx.setdefault("confirmed", False)
+        ctx.update(kwargs)
+        return ctx
+
+
+def _enrich_plan_for_display(plan):
+    """
+    Add available-stock info to each line in the plan for template rendering.
+    Returns a list of dicts:
+        [{"warehouse": wh, "lines": [{"line": ol, "available": int}, ...]}]
+    """
+    from catalog.models import WarehouseStock
+
+    enriched = []
+    for entry in plan:
+        wh = entry["warehouse"]
+        enriched_lines = []
+        for line in entry["lines"]:
+            available = None
+            if wh and line.variant_id:
+                ws = WarehouseStock.objects.filter(
+                    warehouse=wh, variant_id=line.variant_id
+                ).first()
+                available = ws.available if ws else 0
+            enriched_lines.append({"line": line, "available": available})
+        enriched.append({"warehouse": wh, "lines": enriched_lines})
+    return enriched
+
+
+# ─── Phase 4: BI Analytics ────────────────────────────────────
+class DashboardAnalyticsView(StoreAccessMixin, TemplateView):
+    """BI Dashboard with KPI cards and revenue trend table."""
+
+    template_name = "dashboard/analytics.html"
+
+    def get_context_data(self, **kwargs):
+        from dashboard.analytics_service import get_store_analytics
+
+        ctx = super().get_context_data(**kwargs)
+        store = self.request.current_store
+
+        days_param = self.request.GET.get("days", "30")
+        try:
+            days = int(days_param)
+            if days not in (7, 14, 30, 60, 90):
+                days = 30
+        except (ValueError, TypeError):
+            days = 30
+
+        analytics = get_store_analytics(store, days=days)
+        ctx["analytics"] = analytics
+        ctx["days"] = days
+        ctx["days_options"] = [7, 14, 30, 60, 90]
+        return ctx
+
+
+# ─── Phase 3: Abandoned Cart Recovery ────────────────────────
+class AbandonedCartListView(StoreAccessMixin, ListView):
+    """List persisted abandoned carts for the current store."""
+    template_name = "dashboard/abandoned_cart_list.html"
+    context_object_name = "abandoned_carts"
+    paginate_by = 25
+
+    def get_queryset(self):
+        from customers.models import AbandonedCart
+        qs = AbandonedCart.objects.filter(
+            store=self.request.current_store
+        ).select_related("customer").order_by("-updated_at")
+        # Optional filter by recovered status
+        status = self.request.GET.get("status", "")
+        if status == "recovered":
+            qs = qs.filter(recovered=True)
+        elif status == "pending":
+            qs = qs.filter(recovered=False)
+        return qs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["status_filter"] = self.request.GET.get("status", "")
+        return ctx
+
+
+# ─── Phase 3: AI Chat History ─────────────────────────────────
+class ChatHistoryView(StoreAccessMixin, ListView):
+    """List AI chat sessions for the current store."""
+    template_name = "dashboard/chat_history.html"
+    context_object_name = "chat_sessions"
+    paginate_by = 25
+
+    def get_queryset(self):
+        from crm.models import ChatSession
+        return ChatSession.objects.filter(
+            store=self.request.current_store
+        ).select_related("customer").prefetch_related("messages").order_by("-updated_at")
+
+
+# ─── Phase 4: External Integrations ───────────────────────────
+_integrations_logger = logging.getLogger(__name__)
+
+
+class IntegrationsView(StoreAccessMixin, TemplateView):
+    """List and configure external integrations for the current store."""
+
+    template_name = "dashboard/integrations.html"
+
+    def _get_integration_list(self, store):
+        """Return a list of dicts with integration metadata + current store config."""
+        from core.integrations.registry import AVAILABLE_INTEGRATIONS
+        from core.encryption import decrypt_value
+
+        result = []
+        for cls in AVAILABLE_INTEGRATIONS:
+            obj = StoreIntegration.objects.filter(
+                store=store, integration_id=cls.integration_id
+            ).first()
+
+            creds_raw = ""
+            if obj and obj.credentials_encrypted:
+                creds_raw = decrypt_value(obj.credentials_encrypted)
+
+            result.append(
+                {
+                    "integration_id": cls.integration_id,
+                    "integration_name": cls.integration_name,
+                    "is_active": obj.is_active if obj else False,
+                    "last_tested_at": obj.last_tested_at if obj else None,
+                    "test_result": obj.test_result if obj else "",
+                    "credentials_raw": creds_raw,
+                    "is_configured": bool(creds_raw),
+                }
+            )
+        return result
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["integrations"] = self._get_integration_list(self.request.current_store)
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        """Save/update credentials for one integration."""
+        from core.encryption import encrypt_value
+
+        store = request.current_store
+        integration_id = request.POST.get("integration_id", "").strip()
+        credentials_json = request.POST.get("credentials_json", "").strip()
+        is_active = request.POST.get("is_active") == "on"
+
+        if not integration_id:
+            messages.error(request, "شناسه یکپارچه‌سازی وارد نشده است.")
+            return redirect("dashboard:integrations")
+
+        # Validate JSON
+        if credentials_json:
+            try:
+                json.loads(credentials_json)
+            except json.JSONDecodeError:
+                messages.error(request, "فرمت JSON اعتبارنامه‌ها نادرست است.")
+                return redirect("dashboard:integrations")
+
+        obj, _ = StoreIntegration.objects.get_or_create(
+            store=store,
+            integration_id=integration_id,
+        )
+        obj.credentials_encrypted = encrypt_value(credentials_json) if credentials_json else ""
+        obj.is_active = is_active
+        obj.save()
+
+        messages.success(request, "تنظیمات یکپارچه‌سازی ذخیره شد.")
+        return redirect("dashboard:integrations")
+
+
+class IntegrationTestView(StoreAccessMixin, View):
+    """POST — test connection for a specific integration; returns JSON."""
+
+    def post(self, request, integration_id, *args, **kwargs):
+        from core.integrations.registry import get_integration
+        from core.encryption import decrypt_value
+
+        store = request.current_store
+
+        obj = StoreIntegration.objects.filter(
+            store=store, integration_id=integration_id
+        ).first()
+
+        creds = {}
+        if obj and obj.credentials_encrypted:
+            raw = decrypt_value(obj.credentials_encrypted)
+            if raw:
+                try:
+                    creds = json.loads(raw)
+                except json.JSONDecodeError:
+                    pass
+
+        integration = get_integration(integration_id, store, creds)
+        if integration is None:
+            return JsonResponse(
+                {"success": False, "message": "یکپارچه‌سازی ناشناخته است."}, status=404
+            )
+
+        try:
+            result = integration.test_connection()
+        except Exception as exc:
+            _integrations_logger.exception(
+                "Integration test_connection error: store=%s integration=%s",
+                store.pk,
+                integration_id,
+            )
+            result = {"success": False, "message": f"خطای سیستم: {exc}"}
+
+        # Persist test result
+        if obj:
+            obj.last_tested_at = timezone.now()
+            obj.test_result = result.get("message", "")[:200]
+            obj.save(update_fields=["last_tested_at", "test_result"])
+
+        return JsonResponse(result)

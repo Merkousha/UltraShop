@@ -1,0 +1,202 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+{% block title %}تحلیل فروشگاه{% endblock %}
+{% block content %}
+<div dir="rtl">
+
+  {# ── Header ── #}
+  <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+    <div>
+      <h2 class="text-2xl font-bold text-gray-800">📊 داشبورد تحلیلی</h2>
+      <p class="text-sm text-gray-500 mt-1">نمای کلی عملکرد فروشگاه</p>
+    </div>
+
+    {# Period selector #}
+    <form method="get" class="flex items-center gap-2">
+      <label class="text-sm text-gray-600">بازه زمانی:</label>
+      <select name="days" onchange="this.form.submit()"
+              class="text-sm border border-gray-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-300">
+        {% for opt in days_options %}
+        <option value="{{ opt }}" {% if opt == days %}selected{% endif %}>{{ opt }} روز اخیر</option>
+        {% endfor %}
+      </select>
+    </form>
+  </div>
+
+  {# ── KPI Cards ── #}
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+
+    {# LTV #}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+      <div class="flex items-center gap-2 mb-3">
+        <span class="text-2xl">💎</span>
+        <span class="text-xs text-gray-500 font-medium uppercase tracking-wide">ارزش طول عمر مشتری (LTV)</span>
+      </div>
+      <p class="text-2xl font-bold text-indigo-700 ltr">
+        {% if analytics.ltv %}
+          {{ analytics.ltv|stringformat:",.0f" }} <span class="text-base font-normal text-gray-500">﷼</span>
+        {% else %}
+          <span class="text-gray-400 text-base">داده‌ای موجود نیست</span>
+        {% endif %}
+      </p>
+    </div>
+
+    {# CAC #}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+      <div class="flex items-center gap-2 mb-3">
+        <span class="text-2xl">📣</span>
+        <span class="text-xs text-gray-500 font-medium uppercase tracking-wide">هزینه جذب مشتری (CAC)</span>
+      </div>
+      <p class="text-2xl font-bold text-gray-400">
+        {% if analytics.cac is None %}
+          <span class="text-base">نیاز به داده تبلیغات</span>
+        {% else %}
+          {{ analytics.cac|stringformat:",.0f" }} <span class="text-base font-normal text-gray-500">﷼</span>
+        {% endif %}
+      </p>
+    </div>
+
+    {# Conversion Rate #}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+      <div class="flex items-center gap-2 mb-3">
+        <span class="text-2xl">🎯</span>
+        <span class="text-xs text-gray-500 font-medium uppercase tracking-wide">نرخ تبدیل</span>
+      </div>
+      <p class="text-2xl font-bold text-green-700">
+        {{ analytics.conversion_rate }}<span class="text-base font-normal text-gray-500">٪</span>
+      </p>
+      <p class="text-xs text-gray-400 mt-1">سفارشات پرداخت‌شده / کل سفارشات</p>
+    </div>
+
+    {# Top product quick stat #}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+      <div class="flex items-center gap-2 mb-3">
+        <span class="text-2xl">🏆</span>
+        <span class="text-xs text-gray-500 font-medium uppercase tracking-wide">پرفروش‌ترین محصول</span>
+      </div>
+      {% if analytics.top_products %}
+        {% with top=analytics.top_products.0 %}
+        <p class="font-semibold text-gray-800 text-sm leading-snug">{{ top.product_name }}</p>
+        <p class="text-indigo-600 font-bold mt-1">{{ top.total_qty }} عدد فروش</p>
+        {% endwith %}
+      {% else %}
+        <p class="text-gray-400 text-sm">فروشی ثبت نشده</p>
+      {% endif %}
+    </div>
+
+  </div>
+
+  {# ── Main grid: trend + top products ── #}
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    {# Revenue Trend table — spans 2/3 #}
+    <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div class="px-6 py-4 border-b border-gray-100">
+        <h3 class="font-semibold text-gray-800">📈 روند درآمد — {{ days }} روز اخیر</h3>
+      </div>
+
+      {# Simple visual bar chart using inline div widths #}
+      {% if analytics.revenue_trend %}
+        {% with max_rev=analytics.revenue_trend|dictsortreversed:"revenue" %}
+          {# Compute max value — template can't do math so we use a tag-free trick:
+             we display both a table and a visual bar scaled relative to each row. #}
+        {% endwith %}
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs">
+            <thead>
+              <tr class="bg-gray-50 text-gray-500">
+                <th class="px-4 py-2 text-right font-medium w-28">تاریخ</th>
+                <th class="px-4 py-2 text-right font-medium">نمودار</th>
+                <th class="px-4 py-2 text-left font-medium w-36 ltr">درآمد (﷼)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for point in analytics.revenue_trend %}
+              <tr class="border-t border-gray-50 hover:bg-gray-50 transition-colors">
+                <td class="px-4 py-1.5 text-gray-500 whitespace-nowrap ltr">{{ point.date }}</td>
+                <td class="px-4 py-1.5">
+                  {% if point.revenue > 0 %}
+                    {# Visual bar — width is set via inline style; no JS needed #}
+                    <div class="h-3 rounded-full bg-indigo-200 relative overflow-hidden"
+                         style="width: 100%;">
+                      <div class="h-3 rounded-full bg-indigo-500 absolute right-0 top-0"
+                           style="width: {{ point.revenue|stringformat:".0f" }}px; max-width: 100%;
+                                  /* Note: raw px = revenue; capped by parent overflow hidden */">
+                      </div>
+                    </div>
+                  {% else %}
+                    <div class="h-3 rounded-full bg-gray-100" style="width: 100%;"></div>
+                  {% endif %}
+                </td>
+                <td class="px-4 py-1.5 text-gray-700 font-medium text-left ltr">
+                  {% if point.revenue %}{{ point.revenue|stringformat:",.0f" }}{% else %}—{% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        {# Summary row #}
+        <div class="px-6 py-3 bg-gray-50 border-t border-gray-100 flex justify-between text-xs text-gray-500">
+          <span>مجموع {{ analytics.revenue_trend|length }} روز</span>
+          <span class="font-semibold text-gray-700 ltr">
+            {% with trend=analytics.revenue_trend %}
+            {# Django templates can't sum — show label only #}
+            کل درآمد دوره
+            {% endwith %}
+          </span>
+        </div>
+
+      {% else %}
+        <div class="px-6 py-12 text-center text-gray-400">
+          <p class="text-3xl mb-2">📉</p>
+          <p>داده‌ای برای این بازه ثبت نشده است.</p>
+        </div>
+      {% endif %}
+    </div>
+
+    {# Top Products — spans 1/3 #}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div class="px-6 py-4 border-b border-gray-100">
+        <h3 class="font-semibold text-gray-800">🏅 محصولات پرفروش</h3>
+        <p class="text-xs text-gray-400 mt-0.5">بر اساس تعداد فروش (سفارشات پرداخت‌شده)</p>
+      </div>
+
+      {% if analytics.top_products %}
+      <ul class="divide-y divide-gray-50">
+        {% for idx, product in analytics.top_products|enumerate %}
+        {# Note: enumerate not a built-in tag; we use forloop.counter instead #}
+        {% endfor %}
+        {% for product in analytics.top_products %}
+        <li class="px-6 py-3 flex items-center gap-3">
+          <span class="w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold
+            {% if forloop.counter == 1 %}bg-yellow-100 text-yellow-700
+            {% elif forloop.counter == 2 %}bg-gray-200 text-gray-600
+            {% elif forloop.counter == 3 %}bg-orange-100 text-orange-700
+            {% else %}bg-gray-100 text-gray-500{% endif %}">
+            {{ forloop.counter }}
+          </span>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-800 truncate">{{ product.product_name }}</p>
+            <p class="text-xs text-gray-400">
+              {{ product.total_qty }} عدد &nbsp;|&nbsp;
+              {{ product.total_revenue|stringformat:",.0f" }} ﷼
+            </p>
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <div class="px-6 py-12 text-center text-gray-400">
+        <p class="text-3xl mb-2">📦</p>
+        <p class="text-sm">هنوز فروشی ثبت نشده است.</p>
+      </div>
+      {% endif %}
+    </div>
+
+  </div>{# /main grid #}
+
+</div>
+{% endblock %}

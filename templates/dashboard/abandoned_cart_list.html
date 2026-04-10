@@ -1,0 +1,103 @@
+{% extends "dashboard/base.html" %}
+{% block title %}سبدهای رها شده{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+    <h2 class="text-2xl font-bold">🛒 سبدهای رها شده</h2>
+    <span class="text-sm text-gray-500">بازیابی مشتریانی که خرید را ناتمام رها کرده‌اند</span>
+</div>
+
+<!-- Filter -->
+<form method="get" class="flex gap-3 mb-4 items-center">
+    <select name="status" class="border rounded px-3 py-2 text-sm">
+        <option value="" {% if not status_filter %}selected{% endif %}>همه</option>
+        <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>رها شده</option>
+        <option value="recovered" {% if status_filter == 'recovered' %}selected{% endif %}>بازیابی شده</option>
+    </select>
+    <button type="submit" class="bg-gray-200 px-4 py-2 rounded text-sm">فیلتر</button>
+    {% if status_filter %}
+    <a href="{% url 'dashboard:abandoned-carts' %}" class="text-sm text-indigo-600 hover:underline">پاک کردن فیلتر</a>
+    {% endif %}
+</form>
+
+<div class="bg-white rounded-lg shadow overflow-x-auto">
+    <table class="w-full text-sm">
+        <thead class="bg-gray-50">
+            <tr>
+                <th class="px-4 py-3 text-right">#</th>
+                <th class="px-4 py-3 text-right">مشتری / تلفن</th>
+                <th class="px-4 py-3 text-right">تعداد اقلام</th>
+                <th class="px-4 py-3 text-right">وضعیت</th>
+                <th class="px-4 py-3 text-right">آخرین فعالیت</th>
+                <th class="px-4 py-3 text-right">ارسال یادآوری</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for ac in abandoned_carts %}
+        <tr class="border-t hover:bg-gray-50">
+            <td class="px-4 py-3 font-mono text-xs text-gray-400">{{ ac.pk }}</td>
+            <td class="px-4 py-3">
+                {% if ac.customer %}
+                    <span class="font-medium">{{ ac.customer.name|default:ac.customer.phone }}</span>
+                    {% if ac.customer.name %}<span class="text-gray-500 text-xs block">{{ ac.customer.phone }}</span>{% endif %}
+                {% elif ac.phone %}
+                    <span dir="ltr">{{ ac.phone }}</span>
+                {% else %}
+                    <span class="text-gray-400">—</span>
+                {% endif %}
+            </td>
+            <td class="px-4 py-3 text-center">
+                <span class="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded text-xs font-semibold">{{ ac.item_count }}</span>
+            </td>
+            <td class="px-4 py-3">
+                {% if ac.recovered %}
+                    <span class="bg-green-100 text-green-700 px-2 py-1 rounded text-xs">✅ بازیابی شده</span>
+                {% else %}
+                    <span class="bg-orange-100 text-orange-700 px-2 py-1 rounded text-xs">⏳ رها شده</span>
+                {% endif %}
+            </td>
+            <td class="px-4 py-3 text-xs text-gray-500">
+                {{ ac.updated_at|date:"Y/m/d H:i" }}
+                {% if ac.recovery_sent_at %}
+                <span class="block text-blue-500">📩 ارسال: {{ ac.recovery_sent_at|date:"Y/m/d H:i" }}</span>
+                {% endif %}
+            </td>
+            <td class="px-4 py-3 text-xs text-gray-400">
+                {% if ac.recovery_sent_at %}
+                    ارسال شده
+                {% elif ac.recovered %}
+                    —
+                {% else %}
+                    <span class="italic">در انتظار cron</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="6" class="px-4 py-10 text-center text-gray-400">
+                سبد رها شده‌ای یافت نشد.
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Pagination -->
+{% if page_obj.has_other_pages %}
+<div class="flex justify-center gap-2 mt-6 text-sm">
+    {% if page_obj.has_previous %}
+    <a href="?page={{ page_obj.previous_page_number }}{% if status_filter %}&status={{ status_filter }}{% endif %}"
+       class="px-3 py-1 rounded border hover:bg-gray-100">قبلی</a>
+    {% endif %}
+    <span class="px-3 py-1 rounded bg-indigo-600 text-white">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+    {% if page_obj.has_next %}
+    <a href="?page={{ page_obj.next_page_number }}{% if status_filter %}&status={{ status_filter }}{% endif %}"
+       class="px-3 py-1 rounded border hover:bg-gray-100">بعدی</a>
+    {% endif %}
+</div>
+{% endif %}
+
+<p class="text-xs text-gray-400 mt-4">
+    💡 برای ارسال خودکار پیام یادآوری: <code class="bg-gray-100 px-1 rounded">python manage.py send_cart_recovery</code>
+</p>
+{% endblock %}
