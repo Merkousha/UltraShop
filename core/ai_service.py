@@ -6,6 +6,7 @@ Uses OpenAI. Encrypted keys from PlatformSettings. Rate limit per store per day.
 import json
 import time
 
+from django.db.models import Q
 from django.utils import timezone
 
 from core.encryption import decrypt_value
@@ -266,6 +267,79 @@ Store info:
                 time.sleep(1.0 * (attempt + 1))
                 continue
             raise AIError(str(e), user_message="خطا در تحلیل. می‌توانید از «شروع از صفر» استفاده کنید.")
+
+
+def search_products_for_chat(query: str, store) -> str:
+    """
+    Simple keyword search on active products to build context string for RAG chat.
+    Returns top 5 products as formatted text.
+    """
+    from catalog.models import Product
+
+    words = [w.strip() for w in query.split() if len(w.strip()) >= 2]
+    if not words:
+        # Return a sample of active products
+        products = Product.objects.filter(store=store, status="active").prefetch_related("variants")[:5]
+    else:
+        q_filter = None
+        for word in words:
+            condition = Q(name__icontains=word) | Q(description__icontains=word)
+            q_filter = condition if q_filter is None else q_filter | condition
+        products = Product.objects.filter(
+            store=store, status="active"
+        ).filter(q_filter).prefetch_related("variants")[:5]
+
+    if not products:
+        return "محصولی در این فروشگاه یافت نشد."
+
+    lines = []
+    for p in products:
+        first_variant = p.variants.filter(is_active=True).first()
+        price_str = f"{first_variant.price:,}" if first_variant else "نامشخص"
+        stock_str = str(first_variant.total_stock) if first_variant else "نامشخص"
+        lines.append(f"محصول: {p.name} | قیمت: {price_str} ریال | موجودی: {stock_str}")
+
+    return "\n".join(lines)
+
+
+def chat_with_products(session_messages: list, product_context: str, store) -> str:
+    """
+    session_messages: [{"role": "user"|"assistant", "content": "..."}]
+    product_context: formatted string of relevant products
+    Returns assistant reply string.
+    """
+    _check_and_consume_rate_limit(store)
+    ps = PlatformSettings.load()
+    client = _get_client()
+    model = ps.text_model or "gpt-4o-mini"
+
+    system_prompt = (
+        "شما یک دستیار فروش مفید فارسی‌زبان برای یک فروشگاه اینترنتی هستید. "
+        "از کاتالوگ محصولات زیر برای پاسخ به سوالات استفاده کنید. "
+        "کوتاه و مفید پاسخ بدهید. همیشه به فارسی پاسخ بدهید.\n\n"
+        "محصولات موجود:\n" + product_context
+    )
+
+    messages = [{"role": "system", "content": system_prompt}]
+    messages.extend(session_messages[-10:])  # last 10 messages for context
+
+    max_retries = 2
+    for attempt in range(max_retries + 1):
+        try:
+            response = client.chat.completions.create(
+                model=model,
+                messages=messages,
+                max_tokens=512,
+            )
+            return response.choices[0].message.content.strip()
+        except Exception as e:
+            err_msg = str(e).lower()
+            if "rate" in err_msg or "quota" in err_msg or "429" in err_msg:
+                raise AIError(str(e), user_message="محدودیت درخواست API. بعداً تلاش کنید.")
+            if attempt < max_retries:
+                time.sleep(1.0 * (attempt + 1))
+                continue
+            raise AIError(str(e), user_message="خطا در دستیار هوشمند. لطفاً بعداً امتحان کنید.")
 
 
 def text_generate_brand_identity(

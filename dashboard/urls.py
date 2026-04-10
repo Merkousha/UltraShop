@@ -36,9 +36,13 @@ urlpatterns = [
     # Orders
     path("orders/", views.OrderListView.as_view(), name="order-list"),
     path("orders/<int:pk>/", views.OrderDetailView.as_view(), name="order-detail"),
+    path("orders/<int:pk>/smart-route/", views.OrderSmartRouteView.as_view(), name="order-smart-route"),
 
     # Accounting
     path("accounting/", views.AccountingLedgerView.as_view(), name="accounting-ledger"),
+
+    # Analytics (BI dashboard)
+    path("analytics/", views.DashboardAnalyticsView.as_view(), name="analytics"),
 
     # Settings
     path("settings/", views.StoreSettingsView.as_view(), name="store-settings"),
@@ -63,4 +67,14 @@ urlpatterns = [
 
     # CRM
     path("crm/", include("crm.urls")),
+
+    # Phase 3: Abandoned Cart Recovery
+    path("abandoned-carts/", views.AbandonedCartListView.as_view(), name="abandoned-carts"),
+
+    # Phase 3: AI Chat History
+    path("chat-history/", views.ChatHistoryView.as_view(), name="chat-history"),
+
+    # Phase 4: External Integrations
+    path("integrations/", views.IntegrationsView.as_view(), name="integrations"),
+    path("integrations/<str:integration_id>/test/", views.IntegrationTestView.as_view(), name="integration-test"),
 ]

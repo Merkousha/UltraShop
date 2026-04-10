@@ -347,3 +347,34 @@ class LayoutConfigurationSnapshot(models.Model):
         db_table = "layout_configuration_snapshots"
         ordering = ["-created_at"]
         unique_together = ("store", "page_type", "version")
+
+
+# ─── Phase 4: External Integrations (SO-Phase4) ───────────────
+class StoreIntegration(models.Model):
+    """Per-store external integration credentials and status.
+
+    Credentials are stored encrypted using core.encryption helpers.
+    """
+
+    store = models.ForeignKey(
+        Store,
+        on_delete=models.CASCADE,
+        related_name="integrations",
+    )
+    # e.g. "zarinpal", "iran_post", "moadian"
+    integration_id = models.CharField(max_length=50, db_index=True)
+    # JSON blob, encrypted via core.encryption.encrypt_value()
+    credentials_encrypted = models.TextField(blank=True, default="")
+    is_active = models.BooleanField(default=False)
+    last_tested_at = models.DateTimeField(null=True, blank=True)
+    test_result = models.CharField(max_length=200, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "store_integrations"
+        unique_together = [("store", "integration_id")]
+        ordering = ["integration_id"]
+
+    def __str__(self):
+        return f"{self.integration_id} @ {self.store.name}"

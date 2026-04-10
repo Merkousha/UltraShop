@@ -121,6 +121,39 @@ class ProductVariant(models.Model):
         return r or 0
 
 
+class DiscountCode(models.Model):
+    """Per-store discount code (percent or fixed amount in IRR)."""
+
+    class DiscountType(models.TextChoices):
+        PERCENT = "percent", "درصد"
+        FIXED = "fixed", "مبلغ ثابت"
+
+    store = models.ForeignKey("core.Store", on_delete=models.CASCADE, related_name="discount_codes")
+    code = models.CharField(max_length=50)
+    discount_type = models.CharField(max_length=10, choices=DiscountType.choices)
+    value = models.PositiveBigIntegerField(help_text="درصد (۰-۱۰۰) یا مبلغ ثابت به ریال")
+    min_order_amount = models.PositiveBigIntegerField(default=0, help_text="حداقل مبلغ سفارش برای اعمال کد")
+    max_uses = models.PositiveIntegerField(null=True, blank=True, help_text="حداکثر تعداد استفاده (خالی = نامحدود)")
+    used_count = models.PositiveIntegerField(default=0)
+    expires_at = models.DateTimeField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "discount_codes"
+        unique_together = [("store", "code")]
+
+    def __str__(self):
+        return f"{self.code} — {self.store.name}"
+
+    def compute_discount(self, order_total: int) -> int:
+        """Return discount amount in IRR for given order total."""
+        if self.discount_type == self.DiscountType.PERCENT:
+            pct = min(100, max(0, self.value))
+            return int(order_total * pct / 100)
+        return min(self.value, order_total)
+
+
 class WarehouseStock(models.Model):
     """Per-warehouse, per-variant stock (Sprint 4 — SO-50, SO-51)."""
     warehouse = models.ForeignKey(

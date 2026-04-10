@@ -3,7 +3,13 @@
 {% block content %}
 <div class="flex items-center justify-between mb-6">
     <h2 class="text-2xl font-bold">سفارش #{{ order.pk }}</h2>
-    <a href="{% url 'dashboard:order-list' %}" class="text-indigo-600 text-sm hover:underline">← بازگشت</a>
+    <div class="flex items-center gap-3">
+        <a href="{% url 'dashboard:order-smart-route' pk=order.pk %}"
+           class="inline-flex items-center gap-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+            🗺 مسیریابی هوشمند
+        </a>
+        <a href="{% url 'dashboard:order-list' %}" class="text-indigo-600 text-sm hover:underline">← بازگشت</a>
+    </div>
 </div>
 
 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">

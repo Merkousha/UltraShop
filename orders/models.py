@@ -25,6 +25,14 @@ class Order(models.Model):
     payment_reference = models.CharField(max_length=200, blank=True, default="")
     refunded_amount = models.PositiveBigIntegerField(default=0)
     note = models.TextField(blank=True, default="")
+    routing_plan = models.JSONField(
+        null=True,
+        blank=True,
+        default=None,
+        help_text="Auto-routing result from SmartRoutingService (SO-52).",
+    )
+    discount_code_used = models.CharField(max_length=50, blank=True, default="")
+    discount_amount = models.PositiveBigIntegerField(default=0, help_text="Discount applied in IRR")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -42,6 +50,10 @@ class Order(models.Model):
     @property
     def total(self):
         return sum(line.line_total for line in self.lines.all())
+
+    @property
+    def total_after_discount(self):
+        return max(0, self.total - self.discount_amount)
 
 
 class OrderLine(models.Model):

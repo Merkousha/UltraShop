@@ -1,0 +1,173 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+{% block title %}یکپارچه‌سازی‌های خارجی{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl" dir="rtl">
+
+    <div class="flex items-center justify-between mb-6">
+        <h2 class="text-2xl font-bold text-gray-800">🔌 یکپارچه‌سازی‌های خارجی</h2>
+        <span class="text-sm text-gray-500">اتصال به سرویس‌های ایرانی</span>
+    </div>
+
+    {% if messages %}
+    <div class="mb-5 space-y-2">
+        {% for msg in messages %}
+        <div class="p-3 rounded text-sm {% if msg.tags == 'error' %}bg-red-100 text-red-700{% else %}bg-green-100 text-green-700{% endif %}">
+            {{ msg }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- ── Integration cards ── -->
+    <div class="space-y-6">
+        {% for intg in integrations %}
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden"
+             id="card-{{ intg.integration_id }}">
+
+            <!-- Card header -->
+            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+                <div class="flex items-center gap-3">
+                    <!-- Status dot -->
+                    <span class="inline-block w-3 h-3 rounded-full
+                        {% if intg.is_active %}bg-green-400{% elif intg.is_configured %}bg-yellow-400{% else %}bg-gray-300{% endif %}">
+                    </span>
+                    <h3 class="font-bold text-gray-800 text-lg">{{ intg.integration_name }}</h3>
+                    <code class="text-xs text-gray-400 bg-gray-100 rounded px-2 py-0.5 font-mono">
+                        {{ intg.integration_id }}
+                    </code>
+                </div>
+                <!-- Status badge -->
+                <span class="text-xs font-medium px-3 py-1 rounded-full
+                    {% if intg.is_active %}bg-green-100 text-green-700
+                    {% elif intg.is_configured %}bg-yellow-100 text-yellow-700
+                    {% else %}bg-gray-100 text-gray-500{% endif %}">
+                    {% if intg.is_active %}فعال
+                    {% elif intg.is_configured %}پیکربندی شده (غیرفعال)
+                    {% else %}پیکربندی نشده{% endif %}
+                </span>
+            </div>
+
+            <!-- Card body: credentials form -->
+            <div class="px-6 py-5">
+                <form method="post" action="{% url 'dashboard:integrations' %}"
+                      id="form-{{ intg.integration_id }}" class="space-y-4">
+                    {% csrf_token %}
+                    <input type="hidden" name="integration_id" value="{{ intg.integration_id }}">
+
+                    <!-- Credentials JSON -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            اعتبارنامه‌ها (JSON)
+                        </label>
+                        <textarea name="credentials_json"
+                                  rows="4"
+                                  placeholder='{"api_key": "...", "merchant_id": "..."}'
+                                  class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent resize-y"
+                                  dir="ltr">{{ intg.credentials_raw }}</textarea>
+                        <p class="text-xs text-gray-400 mt-1">
+                            مقادیر را به صورت JSON وارد کنید. این اطلاعات رمزگذاری‌شده ذخیره می‌شوند.
+                        </p>
+                    </div>
+
+                    <!-- Active toggle -->
+                    <div class="flex items-center gap-2">
+                        <input type="checkbox" name="is_active"
+                               id="active-{{ intg.integration_id }}"
+                               class="w-4 h-4 text-indigo-600 border-gray-300 rounded"
+                               {% if intg.is_active %}checked{% endif %}>
+                        <label for="active-{{ intg.integration_id }}"
+                               class="text-sm text-gray-700 select-none">
+                            فعال کردن این یکپارچه‌سازی
+                        </label>
+                    </div>
+
+                    <!-- Action buttons -->
+                    <div class="flex items-center gap-3 flex-wrap">
+                        <button type="submit"
+                                class="bg-indigo-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors">
+                            💾 ذخیره تنظیمات
+                        </button>
+
+                        <!-- Test connection button -->
+                        <button type="button"
+                                data-integration="{{ intg.integration_id }}"
+                                data-test-url="{% url 'dashboard:integration-test' intg.integration_id %}"
+                                onclick="testIntegration(this)"
+                                class="bg-gray-100 text-gray-700 px-5 py-2 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors border border-gray-200">
+                            🔗 تست اتصال
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Test result display -->
+                <div id="test-result-{{ intg.integration_id }}" class="hidden mt-4 p-3 rounded-lg text-sm"></div>
+
+                <!-- Last tested info -->
+                {% if intg.last_tested_at %}
+                <p class="mt-3 text-xs text-gray-400">
+                    آخرین تست: {{ intg.last_tested_at|date:"Y/m/d H:i" }}
+                    {% if intg.test_result %}— {{ intg.test_result }}{% endif %}
+                </p>
+                {% endif %}
+            </div>
+        </div>
+        {% empty %}
+        <div class="bg-gray-50 rounded-xl p-8 text-center text-gray-500">
+            هیچ یکپارچه‌سازی‌ای در دسترس نیست.
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- ── Help note ── -->
+    <div class="mt-8 bg-blue-50 border border-blue-100 rounded-xl p-5 text-sm text-blue-800">
+        <strong>راهنما:</strong> اعتبارنامه‌های هر سرویس را به صورت JSON وارد کنید.
+        برای مثال برای زرین‌پال: <code class="bg-blue-100 px-1 rounded font-mono">{"merchant_id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"}</code>.
+        پس از ذخیره، دکمه «تست اتصال» را بزنید تا از صحت اتصال اطمینان حاصل کنید.
+        تمام اطلاعات حساس رمزگذاری‌شده در پایگاه داده ذخیره می‌شوند.
+    </div>
+</div>
+
+<script>
+function testIntegration(btn) {
+    var integrationId = btn.dataset.integration;
+    var testUrl = btn.dataset.testUrl;
+    var resultDiv = document.getElementById('test-result-' + integrationId);
+    var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+    // Disable button and show loading state
+    btn.disabled = true;
+    btn.textContent = '⏳ در حال بررسی...';
+    resultDiv.className = 'mt-4 p-3 rounded-lg text-sm bg-gray-50 text-gray-600 border border-gray-200';
+    resultDiv.textContent = 'در حال اتصال...';
+    resultDiv.classList.remove('hidden');
+
+    fetch(testUrl, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrfToken,
+            'Accept': 'application/json',
+        },
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+        if (data.success) {
+            resultDiv.className = 'mt-4 p-3 rounded-lg text-sm bg-green-50 text-green-700 border border-green-200';
+            resultDiv.textContent = '✅ ' + (data.message || 'اتصال برقرار شد.');
+        } else {
+            resultDiv.className = 'mt-4 p-3 rounded-lg text-sm bg-red-50 text-red-700 border border-red-200';
+            resultDiv.textContent = '❌ ' + (data.message || 'اتصال برقرار نشد.');
+        }
+    })
+    .catch(function(err) {
+        resultDiv.className = 'mt-4 p-3 rounded-lg text-sm bg-red-50 text-red-700 border border-red-200';
+        resultDiv.textContent = '❌ خطای شبکه: ' + err;
+    })
+    .finally(function() {
+        btn.disabled = false;
+        btn.textContent = '🔗 تست اتصال';
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,135 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+{% block title %}مسیریابی هوشمند — سفارش #{{ order.pk }}{% endblock %}
+{% block content %}
+<div dir="rtl">
+
+  {# ── Header ── #}
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h2 class="text-2xl font-bold text-gray-800">🗺 مسیریابی هوشمند</h2>
+      <p class="text-sm text-gray-500 mt-1">سفارش #{{ order.pk }} — {{ order.get_status_display }}</p>
+    </div>
+    <a href="{% url 'dashboard:order-detail' pk=order.pk %}"
+       class="text-indigo-600 text-sm hover:underline">← بازگشت به سفارش</a>
+  </div>
+
+  {# ── Already confirmed notice ── #}
+  {% if order.routing_plan %}
+  <div class="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800">
+    ✅ این سفارش قبلاً مسیریابی و موجودی آن رزرو شده است.
+    می‌توانید مجدداً مسیریابی کنید اما موجودی دوباره کسر خواهد شد.
+  </div>
+  {% endif %}
+
+  {# ── Plan cards ── #}
+  {% if plan %}
+  <div class="space-y-6 mb-8">
+    {% for entry in plan %}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      {# Card header #}
+      <div class="px-6 py-4 bg-gray-50 border-b border-gray-100 flex items-center gap-3">
+        {% if entry.warehouse %}
+          <span class="text-2xl">🏭</span>
+          <div>
+            <p class="font-semibold text-gray-800">{{ entry.warehouse.name }}</p>
+            <p class="text-xs text-gray-500">
+              {{ entry.warehouse.city }}{% if entry.warehouse.province %} — {{ entry.warehouse.province }}{% endif %}
+              &nbsp;|&nbsp; اولویت: {{ entry.warehouse.priority }}
+            </p>
+          </div>
+          {% if entry.warehouse.is_default %}
+            <span class="mr-auto px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-xs font-medium">پیش‌فرض</span>
+          {% endif %}
+        {% else %}
+          <span class="text-2xl">⚠️</span>
+          <div>
+            <p class="font-semibold text-red-600">بدون انبار (موجودی ناکافی)</p>
+            <p class="text-xs text-gray-500">این اقلام در هیچ انباری موجودی کافی ندارند.</p>
+          </div>
+        {% endif %}
+      </div>
+
+      {# Lines table #}
+      <div class="px-6 py-4">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-gray-500 border-b">
+              <th class="text-right pb-2 font-medium">محصول</th>
+              <th class="text-right pb-2 font-medium">تنوع</th>
+              <th class="text-right pb-2 font-medium">تعداد سفارش</th>
+              {% if entry.warehouse %}
+              <th class="text-right pb-2 font-medium">موجودی قابل ارسال</th>
+              {% endif %}
+              <th class="text-right pb-2 font-medium">قیمت واحد</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in entry.lines %}
+            <tr class="border-b border-gray-50 last:border-0">
+              <td class="py-2 text-gray-800">{{ item.line.product_name }}</td>
+              <td class="py-2 text-gray-500">{{ item.line.variant_name|default:"—" }}</td>
+              <td class="py-2">
+                <span class="font-semibold {% if entry.warehouse and item.available is not None and item.available < item.line.quantity %}text-red-600{% else %}text-gray-800{% endif %}">
+                  {{ item.line.quantity }}
+                </span>
+              </td>
+              {% if entry.warehouse %}
+              <td class="py-2">
+                {% if item.available is not None %}
+                  <span class="px-2 py-0.5 rounded-full text-xs font-medium
+                    {% if item.available >= item.line.quantity %}bg-green-100 text-green-700
+                    {% elif item.available > 0 %}bg-yellow-100 text-yellow-700
+                    {% else %}bg-red-100 text-red-700{% endif %}">
+                    {{ item.available }} عدد
+                  </span>
+                {% else %}
+                  <span class="text-gray-400">—</span>
+                {% endif %}
+              </td>
+              {% endif %}
+              <td class="py-2 text-gray-500 ltr">{{ item.line.unit_price|stringformat:",.0f" }} ﷼</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {# Footer summary #}
+      <div class="px-6 py-3 bg-gray-50 border-t border-gray-100 text-xs text-gray-500">
+        {{ entry.lines|length }} قلم در این انبار
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {# ── Confirm button ── #}
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+    <h3 class="font-semibold text-gray-800 mb-2">تأیید و رزرو موجودی</h3>
+    <p class="text-sm text-gray-500 mb-4">
+      با تأیید این برنامه، موجودی اقلام در انبارهای مربوطه رزرو می‌شود
+      و برنامه روی سفارش ذخیره خواهد شد.
+    </p>
+    <form method="post">
+      {% csrf_token %}
+      <button type="submit"
+              class="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-6 py-2.5 rounded-lg transition-colors">
+        ✅ تأیید مسیریابی و رزرو موجودی
+      </button>
+      <a href="{% url 'dashboard:order-detail' pk=order.pk %}"
+         class="mr-3 text-sm text-gray-500 hover:text-gray-700">انصراف</a>
+    </form>
+  </div>
+
+  {% else %}
+  {# No lines / no warehouses #}
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
+    <p class="text-4xl mb-4">📦</p>
+    <p class="text-gray-500">این سفارش اقلامی با موجودی قابل مسیریابی ندارد.</p>
+    <a href="{% url 'dashboard:order-detail' pk=order.pk %}"
+       class="mt-4 inline-block text-indigo-600 text-sm hover:underline">بازگشت</a>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
