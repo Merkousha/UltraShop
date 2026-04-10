@@ -1,4 +1,5 @@
 {% extends "dashboard/base.html" %}
+{% load static %}
 {% block title %}سفارش #{{ order.pk }}{% endblock %}
 {% block content %}
 <div class="flex items-center justify-between mb-6">
@@ -12,6 +13,9 @@
     </div>
 </div>
 
+{# hidden csrf for JS fetch calls #}
+<form id="csrf-form" class="hidden">{% csrf_token %}</form>
+
 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
     <div class="bg-white rounded-lg shadow p-6">
         <h3 class="font-semibold mb-3">اطلاعات سفارش</h3>
@@ -20,7 +24,20 @@
             <div class="flex justify-between"><dt class="text-gray-500">مبلغ کل</dt><dd>{{ order.total|stringformat:",.0f" }} ریال</dd></div>
             <div class="flex justify-between"><dt class="text-gray-500">تاریخ ثبت</dt><dd>{{ order.created_at|date:"Y/m/d H:i" }}</dd></div>
             <div class="flex justify-between"><dt class="text-gray-500">مرجع پرداخت</dt><dd>{{ order.payment_reference|default:"—" }}</dd></div>
+            <div class="flex justify-between"><dt class="text-gray-500">شناسه مالیاتی</dt><dd data-fiscal-id>{{ order.fiscal_id|default:"ثبت نشده" }}</dd></div>
         </dl>
+
+        {# دکمه ارسال صورتحساب مالیاتی — فقط برای سفارش‌های قابل صدور #}
+        {% if order.status == 'paid' or order.status == 'packed' or order.status == 'shipped' or order.status == 'delivered' %}
+        <button type="button"
+            id="btn-submit-invoice"
+            data-invoice-url="{% url 'dashboard:order-submit-invoice' pk=order.pk %}"
+            onclick="submitInvoice()"
+            class="mt-3 w-full text-sm bg-yellow-50 text-yellow-800 border border-yellow-200 px-4 py-2 rounded-lg hover:bg-yellow-100 transition-colors">
+            🧾 ارسال صورتحساب به سامانه مودیان
+        </button>
+        <div id="invoice-result" class="hidden mt-2 p-3 rounded text-xs"></div>
+        {% endif %}
     </div>
     <div class="bg-white rounded-lg shadow p-6">
         <h3 class="font-semibold mb-3">اطلاعات مشتری و ارسال</h3>
@@ -69,6 +86,17 @@
             <span class="px-2 py-0.5 rounded text-xs {% if shipment.status == 'delivered' %}bg-green-100 text-green-700{% elif shipment.status == 'exception' %}bg-red-100 text-red-700{% else %}bg-blue-100 text-blue-700{% endif %}">{{ shipment.get_status_display }}</span>
             {% if shipment.tracking_number %}<span class="text-gray-500" dir="ltr">کد رهگیری: {{ shipment.tracking_number }}</span>{% endif %}
             <span class="text-gray-400 text-xs">{{ shipment.updated_at|date:"Y/m/d H:i" }}</span>
+            {% if shipment.tracking_number %}
+            <button type="button"
+                data-track-url="{% url 'dashboard:order-track-shipment' pk=order.pk %}"
+                data-tracking="{{ shipment.tracking_number }}"
+                data-result-id="track-result-{{ shipment.pk }}"
+                onclick="trackShipment(this)"
+                class="text-xs bg-blue-50 text-blue-700 px-3 py-1 rounded hover:bg-blue-100">
+                📍 رهگیری پستی
+            </button>
+            <div id="track-result-{{ shipment.pk }}" class="hidden mt-2 p-3 rounded text-xs bg-gray-50 border border-gray-200"></div>
+            {% endif %}
         </li>
     {% empty %}
         <li class="text-gray-400">مرسوله‌ای ثبت نشده.</li>
@@ -90,4 +118,92 @@
     {% endfor %}
     </ul>
 </div>
+
+<script>
+function _getCsrfToken() {
+    var el = document.querySelector('[name=csrfmiddlewaretoken]');
+    return el ? el.value : '';
+}
+
+function trackShipment(btn) {
+    var url = btn.dataset.trackUrl;
+    var trackingNumber = btn.dataset.tracking;
+    var resultId = btn.dataset.resultId;
+    var resultDiv = document.getElementById(resultId);
+    var csrfToken = _getCsrfToken();
+    btn.disabled = true;
+    btn.textContent = '⏳ در حال بررسی...';
+    var formData = new FormData();
+    formData.append('tracking_number', trackingNumber);
+    fetch(url, {
+        method: 'POST',
+        headers: {'X-CSRFToken': csrfToken},
+        body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+        resultDiv.classList.remove('hidden');
+        if (data.success) {
+            var html = '<strong>وضعیت:</strong> ' + (data.status_fa || data.status) + '<br>';
+            if (data.last_event) html += '<span class="text-gray-500">' + data.last_event + '</span><br>';
+            if (data.events && data.events.length) {
+                html += '<ul class="mt-1 space-y-0.5">';
+                data.events.forEach(e => html += '<li>' + e.date + ' ' + e.time + ' — ' + e.description + '</li>');
+                html += '</ul>';
+            }
+            resultDiv.innerHTML = html;
+            resultDiv.className = 'mt-2 p-3 rounded text-xs bg-green-50 border border-green-200 text-green-800';
+        } else {
+            resultDiv.textContent = '❌ ' + (data.message || 'خطا در رهگیری');
+            resultDiv.className = 'mt-2 p-3 rounded text-xs bg-red-50 border border-red-200 text-red-700';
+        }
+    })
+    .catch(() => {
+        resultDiv.classList.remove('hidden');
+        resultDiv.textContent = '❌ خطای شبکه';
+        resultDiv.className = 'mt-2 p-3 rounded text-xs bg-red-50 border border-red-200 text-red-700';
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.textContent = '📍 رهگیری پستی';
+    });
+}
+
+function submitInvoice() {
+    var btn = document.getElementById('btn-submit-invoice');
+    var url = btn.dataset.invoiceUrl;
+    var resultDiv = document.getElementById('invoice-result');
+    var csrfToken = _getCsrfToken();
+    btn.disabled = true;
+    btn.textContent = '⏳ در حال ارسال...';
+    fetch(url, {
+        method: 'POST',
+        headers: {'X-CSRFToken': csrfToken},
+    })
+    .then(r => r.json())
+    .then(data => {
+        resultDiv.classList.remove('hidden');
+        if (data.success) {
+            resultDiv.innerHTML = '✅ صورتحساب ثبت شد. شناسه مالیاتی: <strong>' + (data.fiscal_id || '') + '</strong>';
+            resultDiv.className = 'mt-2 p-3 rounded text-xs bg-green-50 border border-green-200 text-green-800';
+            if (data.fiscal_id) {
+                var fiscalDd = document.querySelector('[data-fiscal-id]');
+                if (fiscalDd) fiscalDd.textContent = data.fiscal_id;
+            }
+        } else {
+            resultDiv.textContent = '❌ ' + (data.message || 'خطا در ارسال');
+            resultDiv.className = 'mt-2 p-3 rounded text-xs bg-red-50 border border-red-200 text-red-700';
+        }
+    })
+    .catch(() => {
+        resultDiv.classList.remove('hidden');
+        resultDiv.textContent = '❌ خطای شبکه';
+        resultDiv.className = 'mt-2 p-3 rounded text-xs bg-red-50 border border-red-200 text-red-700';
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.textContent = '🧾 ارسال صورتحساب به سامانه مودیان';
+    });
+}
+</script>
 {% endblock %}

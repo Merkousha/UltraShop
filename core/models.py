@@ -48,6 +48,10 @@ class Store(models.Model):
     timezone = models.CharField(max_length=50, default="Asia/Tehran")
     currency = models.CharField(max_length=10, default="IRR")
     allow_guest_checkout = models.BooleanField(default=True)
+    auto_route_enabled = models.BooleanField(
+        default=False,
+        help_text="If True, automatically compute and apply smart routing when an order is paid.",
+    )
     plan = models.ForeignKey("StorePlan", on_delete=models.SET_NULL, null=True, blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)

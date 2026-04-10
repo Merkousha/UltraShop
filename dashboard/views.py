@@ -1,6 +1,7 @@
 import json
 import logging
 
+from django.conf import settings
 from django.contrib import messages
 from core.encryption import encrypt_value
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -869,6 +870,7 @@ class StoreSettingsView(StoreAccessMixin, TemplateView):
             store.phone = request.POST.get("phone", store.phone)
             store.support_email = request.POST.get("support_email", store.support_email)
             store.allow_guest_checkout = request.POST.get("allow_guest_checkout") == "on"
+            store.auto_route_enabled = request.POST.get("auto_route_enabled") == "on"
             if request.FILES.get("logo"):
                 store.logo = request.FILES["logo"]
 
@@ -1545,6 +1547,72 @@ class AbandonedCartListView(StoreAccessMixin, ListView):
         return ctx
 
 
+class AbandonedCartSendNowView(StoreAccessMixin, View):
+    """POST — manually trigger recovery message for a single abandoned cart."""
+
+    def post(self, request, pk, *args, **kwargs):
+        from customers.models import AbandonedCart
+        from django.utils import timezone
+
+        cart = get_object_or_404(
+            AbandonedCart, pk=pk, store=request.current_store, recovered=False
+        )
+
+        if cart.recovery_sent_at:
+            messages.warning(request, f"یادآوری برای سبد #{cart.pk} قبلاً ارسال شده بود.")
+            return redirect("dashboard:abandoned-carts")
+
+        recipient = ""
+        if cart.customer:
+            recipient = cart.customer.phone or cart.customer.email
+        elif cart.phone:
+            recipient = cart.phone
+        elif cart.email:
+            recipient = cart.email
+
+        store_name = cart.store.name
+        item_count = cart.item_count
+
+        # Build recovery URL
+        recovery_path = reverse(
+            "storefront:cart-recover",
+            kwargs={
+                "store_username": cart.store.username,
+                "token": str(cart.recovery_token),
+            },
+        )
+        platform_domain = getattr(settings, "PLATFORM_DOMAIN", "localhost:8080")
+        recovery_url = f"https://{platform_domain}{recovery_path}"
+
+        message = (
+            f"سلام! سبد خرید شما در فروشگاه «{store_name}» با {item_count} قلم محصول "
+            f"هنوز منتظر است. برای تکمیل خرید اینجا کلیک کنید: {recovery_url}"
+        )
+
+        sent = False
+        if recipient:
+            try:
+                from core.services import send_notification
+                send_notification(cart.store, recipient, message)
+                sent = True
+            except (ImportError, AttributeError):
+                import logging as _logging
+                _logging.getLogger(__name__).info(
+                    "Cart recovery manual send [cart=%d, recipient=%s]: %s",
+                    cart.pk, recipient or "(no contact)", message,
+                )
+                sent = True
+
+        AbandonedCart.objects.filter(pk=cart.pk).update(recovery_sent_at=timezone.now())
+
+        if sent and recipient:
+            messages.success(request, f"یادآوری برای سبد #{cart.pk} به «{recipient}» ارسال شد.")
+        else:
+            messages.warning(request, f"سبد #{cart.pk} اطلاعات تماس ندارد — فقط زمان ثبت شد.")
+
+        return redirect("dashboard:abandoned-carts")
+
+
 # ─── Phase 3: AI Chat History ─────────────────────────────────
 class ChatHistoryView(StoreAccessMixin, ListView):
     """List AI chat sessions for the current store."""
@@ -1679,3 +1747,79 @@ class IntegrationTestView(StoreAccessMixin, View):
             obj.save(update_fields=["last_tested_at", "test_result"])
 
         return JsonResponse(result)
+
+
+def _load_integration_credentials(store, integration_id):
+    """Load and decrypt credentials for a given integration from the store's config."""
+    from core.encryption import decrypt_value
+
+    obj = StoreIntegration.objects.filter(
+        store=store, integration_id=integration_id
+    ).first()
+    creds = {}
+    if obj and obj.credentials_encrypted:
+        raw = decrypt_value(obj.credentials_encrypted)
+        if raw:
+            try:
+                creds = json.loads(raw)
+            except json.JSONDecodeError:
+                pass
+    return creds
+
+
+# ─── آیتم ۵: Iran Post Tracking ────────────────────────────────
+class OrderTrackShipmentView(StoreAccessMixin, View):
+    """POST — fetch Iran Post tracking info for a shipment tracking number; returns JSON."""
+
+    def post(self, request, pk, *args, **kwargs):
+        from core.integrations.registry import get_integration
+
+        order = get_object_or_404(Order, pk=pk, store=request.current_store)
+        tracking_number = request.POST.get("tracking_number", "").strip()
+        if not tracking_number:
+            return JsonResponse({"success": False, "message": "شماره رهگیری وارد نشده است."}, status=400)
+
+        creds = _load_integration_credentials(request.current_store, "iran_post")
+        integration = get_integration("iran_post", request.current_store, creds)
+        if integration is None:
+            return JsonResponse({"success": False, "message": "یکپارچه‌سازی پست پیدا نشد."}, status=404)
+
+        try:
+            result = integration.track_shipment(tracking_number)
+            return JsonResponse({"success": True, **result})
+        except Exception:
+            _integrations_logger.exception(
+                "Iran Post track_shipment error: store=%s tracking=%s",
+                request.current_store.pk,
+                tracking_number,
+            )
+            return JsonResponse({"success": False, "message": "خطا در رهگیری مرسوله. لطفاً دوباره تلاش کنید."}, status=500)
+
+
+# ─── آیتم ۶: Moadian Submit Invoice ────────────────────────────
+class OrderSubmitInvoiceView(StoreAccessMixin, View):
+    """POST — submit order invoice to Moadian tax system; returns JSON."""
+
+    def post(self, request, pk, *args, **kwargs):
+        from core.integrations.registry import get_integration
+
+        order = get_object_or_404(Order, pk=pk, store=request.current_store)
+        creds = _load_integration_credentials(request.current_store, "moadian")
+        integration = get_integration("moadian", request.current_store, creds)
+        if integration is None:
+            return JsonResponse({"success": False, "message": "یکپارچه‌سازی مودیان پیدا نشد."}, status=404)
+
+        try:
+            result = integration.submit_invoice(order)
+            fiscal_id = result.get("fiscal_id", "")
+            if fiscal_id:
+                order.fiscal_id = fiscal_id
+                order.save(update_fields=["fiscal_id"])
+            return JsonResponse({"success": True, **result})
+        except Exception:
+            _integrations_logger.exception(
+                "Moadian submit_invoice error: store=%s order=%s",
+                request.current_store.pk,
+                order.pk,
+            )
+            return JsonResponse({"success": False, "message": "خطا در ارسال صورتحساب. لطفاً دوباره تلاش کنید."}, status=500)

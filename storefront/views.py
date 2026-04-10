@@ -343,6 +343,32 @@ class CheckoutView(StoreMixin, TemplateView):
         return redirect("storefront:order-confirm", store_username=self.store.username, pk=order.pk)
 
 
+class CartRecoverView(StoreMixin, View):
+    """
+    GET  /s/<store_username>/cart/recover/<token>/
+    Restores the cart from an AbandonedCart recovery token and redirects to cart page.
+    """
+
+    def get(self, request, *args, **kwargs):
+        from customers.models import AbandonedCart
+        token = kwargs.get("token")
+        cart = AbandonedCart.objects.filter(
+            store=self.store,
+            recovery_token=token,
+            recovered=False,
+        ).first()
+
+        if cart and cart.cart_data:
+            # Restore cart items into session
+            _save_cart(request, cart.cart_data)
+            # Mark as recovered
+            AbandonedCart.objects.filter(pk=cart.pk).update(recovered=True)
+            from django.contrib import messages as dj_messages
+            dj_messages.success(request, "سبد خرید شما بازیابی شد!")
+
+        return redirect("storefront:cart", store_username=self.store.username)
+
+
 class OrderConfirmView(StoreMixin, TemplateView):
     """Show order confirmation page."""
     template_name = "storefront/order_confirm.html"

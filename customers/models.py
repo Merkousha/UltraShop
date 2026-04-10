@@ -1,3 +1,5 @@
+import uuid
+
 from django.db import models
 from django.utils import timezone
 
@@ -12,6 +14,12 @@ class AbandonedCart(models.Model):
     session_key = models.CharField(max_length=100, blank=True, default="")
     phone = models.CharField(max_length=20, blank=True, default="")
     email = models.EmailField(blank=True, default="")
+    recovery_token = models.UUIDField(
+        default=uuid.uuid4,
+        unique=True,
+        editable=False,
+        help_text="Unique token for cart recovery deep-link.",
+    )
     cart_data = models.JSONField(default=dict, help_text="{str(variant_pk): quantity}")
     recovered = models.BooleanField(default=False)
     recovery_sent_at = models.DateTimeField(null=True, blank=True)

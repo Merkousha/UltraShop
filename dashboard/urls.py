@@ -37,6 +37,8 @@ urlpatterns = [
     path("orders/", views.OrderListView.as_view(), name="order-list"),
     path("orders/<int:pk>/", views.OrderDetailView.as_view(), name="order-detail"),
     path("orders/<int:pk>/smart-route/", views.OrderSmartRouteView.as_view(), name="order-smart-route"),
+    path("orders/<int:pk>/track-shipment/", views.OrderTrackShipmentView.as_view(), name="order-track-shipment"),
+    path("orders/<int:pk>/submit-invoice/", views.OrderSubmitInvoiceView.as_view(), name="order-submit-invoice"),
 
     # Accounting
     path("accounting/", views.AccountingLedgerView.as_view(), name="accounting-ledger"),
@@ -70,6 +72,7 @@ urlpatterns = [
 
     # Phase 3: Abandoned Cart Recovery
     path("abandoned-carts/", views.AbandonedCartListView.as_view(), name="abandoned-carts"),
+    path("abandoned-carts/<int:pk>/send-now/", views.AbandonedCartSendNowView.as_view(), name="abandoned-cart-send-now"),
 
     # Phase 3: AI Chat History
     path("chat-history/", views.ChatHistoryView.as_view(), name="chat-history"),

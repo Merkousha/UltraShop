@@ -112,6 +112,14 @@
                    class="w-4 h-4 rounded border-gray-600 bg-gray-900 text-indigo-500 focus:ring-indigo-500">
             <label for="is_active" class="text-sm text-gray-300">فروشگاه فعال باشد</label>
         </div>
+
+        <div class="flex items-center gap-3">
+            <input type="checkbox" name="auto_route_enabled" id="auto_route_enabled"
+                   {% if store.auto_route_enabled %}checked{% endif %}
+                   class="w-4 h-4 rounded border-gray-600 bg-gray-900 text-indigo-500 focus:ring-indigo-500">
+            <label for="auto_route_enabled" class="text-sm text-gray-300">مسیریابی هوشمند خودکار هنگام پرداخت</label>
+            <span class="text-xs text-gray-500">(با پرداخت سفارش، routing plan به‌طور خودکار محاسبه و اعمال می‌شود)</span>
+        </div>
     </div>
 
     <button type="submit"

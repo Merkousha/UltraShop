@@ -61,13 +61,19 @@
                 <span class="block text-blue-500">📩 ارسال: {{ ac.recovery_sent_at|date:"Y/m/d H:i" }}</span>
                 {% endif %}
             </td>
-            <td class="px-4 py-3 text-xs text-gray-400">
+            <td class="px-4 py-3 text-xs">
                 {% if ac.recovery_sent_at %}
-                    ارسال شده
+                    <span class="text-blue-600">📩 ارسال شده<br><span class="text-gray-400">{{ ac.recovery_sent_at|date:"Y/m/d H:i" }}</span></span>
                 {% elif ac.recovered %}
-                    —
+                    <span class="text-gray-400">—</span>
                 {% else %}
-                    <span class="italic">در انتظار cron</span>
+                    <form method="post" action="{% url 'dashboard:abandoned-cart-send-now' ac.pk %}">
+                        {% csrf_token %}
+                        <button type="submit" 
+                                class="bg-orange-100 text-orange-700 hover:bg-orange-200 px-3 py-1 rounded text-xs transition-colors">
+                            📩 ارسال دستی
+                        </button>
+                    </form>
                 {% endif %}
             </td>
         </tr>

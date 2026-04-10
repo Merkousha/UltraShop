@@ -34,7 +34,7 @@
 
     <!-- Product Info -->
     <div class="space-y-4">
-        <h1 class="text-2xl font-bold">{{ product.name }}</h1>
+        <h1 class="text-2xl font-bold" id="product-heading">{{ product.name }}</h1>
 
         {% if product.variants.count > 0 %}
         <div class="space-y-3">
@@ -49,6 +49,16 @@
                     {% if variant.compare_at_price %}<p><del class="text-sm text-gray-400">{{ variant.compare_at_price|stringformat:",.0f" }}</del></p>{% endif %}
                     {% if variant.stock > 0 %}
                     <p class="text-xs text-green-600">✓ موجود ({{ variant.stock }})</p>
+                    <form method="post" action="{% url 'storefront:cart-add' store.username %}" class="mt-2">
+                        {% csrf_token %}
+                        <input type="hidden" name="variant_id" value="{{ variant.pk }}">
+                        <input type="hidden" name="quantity" value="1">
+                        <button type="submit"
+                                class="btn-primary text-white text-xs px-3 py-1 rounded hover:opacity-90 transition"
+                                aria-label="افزودن {{ product.name }} — {{ variant.name }} به سبد خرید">
+                            افزودن به سبد
+                        </button>
+                    </form>
                     {% else %}
                     <p class="text-xs text-red-500">✕ ناموجود</p>
                     {% endif %}
