@@ -46,31 +46,54 @@ if not CSRF_TRUSTED_ORIGINS or DEBUG:
 
 AUTH_USER_MODEL = "core.User"
 
-INSTALLED_APPS = [
-    "django.contrib.admin",
-    "django.contrib.auth",
-    "django.contrib.contenttypes",
-    "django.contrib.sessions",
-    "django.contrib.messages",
-    "django.contrib.staticfiles",
-    # Project apps
-    "core",
-    "catalog",
-    "customers",
-    "orders",
-    "shipping",
-    "accounting",
-    "payments",
-    "platform_admin",
-    "dashboard",
-    "storefront",
-]
-
 if USE_DJANGO_TENANTS:
-    INSTALLED_APPS = [
+    SHARED_APPS = (
         "django_tenants",
         "tenancy",
-        *[app for app in INSTALLED_APPS if app not in ("django_tenants", "tenancy")],
+        # Keep custom user model app before admin/auth migration graph issues.
+        "core",
+        "django.contrib.admin",
+        "django.contrib.auth",
+        "django.contrib.contenttypes",
+        "django.contrib.sessions",
+        "django.contrib.messages",
+        "django.contrib.staticfiles",
+        # Shared project apps (public schema)
+        "platform_admin",
+        "dashboard",
+    )
+
+    TENANT_APPS = (
+        # Tenant-scoped apps
+        "catalog",
+        "customers",
+        "orders",
+        "shipping",
+        "accounting",
+        "payments",
+        "storefront",
+    )
+
+    INSTALLED_APPS = list(SHARED_APPS) + [a for a in TENANT_APPS if a not in SHARED_APPS]
+else:
+    INSTALLED_APPS = [
+        "django.contrib.admin",
+        "django.contrib.auth",
+        "django.contrib.contenttypes",
+        "django.contrib.sessions",
+        "django.contrib.messages",
+        "django.contrib.staticfiles",
+        # Project apps
+        "core",
+        "catalog",
+        "customers",
+        "orders",
+        "shipping",
+        "accounting",
+        "payments",
+        "platform_admin",
+        "dashboard",
+        "storefront",
     ]
 
 MIDDLEWARE = [
@@ -143,6 +166,14 @@ if database_url and database_url.startswith(("postgres://", "postgresql://")):
     sslmode = os.environ.get("DB_SSLMODE") or (query.get("sslmode", [""])[0])
     if sslmode:
         DATABASES["default"]["OPTIONS"] = {"sslmode": sslmode}
+
+    # Safety guard: block accidental use of PostgreSQL system databases by default.
+    block_system_db = os.environ.get("BLOCK_SYSTEM_POSTGRES_DB", "True").lower() in ("true", "1", "yes")
+    if block_system_db and DATABASES["default"]["NAME"] in {"postgres", "template0", "template1"}:
+        raise RuntimeError(
+            "Unsafe DATABASE_URL: system PostgreSQL database is blocked. "
+            "Set a dedicated app database name, or set BLOCK_SYSTEM_POSTGRES_DB=False intentionally."
+        )
 else:
     if USE_DJANGO_TENANTS:
         raise RuntimeError("USE_DJANGO_TENANTS=True requires PostgreSQL DATABASE_URL/POSTGRES_URL")
