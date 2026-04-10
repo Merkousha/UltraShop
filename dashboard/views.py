@@ -246,6 +246,13 @@ class ProductCreateView(StoreAccessMixin, TemplateView):
 
     def post(self, request, *args, **kwargs):
         store = request.current_store
+        from core.services import check_plan_limit, PlanLimitExceeded
+        current_count = Product.objects.filter(store=store).count()
+        try:
+            check_plan_limit(store, "products", current_count)
+        except PlanLimitExceeded as e:
+            messages.error(request, str(e))
+            return redirect("dashboard:product-list")
         product = Product.objects.create(
             store=store,
             name=request.POST.get("name", ""),

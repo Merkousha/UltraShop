@@ -405,10 +405,14 @@ class ChatView(StoreMixin, View):
         session_key = request.session.session_key or "anonymous"
 
         # Get or create chat session
-        chat_session, _ = ChatSession.objects.get_or_create(
+        chat_session, is_new_session = ChatSession.objects.get_or_create(
             store=self.store,
             session_key=session_key,
         )
+
+        # Auto-create a CRM Lead on the first message of a new chat session
+        if is_new_session:
+            _auto_create_chat_lead(chat_session, customer=chat_session.customer)
 
         # Load last 10 messages for context
         past_msgs = list(
@@ -439,3 +443,42 @@ class ChatView(StoreMixin, View):
 
         return JsonResponse({"reply": reply})
 
+
+
+# ─── helpers ──────────────────────────────────────────────────────────────────
+
+def _auto_create_chat_lead(chat_session, customer=None):
+    """
+    Auto-create a CRM Lead when a new chat session starts.
+    If a Lead already exists for this customer or session_key, skip silently.
+    """
+    try:
+        from crm.models import Lead
+
+        store = chat_session.store
+
+        # Avoid duplicate leads for the same identified customer
+        if customer and Lead.objects.filter(store=store, customer=customer).exists():
+            return
+
+        # Build contact info from customer record if available
+        phone = ""
+        email = ""
+        name = "بازدیدکننده (چت)"
+        if customer:
+            phone = customer.phone or ""
+            email = customer.email or ""
+            name = customer.name or phone or name
+
+        Lead.objects.create(
+            store=store,
+            name=name,
+            phone=phone,
+            email=email,
+            source="chat",
+            customer=customer,
+        )
+    except Exception:
+        # Lead creation is best-effort — never block the chat response
+        import logging
+        logging.getLogger(__name__).exception("Failed to auto-create chat lead")
