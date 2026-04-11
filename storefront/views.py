@@ -446,8 +446,13 @@ class ChatView(StoreMixin, View):
         CHAT_MESSAGE_LIMIT = 20
         user_msg_count = chat_session.messages.filter(role=ChatMessage.Role.USER).count()
         if user_msg_count >= CHAT_MESSAGE_LIMIT:
+            from django.urls import reverse as _reverse
+            contact_url = _reverse("storefront:contact", kwargs={"store_username": self.store.username})
             return JsonResponse(
-                {"error": "سقف پیام‌های این گفتگو به پایان رسید. لطفاً با فروشگاه تماس بگیرید."},
+                {
+                    "error": "سقف پیام‌های این گفتگو به پایان رسید.",
+                    "contact_url": contact_url,
+                },
                 status=429,
             )
 

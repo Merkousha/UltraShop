@@ -71,7 +71,7 @@ def generate_cfo_report(store):
 def _send_cfo_alert_email(store, report):
     """Send an email to the store owner summarising CFO alerts."""
     try:
-        from django.core.mail import send_mail
+        from django.core.mail import send_mail, BadHeaderError
         from django.conf import settings
 
         owner_email = store.owner.email
@@ -89,7 +89,9 @@ def _send_cfo_alert_email(store, report):
             f"با احترام،\nتیم UltraShop"
         )
         from_email = getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@ultra-shop.com")
-        send_mail(subject, body, from_email, [owner_email], fail_silently=True)
+        send_mail(subject, body, from_email, [owner_email])
+    except BadHeaderError:
+        logger.error("CFO alert email rejected due to bad header: store=%s", store.pk)
     except Exception:
         logger.warning("Failed to send CFO alert email for store %s", store.pk, exc_info=True)
 

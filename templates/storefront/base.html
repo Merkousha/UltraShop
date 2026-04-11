@@ -139,10 +139,20 @@
                 },
                 body: JSON.stringify({ message: msg })
             })
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
+            .then(function (r) {
+                return r.json().then(function (data) {
+                    return { status: r.status, data: data };
+                });
+            })
+            .then(function (res) {
                 typingEl.style.display = 'none';
-                appendMessage('assistant', data.reply || data.error || 'خطا در دریافت پاسخ.');
+                if (res.status === 429 && res.data.contact_url) {
+                    appendMessage('assistant',
+                        'سقف پیام‌های این گفتگو به پایان رسید. برای ادامه <a href="' +
+                        res.data.contact_url + '" style="color:#4f46e5;text-decoration:underline;">با ما تماس بگیرید</a>.');
+                } else {
+                    appendMessage('assistant', res.data.reply || res.data.error || 'خطا در دریافت پاسخ.');
+                }
             })
             .catch(function () {
                 typingEl.style.display = 'none';

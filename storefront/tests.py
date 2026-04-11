@@ -98,6 +98,7 @@ class ChatRateLimitTest(TestCase):
         self.assertEqual(resp.status_code, 429)
         data = resp.json()
         self.assertIn("error", data)
+        self.assertIn("contact_url", data)
 
 
 class StorePlanProductLimitTest(TestCase):

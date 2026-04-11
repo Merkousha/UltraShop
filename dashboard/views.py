@@ -654,11 +654,11 @@ class WarehouseListView(StoreAccessMixin, ListView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         store = self.request.current_store
-        max_wh = get_max_warehouses_for_store(store)
-        ctx["max_warehouses"] = max_wh
+        max_warehouses = get_max_warehouses_for_store(store)
+        ctx["max_warehouses"] = max_warehouses
         ctx["can_add"] = (
             store.owner == self.request.user
-            and Warehouse.objects.filter(store=store).count() < max_wh
+            and Warehouse.objects.filter(store=store).count() < max_warehouses
         )
         return ctx
 
