@@ -2316,7 +2316,9 @@ class ContentCalendarView(StoreAccessMixin, TemplateView):
             messages.success(request, f"تقویم محتوایی {len(entries)} روزه با موفقیت تولید شد.")
         else:
             messages.error(request, "خطا در تولید تقویم محتوا. لطفاً دوباره امتحان کنید.")
-        return redirect(f"{request.path}?month={target_month.strftime('%Y-%m')}")
+        return redirect(
+            reverse("dashboard:content-calendar") + f"?month={target_month.strftime('%Y-%m')}"
+        )
 
 
 class ContentCalendarExportView(StoreAccessMixin, View):
