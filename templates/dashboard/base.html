@@ -17,9 +17,14 @@
             <a href="{% url 'dashboard:category-list' %}" class="block px-3 py-2 rounded hover:bg-gray-800">📁 دسته‌بندی‌ها</a>
             <a href="{% url 'dashboard:order-list' %}" class="block px-3 py-2 rounded hover:bg-gray-800">🛒 سفارشات</a>
             <a href="{% url 'dashboard:warehouse-list' %}" class="block px-3 py-2 rounded hover:bg-gray-800">🏭 انبارها</a>
+            <a href="{% url 'dashboard:inventory-log' %}" class="block px-3 py-2 rounded hover:bg-gray-800">📋 لاگ موجودی</a>
+            <a href="{% url 'dashboard:inventory-forecast' %}" class="block px-3 py-2 rounded hover:bg-gray-800">📉 پیش‌بینی موجودی</a>
             {% endif %}
             {% if current_role == "owner" or current_role == "manager" or current_role == "accountant" %}
             <a href="{% url 'dashboard:accounting-ledger' %}" class="block px-3 py-2 rounded hover:bg-gray-800">💰 حسابداری</a>
+            <a href="{% url 'dashboard:expense-list' %}" class="block px-3 py-2 rounded hover:bg-gray-800">🧾 هزینه‌ها</a>
+            <a href="{% url 'dashboard:financial-health' %}" class="block px-3 py-2 rounded hover:bg-gray-800">🩺 سلامت مالی</a>
+            <a href="{% url 'dashboard:cfo-agent' %}" class="block px-3 py-2 rounded hover:bg-gray-800">🤖 عامل CFO (AI)</a>
             <a href="{% url 'dashboard:analytics' %}" class="block px-3 py-2 rounded hover:bg-gray-800">📊 تحلیل فروش</a>
             {% endif %}
             <hr class="border-gray-700 my-2">
@@ -38,6 +43,8 @@
             <p class="px-3 py-1 text-xs text-gray-500 uppercase tracking-wide">بازاریابی</p>
             <a href="{% url 'dashboard:abandoned-carts' %}" class="block px-3 py-2 rounded hover:bg-gray-800">🛒 سبدهای رها شده</a>
             <a href="{% url 'dashboard:chat-history' %}" class="block px-3 py-2 rounded hover:bg-gray-800">🤖 چت‌های AI</a>
+            <a href="{% url 'dashboard:content-calendar' %}" class="block px-3 py-2 rounded hover:bg-gray-800">📅 تقویم محتوا</a>
+            <a href="{% url 'dashboard:cro-optimizer' %}" class="block px-3 py-2 rounded hover:bg-gray-800">📈 پیشنهادات CRO</a>
             <hr class="border-gray-700 my-2">
             {% endif %}
             {% if current_role == "owner" or current_role == "manager" %}

@@ -24,6 +24,8 @@ from core.blocks import (
     next_instance_id,
 )
 from core.models import (
+    ContentCalendarEntry,
+    CROSuggestion,
     LayoutConfiguration,
     LayoutConfigurationSnapshot,
     PlatformSettings,
@@ -42,10 +44,11 @@ from core.warehouse_service import (
 )
 from core.theme_service import generate_color_scale, validate_contrast
 from core.css_sanitizer import sanitize_css
-from orders.models import Order
+from orders.models import Order, OrderStatusEvent
 
 from core.ai_service import (
     AIError,
+    generate_logo_image,
     get_ai_usage_today,
     is_ai_available_for_store,
     onboarding_suggest_theme,
@@ -800,6 +803,28 @@ class StockTransferView(StoreAccessMixin, TemplateView):
         to_ws.quantity += qty
         from_ws.save(update_fields=["quantity"])
         to_ws.save(update_fields=["quantity"])
+        # ─── SS-13: ثبت لاگ انتقال موجودی ──────────────────────
+        from catalog.inventory_service import log_inventory_change
+        from catalog.models import InventoryLog
+        log_inventory_change(
+            warehouse=from_wh,
+            variant=variant,
+            action=InventoryLog.Action.TRANSFER,
+            quantity_before=from_ws.quantity + qty,  # مقدار قبل از کاهش
+            quantity_change=-qty,
+            note=f"انتقال به انبار «{to_wh.name}»",
+            actor=request.user,
+        )
+        log_inventory_change(
+            warehouse=to_wh,
+            variant=variant,
+            action=InventoryLog.Action.TRANSFER,
+            quantity_before=to_ws.quantity - qty,  # مقدار قبل از افزایش
+            quantity_change=qty,
+            note=f"انتقال از انبار «{from_wh.name}»",
+            actor=request.user,
+        )
+        # ────────────────────────────────────────────────────────
         from django.db.models import Sum
         agg = variant.warehouse_stocks.aggregate(s=Sum("quantity"), r=Sum("reserved"))
         variant.stock = max(0, (agg["s"] or 0) - (agg["r"] or 0))
@@ -840,6 +865,44 @@ class StaffWarehouseAssignmentView(StoreAccessMixin, TemplateView):
         return redirect("dashboard:staff-warehouses")
 
 
+# ─── SS-13: Inventory Audit Log ──────────────────────────────
+class InventoryLogView(StoreAccessMixin, ListView):
+    """نمایش لاگ تغییرات موجودی انبار با فیلتر (SS-13)."""
+
+    template_name = "dashboard/inventory_log.html"
+    context_object_name = "logs"
+    paginate_by = 50
+
+    def get_queryset(self):
+        from catalog.models import InventoryLog
+
+        qs = InventoryLog.objects.filter(
+            warehouse__store=self.request.current_store
+        ).select_related(
+            "variant",
+            "variant__product",
+            "warehouse",
+            "actor",
+        )
+        warehouse_id = self.request.GET.get("warehouse")
+        if warehouse_id:
+            qs = qs.filter(warehouse_id=warehouse_id)
+        action_filter = self.request.GET.get("action")
+        if action_filter:
+            qs = qs.filter(action=action_filter)
+        return qs
+
+    def get_context_data(self, **kwargs):
+        from catalog.models import InventoryLog
+
+        ctx = super().get_context_data(**kwargs)
+        ctx["warehouses"] = Warehouse.objects.filter(store=self.request.current_store)
+        ctx["action_choices"] = InventoryLog.Action.choices
+        ctx["selected_warehouse"] = self.request.GET.get("warehouse", "")
+        ctx["selected_action"] = self.request.GET.get("action", "")
+        return ctx
+
+
 # ─── Orders ────────────────────────────────────────────────
 class OrderListView(StoreAccessMixin, ListView):
     template_name = "dashboard/order_list.html"
@@ -857,12 +920,86 @@ class OrderListView(StoreAccessMixin, ListView):
 class OrderDetailView(StoreAccessMixin, TemplateView):
     template_name = "dashboard/order_detail.html"
 
-    def get_context_data(self, **kwargs):
-        ctx = super().get_context_data(**kwargs)
-        ctx["order"] = get_object_or_404(
+    # وضعیت‌های مجاز بعدی برای هر وضعیت فعلی
+    ALLOWED_TRANSITIONS = {
+        "pending": ["paid", "cancelled"],
+        "paid": ["packed", "cancelled"],
+        "packed": ["shipped", "cancelled"],
+        "shipped": ["delivered"],
+        "delivered": [],
+        "cancelled": [],
+        "refunded": [],
+    }
+
+    def _get_order(self):
+        return get_object_or_404(
             Order, pk=self.kwargs["pk"], store=self.request.current_store
         )
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        order = self._get_order()
+        ctx["order"] = order
+        ctx["allowed_transitions"] = self.ALLOWED_TRANSITIONS.get(order.status, [])
+        ctx["status_labels"] = {
+            "pending": "در انتظار پرداخت",
+            "paid": "پرداخت شده",
+            "packed": "بسته‌بندی شده",
+            "shipped": "ارسال شده",
+            "delivered": "تحویل داده شده",
+            "cancelled": "لغو شده",
+            "refunded": "مسترد شده",
+        }
         return ctx
+
+    def post(self, request, *args, **kwargs):
+        order = self._get_order()
+        new_status = request.POST.get("new_status", "").strip()
+        note = request.POST.get("note", "").strip()
+
+        allowed = self.ALLOWED_TRANSITIONS.get(order.status, [])
+        if new_status not in allowed:
+            messages.error(request, "تغییر وضعیت انتخاب‌شده مجاز نیست.")
+            return redirect("dashboard:order-detail", pk=order.pk)
+
+        old_status = order.status
+        order.status = new_status
+        order.save(update_fields=["status", "updated_at"])
+
+        # رویداد تاریخچه وضعیت
+        OrderStatusEvent.objects.create(
+            order=order,
+            status=new_status,
+            note=note,
+            actor=request.user,
+        )
+
+        # خدمات حسابداری
+        if new_status == "paid" and old_status != "paid":
+            from accounting.services import post_order_paid
+            try:
+                post_order_paid(order)
+            except Exception:
+                pass
+        elif new_status == "cancelled":
+            from accounting.services import post_order_refunded
+            try:
+                post_order_refunded(order, order.total_after_discount, "لغو سفارش")
+            except Exception:
+                pass
+
+        status_labels = {
+            "pending": "در انتظار پرداخت",
+            "paid": "پرداخت شده",
+            "packed": "بسته‌بندی شده",
+            "shipped": "ارسال شده",
+            "delivered": "تحویل داده شده",
+            "cancelled": "لغو شده",
+            "refunded": "مسترد شده",
+        }
+        label = status_labels.get(new_status, new_status)
+        messages.success(request, f"وضعیت سفارش به «{label}» تغییر یافت.")
+        return redirect("dashboard:order-detail", pk=order.pk)
 
 
 # ─── Accounting ────────────────────────────────────────────
@@ -879,6 +1016,150 @@ class AccountingLedgerView(AccountingAccessMixin, ListView):
         from accounting.services import get_store_balance
         ctx["balance"] = get_store_balance(self.request.current_store)
         return ctx
+
+
+# ─── SO-34: Expense views ──────────────────────────────────
+class ExpenseListView(AccountingAccessMixin, ListView):
+    template_name = "dashboard/expense_list.html"
+    context_object_name = "expenses"
+    paginate_by = 25
+
+    def get_queryset(self):
+        from accounting.models import Expense
+        qs = Expense.objects.filter(store=self.request.current_store)
+        category = self.request.GET.get("category")
+        if category:
+            qs = qs.filter(category=category)
+        date_from = self.request.GET.get("date_from")
+        if date_from:
+            qs = qs.filter(date__gte=date_from)
+        date_to = self.request.GET.get("date_to")
+        if date_to:
+            qs = qs.filter(date__lte=date_to)
+        return qs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        from accounting.models import Expense
+        from django.db.models import Sum
+        ctx["categories"] = Expense.Category.choices
+        ctx["selected_category"] = self.request.GET.get("category", "")
+        ctx["date_from"] = self.request.GET.get("date_from", "")
+        ctx["date_to"] = self.request.GET.get("date_to", "")
+        total = Expense.objects.filter(store=self.request.current_store).aggregate(
+            t=Sum("amount")
+        )["t"] or 0
+        ctx["total_expenses"] = total
+        return ctx
+
+
+class ExpenseCreateView(AccountingAccessMixin, View):
+    template_name = "dashboard/expense_form.html"
+
+    def get(self, request):
+        from accounting.models import Expense
+        from django.shortcuts import render as _render
+        ai_data = request.session.pop("ai_expense_data", {})
+        return _render(request, self.template_name, {
+            "categories": Expense.Category.choices,
+            "ai_data": ai_data,
+            "store": request.current_store,
+            "current_role": _get_current_role(request),
+        })
+
+    def post(self, request):
+        import datetime
+        from accounting.models import Expense
+        from accounting.expense_service import create_expense_with_transaction
+        from django.shortcuts import render as _render
+
+        action = request.POST.get("action")
+
+        # ── OCR extraction ──────────────────────────────────
+        if action == "extract":
+            image = request.FILES.get("receipt_image")
+            if image:
+                try:
+                    from accounting.expense_service import extract_expense_from_image
+                    data = extract_expense_from_image(request.current_store, image)
+                    return _render(request, self.template_name, {
+                        "categories": Expense.Category.choices,
+                        "ai_data": data,
+                        "store": request.current_store,
+                        "current_role": _get_current_role(request),
+                        "extract_success": bool(data),
+                    })
+                except Exception as e:
+                    messages.error(request, f"خطا در استخراج اطلاعات: {e}")
+            else:
+                messages.warning(request, "لطفاً ابتدا یک تصویر رسید انتخاب کنید.")
+            return _render(request, self.template_name, {
+                "categories": Expense.Category.choices,
+                "ai_data": {},
+                "store": request.current_store,
+                "current_role": _get_current_role(request),
+            })
+
+        # ── Save expense ────────────────────────────────────
+        try:
+            amount = int(request.POST.get("amount", 0) or 0)
+            if amount <= 0:
+                raise ValueError("مبلغ باید بزرگ‌تر از صفر باشد.")
+            date_str = request.POST.get("date") or str(datetime.date.today())
+            date_obj = datetime.date.fromisoformat(date_str)
+            vendor = request.POST.get("vendor", "").strip()
+            category = request.POST.get("category", Expense.Category.OTHER)
+            description = request.POST.get("description", "").strip()
+            is_ai = request.POST.get("is_ai_extracted") == "1"
+            receipt_image = request.FILES.get("receipt_image") or None
+
+            create_expense_with_transaction(
+                store=request.current_store,
+                amount=amount,
+                date=date_obj,
+                vendor=vendor,
+                category=category,
+                description=description,
+                receipt_image=receipt_image,
+                is_ai_extracted=is_ai,
+            )
+            messages.success(request, "هزینه با موفقیت ثبت شد.")
+            return redirect("dashboard:expense-list")
+        except Exception as e:
+            messages.error(request, f"خطا در ثبت هزینه: {e}")
+            return _render(request, self.template_name, {
+                "categories": Expense.Category.choices,
+                "ai_data": {},
+                "store": request.current_store,
+                "current_role": _get_current_role(request),
+            })
+
+
+class ExpenseExportView(AccountingAccessMixin, View):
+    """Export expenses as CSV — SO-34."""
+
+    def get(self, request):
+        import csv
+        from accounting.models import Expense
+        from django.http import HttpResponse
+
+        response = HttpResponse(content_type="text/csv; charset=utf-8-sig")
+        response["Content-Disposition"] = 'attachment; filename="expenses.csv"'
+
+        writer = csv.writer(response)
+        writer.writerow(["تاریخ", "مبلغ (ریال)", "فروشنده", "دسته‌بندی", "توضیحات", "استخراج AI"])
+
+        qs = Expense.objects.filter(store=request.current_store).order_by("-date")
+        for e in qs:
+            writer.writerow([
+                str(e.date),
+                e.amount,
+                e.vendor,
+                e.get_category_display(),
+                e.description,
+                "بله" if e.is_ai_extracted else "خیر",
+            ])
+        return response
 
 
 # ─── Store Settings ────────────────────────────────────────
@@ -1192,11 +1473,42 @@ class BrandIdentityView(StoreAccessMixin, TemplateView):
         prefill = self.request.session.pop("brand_identity_prefill", None)
         ctx["tagline"] = prefill.get("tagline", store.tagline) if prefill else store.tagline
         ctx["brand_story"] = prefill.get("brand_story", store.description) if prefill else store.description
+        ctx["generated_logo_url"] = self.request.session.get("generated_logo_url", "")
+        ctx["logo_style_choices"] = [
+            ("minimal", "مینیمال"),
+            ("modern", "مدرن"),
+            ("classic", "کلاسیک"),
+            ("playful", "بازیگوشانه"),
+        ]
         return ctx
 
     def post(self, request, *args, **kwargs):
         store = request.current_store
-        if request.POST.get("generate") and is_ai_available_for_store(store):
+        action = request.POST.get("action", "")
+
+        if action == "generate_logo" and is_ai_available_for_store(store):
+            brand_name = request.POST.get("brand_name", store.name)
+            style = request.POST.get("logo_style", "minimal")
+            colors = request.POST.get("logo_colors", "blue and white")
+            try:
+                logo_url = generate_logo_image(store, brand_name, style, colors)
+                request.session["generated_logo_url"] = logo_url
+                messages.success(request, "لوگو با موفقیت تولید شد.")
+            except AIError as e:
+                messages.error(request, e.user_message)
+            return redirect("dashboard:brand-identity")
+
+        elif action == "save_logo":
+            logo_url = request.session.pop("generated_logo_url", "")
+            if logo_url:
+                store.generated_logo_url = logo_url
+                store.save(update_fields=["generated_logo_url"])
+                messages.success(request, "لوگوی تولیدشده ذخیره شد.")
+            else:
+                messages.error(request, "ابتدا لوگو را تولید کنید.")
+            return redirect("dashboard:brand-identity")
+
+        elif request.POST.get("generate") and is_ai_available_for_store(store):
             try:
                 result = text_generate_brand_identity(
                     brand_name=request.POST.get("brand_name", store.name),
@@ -1861,6 +2173,30 @@ class OrderTrackShipmentView(StoreAccessMixin, View):
             return JsonResponse({"success": False, "message": "خطا در رهگیری مرسوله. لطفاً دوباره تلاش کنید."}, status=500)
 
 
+# ─── SO-35: Financial Health Dashboard ──────────────────────────
+class FinancialHealthView(AccountingAccessMixin, TemplateView):
+    """داشبورد سلامت مالی — خلاصه درآمد، هزینه، سود و هشدارها."""
+
+    template_name = "dashboard/financial_health.html"
+
+    def get_context_data(self, **kwargs):
+        from accounting.financial_health_service import get_financial_health
+
+        ctx = super().get_context_data(**kwargs)
+        days = int(self.request.GET.get("days", 30))
+        if days not in [7, 30, 90, 365]:
+            days = 30
+        ctx["health"] = get_financial_health(self.request.current_store, days=days)
+        ctx["selected_days"] = days
+        ctx["days_options"] = [
+            (7, "۷ روز"),
+            (30, "۳۰ روز"),
+            (90, "۹۰ روز"),
+            (365, "۱ سال"),
+        ]
+        return ctx
+
+
 # ─── آیتم ۶: Moadian Submit Invoice ────────────────────────────
 class OrderSubmitInvoiceView(StoreAccessMixin, View):
     """POST — submit order invoice to Moadian tax system; returns JSON."""
@@ -1888,3 +2224,178 @@ class OrderSubmitInvoiceView(StoreAccessMixin, View):
                 order.pk,
             )
             return JsonResponse({"success": False, "message": "خطا در ارسال صورتحساب. لطفاً دوباره تلاش کنید."}, status=500)
+
+
+# ─── SO-36: CFO Agent ────────────────────────────────────────────────────────
+class CFOAgentView(AccountingAccessMixin, TemplateView):
+    """SO-36: AI-powered CFO report generation and history."""
+    template_name = "dashboard/cfo_agent.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        from accounting.models import CFOReport
+        ctx["reports"] = CFOReport.objects.filter(store=self.request.current_store)[:10]
+        ctx["latest_report"] = ctx["reports"].first()
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        from accounting.cfo_agent_service import generate_cfo_report
+        try:
+            generate_cfo_report(request.current_store)
+            messages.success(request, "گزارش مالی جدید ایجاد شد.")
+        except Exception as e:
+            messages.error(request, f"خطا در تولید گزارش: {e}")
+        return redirect("dashboard:cfo-agent")
+
+
+# ─── SO-53: Inventory Forecast ───────────────────────────────────────────────
+class InventoryForecastView(StoreAccessMixin, TemplateView):
+    """SO-53: Inventory stockout forecast per variant."""
+    template_name = "dashboard/inventory_forecast.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        from dashboard.inventory_forecast_service import get_inventory_forecast
+
+        urgency_filter = self.request.GET.get("urgency", "")
+
+        forecasts = get_inventory_forecast(self.request.current_store)
+
+        if urgency_filter in ["critical", "warning", "ok"]:
+            forecasts = [f for f in forecasts if f["urgency"] == urgency_filter]
+
+        ctx["forecasts"] = forecasts
+        ctx["urgency_filter"] = urgency_filter
+        ctx["critical_count"] = sum(1 for f in forecasts if f["urgency"] == "critical")
+        ctx["warning_count"] = sum(1 for f in forecasts if f["urgency"] == "warning")
+        ctx["ok_count"] = sum(1 for f in forecasts if f["urgency"] == "ok")
+        return ctx
+
+
+# ─── SO-18: Content Calendar ──────────────────────────────────────────────────
+
+class ContentCalendarView(StoreAccessMixin, TemplateView):
+    """SO-18: تقویم محتوایی AI — نمایش و تولید تقویم ماهانه."""
+
+    template_name = "dashboard/content_calendar.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        import calendar
+        from datetime import date
+
+        month_str = self.request.GET.get("month", "")
+        today = date.today()
+        if month_str:
+            try:
+                year, month = map(int, month_str.split("-"))
+                target = date(year, month, 1)
+            except Exception:
+                target = today.replace(day=1)
+        else:
+            target = today.replace(day=1)
+
+        entries = ContentCalendarEntry.objects.filter(
+            store=self.request.current_store,
+            date__year=target.year,
+            date__month=target.month,
+        ).order_by("date")
+
+        ctx["entries"] = entries
+        ctx["target_month"] = target
+        ctx["month_label"] = target.strftime("%Y/%m")
+        ctx["days_in_month"] = calendar.monthrange(target.year, target.month)[1]
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        from dashboard.content_calendar_service import generate_content_calendar
+
+        month_offset = int(request.POST.get("month_offset", 0))
+        entries, target_month = generate_content_calendar(request.current_store, month_offset)
+        if entries:
+            messages.success(request, f"تقویم محتوایی {len(entries)} روزه با موفقیت تولید شد.")
+        else:
+            messages.error(request, "خطا در تولید تقویم محتوا. لطفاً دوباره امتحان کنید.")
+        return redirect(f"{request.path}?month={target_month.strftime('%Y-%m')}")
+
+
+class ContentCalendarExportView(StoreAccessMixin, View):
+    """SO-18: خروجی CSV تقویم محتوایی."""
+
+    def get(self, request, *args, **kwargs):
+        import csv
+        from datetime import date
+        from django.http import HttpResponse
+
+        month_str = request.GET.get("month", "")
+        today = date.today()
+        if month_str:
+            try:
+                year, month = map(int, month_str.split("-"))
+                target = date(year, month, 1)
+            except Exception:
+                target = today.replace(day=1)
+        else:
+            target = today.replace(day=1)
+
+        response = HttpResponse(content_type="text/csv; charset=utf-8-sig")
+        response["Content-Disposition"] = (
+            f'attachment; filename="calendar-{target.strftime("%Y-%m")}.csv"'
+        )
+
+        writer = csv.writer(response)
+        writer.writerow(["تاریخ", "موضوع", "کپشن", "هشتگ‌ها", "زمان پیشنهادی"])
+
+        for e in ContentCalendarEntry.objects.filter(
+            store=request.current_store,
+            date__year=target.year,
+            date__month=target.month,
+        ).order_by("date"):
+            writer.writerow([str(e.date), e.topic, e.caption, e.hashtags, e.suggested_time])
+
+        return response
+
+
+# ─── SO-47: CRO Optimizer ─────────────────────────────────────────────────────
+
+class CROOptimizerView(StoreAccessMixin, TemplateView):
+    """SO-47: پیشنهادات بهینه‌سازی نرخ تبدیل (CRO) با AI."""
+
+    template_name = "dashboard/cro_optimizer.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        all_suggestions = CROSuggestion.objects.filter(store=self.request.current_store)
+        ctx["suggestions"] = all_suggestions
+        ctx["pending_count"] = all_suggestions.filter(status=CROSuggestion.Status.PENDING).count()
+        ctx["accepted_count"] = all_suggestions.filter(status=CROSuggestion.Status.ACCEPTED).count()
+        ctx["dismissed_count"] = all_suggestions.filter(status=CROSuggestion.Status.DISMISSED).count()
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        action = request.POST.get("action")
+
+        if action == "generate":
+            from dashboard.cro_service import generate_cro_suggestions
+
+            suggestions = generate_cro_suggestions(request.current_store)
+            if suggestions:
+                messages.success(request, f"{len(suggestions)} پیشنهاد CRO جدید تولید شد.")
+            else:
+                messages.error(request, "خطا در تولید پیشنهادات. لطفاً دوباره امتحان کنید.")
+
+        elif action == "accept":
+            pk = request.POST.get("pk")
+            CROSuggestion.objects.filter(pk=pk, store=request.current_store).update(
+                status=CROSuggestion.Status.ACCEPTED
+            )
+            messages.success(request, "پیشنهاد با موفقیت پذیرفته شد.")
+
+        elif action == "dismiss":
+            pk = request.POST.get("pk")
+            CROSuggestion.objects.filter(pk=pk, store=request.current_store).update(
+                status=CROSuggestion.Status.DISMISSED
+            )
+            messages.info(request, "پیشنهاد رد شد.")
+
+        return redirect("dashboard:cro-optimizer")

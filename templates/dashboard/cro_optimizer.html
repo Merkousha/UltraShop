@@ -1,0 +1,165 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+
+{% block content %}
+<div dir="rtl" class="space-y-6">
+
+  <!-- Header -->
+  <div class="flex items-center justify-between flex-wrap gap-3">
+    <div>
+      <h2 class="text-2xl font-bold text-gray-800">📈 بهینه‌ساز نرخ تبدیل (CRO)</h2>
+      <p class="text-sm text-gray-500 mt-1">پیشنهادات هوش مصنوعی برای افزایش فروش و بهبود تجربه کاربری</p>
+    </div>
+
+    <!-- Generate button -->
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="generate">
+      <button type="submit"
+              class="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-5 py-2 rounded-lg transition">
+        🤖 تولید پیشنهادات جدید
+      </button>
+    </form>
+  </div>
+
+  <!-- Rate limit note -->
+  <div class="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-700 flex items-start gap-2">
+    <span class="text-lg leading-none mt-0.5">⚠️</span>
+    <span>توجه: تولید پیشنهادات از اعتبار روزانه AI شما مصرف می‌کند. پیشنهاد می‌شود حداکثر یک بار در هفته این ابزار را اجرا کنید.</span>
+  </div>
+
+  <!-- Stats bar -->
+  <div class="grid grid-cols-3 gap-4">
+    <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-center">
+      <p class="text-3xl font-bold text-yellow-600">{{ pending_count }}</p>
+      <p class="text-sm text-yellow-500 mt-1">در انتظار بررسی</p>
+    </div>
+    <div class="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
+      <p class="text-3xl font-bold text-green-600">{{ accepted_count }}</p>
+      <p class="text-sm text-green-500 mt-1">پذیرفته شده</p>
+    </div>
+    <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 text-center">
+      <p class="text-3xl font-bold text-gray-500">{{ dismissed_count }}</p>
+      <p class="text-sm text-gray-400 mt-1">رد شده</p>
+    </div>
+  </div>
+
+  <!-- Suggestions list -->
+  {% if suggestions %}
+
+  <!-- PENDING -->
+  {% with pending=suggestions|dictsortreversed:"created_at" %}
+  {% for suggestion in suggestions %}
+  {% if suggestion.status == "pending" %}
+  {% if forloop.first or suggestions|length > 0 %}
+  {% endif %}
+  {% endif %}
+  {% endfor %}
+  {% endwith %}
+
+  <!-- Section: در انتظار -->
+  {% with has_pending=False %}
+  {% for s in suggestions %}{% if s.status == "pending" %}{% if forloop.first %}
+  <div class="space-y-3">
+    <h3 class="text-base font-bold text-gray-700 border-b border-gray-200 pb-2">🕐 در انتظار بررسی ({{ pending_count }})</h3>
+    {% endif %}
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 flex flex-col sm:flex-row sm:items-start gap-4">
+      <!-- Impact badge -->
+      <div class="flex-shrink-0">
+        {% if s.impact == "high" %}
+        <span class="inline-flex items-center gap-1 bg-red-100 text-red-700 text-xs font-bold px-3 py-1.5 rounded-full">🔴 تأثیر زیاد</span>
+        {% elif s.impact == "medium" %}
+        <span class="inline-flex items-center gap-1 bg-yellow-100 text-yellow-700 text-xs font-bold px-3 py-1.5 rounded-full">🟡 تأثیر متوسط</span>
+        {% else %}
+        <span class="inline-flex items-center gap-1 bg-green-100 text-green-700 text-xs font-bold px-3 py-1.5 rounded-full">🟢 تأثیر کم</span>
+        {% endif %}
+      </div>
+
+      <!-- Suggestion text -->
+      <p class="flex-1 text-gray-700 leading-relaxed text-sm">{{ s.suggestion }}</p>
+
+      <!-- Actions -->
+      <div class="flex gap-2 flex-shrink-0">
+        <form method="post" class="inline">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="accept">
+          <input type="hidden" name="pk" value="{{ s.pk }}">
+          <button type="submit"
+                  class="bg-green-600 hover:bg-green-700 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition">
+            ✓ پذیرش
+          </button>
+        </form>
+        <form method="post" class="inline">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="dismiss">
+          <input type="hidden" name="pk" value="{{ s.pk }}">
+          <button type="submit"
+                  class="bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-medium px-3 py-1.5 rounded-lg transition">
+            ✕ رد
+          </button>
+        </form>
+      </div>
+    </div>
+  {% if forloop.last %}</div>{% endif %}
+  {% endif %}{% endfor %}
+
+  <!-- Section: پذیرفته شده -->
+  {% for s in suggestions %}{% if s.status == "accepted" %}{% if forloop.first %}
+  <div class="space-y-3 mt-6">
+    <h3 class="text-base font-bold text-green-700 border-b border-green-200 pb-2">✅ پذیرفته شده ({{ accepted_count }})</h3>
+  {% endif %}
+    <div class="bg-green-50 rounded-xl border border-green-200 p-4 flex items-start gap-4">
+      <div class="flex-shrink-0">
+        {% if s.impact == "high" %}
+        <span class="inline-flex items-center gap-1 bg-red-100 text-red-700 text-xs font-bold px-2 py-1 rounded-full">🔴 زیاد</span>
+        {% elif s.impact == "medium" %}
+        <span class="inline-flex items-center gap-1 bg-yellow-100 text-yellow-700 text-xs font-bold px-2 py-1 rounded-full">🟡 متوسط</span>
+        {% else %}
+        <span class="inline-flex items-center gap-1 bg-green-100 text-green-600 text-xs font-bold px-2 py-1 rounded-full">🟢 کم</span>
+        {% endif %}
+      </div>
+      <p class="flex-1 text-green-800 text-sm leading-relaxed">{{ s.suggestion }}</p>
+      <span class="text-green-600 text-xs font-medium flex-shrink-0">✓ پذیرفته شد</span>
+    </div>
+  {% if forloop.last %}</div>{% endif %}
+  {% endif %}{% endfor %}
+
+  <!-- Section: رد شده -->
+  {% for s in suggestions %}{% if s.status == "dismissed" %}{% if forloop.first %}
+  <div class="space-y-3 mt-6">
+    <h3 class="text-base font-bold text-gray-500 border-b border-gray-200 pb-2">✕ رد شده ({{ dismissed_count }})</h3>
+  {% endif %}
+    <div class="bg-gray-50 rounded-xl border border-gray-200 p-4 flex items-start gap-4 opacity-60">
+      <div class="flex-shrink-0">
+        {% if s.impact == "high" %}
+        <span class="inline-flex items-center gap-1 bg-red-100 text-red-700 text-xs font-bold px-2 py-1 rounded-full">🔴 زیاد</span>
+        {% elif s.impact == "medium" %}
+        <span class="inline-flex items-center gap-1 bg-yellow-100 text-yellow-700 text-xs font-bold px-2 py-1 rounded-full">🟡 متوسط</span>
+        {% else %}
+        <span class="inline-flex items-center gap-1 bg-gray-100 text-gray-600 text-xs font-bold px-2 py-1 rounded-full">🟢 کم</span>
+        {% endif %}
+      </div>
+      <p class="flex-1 text-gray-500 text-sm leading-relaxed line-through">{{ s.suggestion }}</p>
+    </div>
+  {% if forloop.last %}</div>{% endif %}
+  {% endif %}{% endfor %}
+
+  {% else %}
+  <!-- Empty state -->
+  <div class="bg-white rounded-xl border border-dashed border-gray-300 p-16 text-center">
+    <div class="text-5xl mb-4">📈</div>
+    <h3 class="text-lg font-semibold text-gray-700 mb-2">هنوز پیشنهادی وجود ندارد</h3>
+    <p class="text-gray-500 text-sm mb-6">روی دکمه «تولید پیشنهادات جدید» کلیک کنید تا AI پیشنهادات CRO را بسازد.</p>
+    <form method="post" class="inline-block">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="generate">
+      <button type="submit"
+              class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-6 py-3 rounded-lg transition">
+        🤖 تولید پیشنهادات جدید
+      </button>
+    </form>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

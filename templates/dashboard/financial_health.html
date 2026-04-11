@@ -1,0 +1,372 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+{% block title %}سلامت مالی فروشگاه{% endblock %}
+
+{% block content %}
+<div dir="rtl">
+
+  {# ── داده‌های نمودار (JSON ایمن) ── #}
+  {{ health.revenue_trend|json_script:"trend-data" }}
+
+  {# ── سربرگ ── #}
+  <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+    <div>
+      <h2 class="text-2xl font-bold text-gray-800">🩺 سلامت مالی فروشگاه</h2>
+      <p class="text-sm text-gray-500 mt-1">تحلیل جامع درآمد، هزینه و سودآوری</p>
+    </div>
+
+    {# انتخاب بازه زمانی #}
+    <div class="flex items-center gap-2">
+      <span class="text-sm text-gray-500">بازه:</span>
+      {% for opt, label in days_options %}
+      <a href="?days={{ opt }}"
+         class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors
+                {% if selected_days == opt %}bg-indigo-600 text-white shadow-sm
+                {% else %}bg-white border border-gray-200 text-gray-600 hover:bg-gray-50{% endif %}">
+        {{ label }}
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+
+  {# ── هشدارها ── #}
+  {% if health.alerts %}
+  <div class="space-y-2 mb-6">
+    {% for alert in health.alerts %}
+    <div class="flex items-start gap-3 px-4 py-3 rounded-xl border text-sm
+                {% if alert.type == 'danger' %}bg-red-50 border-red-200 text-red-800
+                {% elif alert.type == 'warning' %}bg-amber-50 border-amber-200 text-amber-800
+                {% else %}bg-blue-50 border-blue-200 text-blue-800{% endif %}">
+      <span class="text-lg leading-none mt-0.5">
+        {% if alert.type == 'danger' %}🚨{% elif alert.type == 'warning' %}⚠️{% else %}ℹ️{% endif %}
+      </span>
+      <p>{{ alert.message }}</p>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {# ── کارت‌های خلاصه ── #}
+  <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4 mb-8">
+
+    {# درآمد #}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+      <div class="flex items-center gap-2 mb-3">
+        <span class="text-2xl">💰</span>
+        <span class="text-xs text-gray-500 font-medium">درآمد {{ health.days }} روز</span>
+      </div>
+      <p class="text-xl font-bold text-indigo-700 ltr">
+        {{ health.revenue|stringformat:",.0f" }}
+        <span class="text-sm font-normal text-gray-400">﷼</span>
+      </p>
+      {% if health.prev_revenue > 0 %}
+      <p class="text-xs mt-1 {% if health.growth >= 0 %}text-green-600{% else %}text-red-500{% endif %}">
+        {% if health.growth >= 0 %}▲{% else %}▼{% endif %}
+        {{ health.growth|stringformat:".1f" }}٪ نسبت به دوره قبل
+      </p>
+      {% endif %}
+    </div>
+
+    {# هزینه‌ها #}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+      <div class="flex items-center gap-2 mb-3">
+        <span class="text-2xl">🧾</span>
+        <span class="text-xs text-gray-500 font-medium">هزینه‌ها</span>
+      </div>
+      <p class="text-xl font-bold text-orange-600 ltr">
+        {{ health.total_expense|stringformat:",.0f" }}
+        <span class="text-sm font-normal text-gray-400">﷼</span>
+      </p>
+      {% if health.commission > 0 %}
+      <p class="text-xs text-gray-400 mt-1">+ {{ health.commission|stringformat:",.0f" }} ﷼ کارمزد پلتفرم</p>
+      {% endif %}
+    </div>
+
+    {# سود خالص #}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+      <div class="flex items-center gap-2 mb-3">
+        <span class="text-2xl">📈</span>
+        <span class="text-xs text-gray-500 font-medium">سود خالص</span>
+      </div>
+      <p class="text-xl font-bold ltr {% if health.net_profit >= 0 %}text-green-700{% else %}text-red-600{% endif %}">
+        {{ health.net_profit|stringformat:",.0f" }}
+        <span class="text-sm font-normal text-gray-400">﷼</span>
+      </p>
+    </div>
+
+    {# حاشیه سود #}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+      <div class="flex items-center gap-2 mb-3">
+        <span class="text-2xl">🎯</span>
+        <span class="text-xs text-gray-500 font-medium">حاشیه سود</span>
+      </div>
+      <p class="text-xl font-bold ltr
+                {% if health.profit_margin >= 20 %}text-green-700
+                {% elif health.profit_margin >= 10 %}text-amber-600
+                {% else %}text-red-600{% endif %}">
+        {{ health.profit_margin|stringformat:".1f" }}<span class="text-sm font-normal text-gray-400">٪</span>
+      </p>
+      <div class="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+        <div class="h-1.5 rounded-full
+                    {% if health.profit_margin >= 20 %}bg-green-500
+                    {% elif health.profit_margin >= 10 %}bg-amber-400
+                    {% else %}bg-red-400{% endif %}"
+             style="width: {% if health.profit_margin > 100 %}100{% elif health.profit_margin < 0 %}0{% else %}{{ health.profit_margin|stringformat:".0f" }}{% endif %}%">
+        </div>
+      </div>
+    </div>
+
+    {# رشد درآمد #}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+      <div class="flex items-center gap-2 mb-3">
+        <span class="text-2xl">{% if health.growth >= 0 %}🚀{% else %}📉{% endif %}</span>
+        <span class="text-xs text-gray-500 font-medium">رشد درآمد</span>
+      </div>
+      {% if health.prev_revenue > 0 %}
+      <p class="text-xl font-bold ltr {% if health.growth >= 0 %}text-green-700{% else %}text-red-600{% endif %}">
+        {{ health.growth|stringformat:"+.1f" }}<span class="text-sm font-normal text-gray-400">٪</span>
+      </p>
+      <p class="text-xs text-gray-400 mt-1">نسبت به {{ health.days }} روز قبل</p>
+      {% else %}
+      <p class="text-sm text-gray-400">داده‌ای ندارد</p>
+      {% endif %}
+    </div>
+
+  </div>
+
+  {# ── نمودار + جدول محصولات ── #}
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+
+    {# نمودار خطی ۶ ماه — ۲/۳ عرض #}
+    <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div class="px-6 py-4 border-b border-gray-100">
+        <h3 class="font-semibold text-gray-800">📊 روند درآمد ۶ ماه گذشته</h3>
+        <p class="text-xs text-gray-400 mt-0.5">بر اساس تراکنش‌های درآمدی ثبت‌شده</p>
+      </div>
+      <div class="p-6">
+        <canvas id="revenueChart" height="220"></canvas>
+      </div>
+    </div>
+
+    {# top 5 محصولات — ۱/۳ عرض #}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div class="px-6 py-4 border-b border-gray-100">
+        <h3 class="font-semibold text-gray-800">🏅 پرفروش‌ترین محصولات</h3>
+        <p class="text-xs text-gray-400 mt-0.5">{{ health.days }} روز اخیر — سفارشات پرداخت‌شده</p>
+      </div>
+
+      {% if health.top_products %}
+      <ul class="divide-y divide-gray-50">
+        {% for product in health.top_products %}
+        <li class="px-5 py-3 flex items-start gap-3">
+          <span class="w-6 h-6 flex-shrink-0 flex items-center justify-center rounded-full text-xs font-bold
+            {% if forloop.counter == 1 %}bg-yellow-100 text-yellow-700
+            {% elif forloop.counter == 2 %}bg-gray-200 text-gray-600
+            {% elif forloop.counter == 3 %}bg-orange-100 text-orange-700
+            {% else %}bg-gray-100 text-gray-500{% endif %}">
+            {{ forloop.counter }}
+          </span>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-800 leading-snug">{{ product.product_name }}</p>
+            <p class="text-xs text-gray-400 mt-0.5 ltr">
+              {{ product.total_units }} عدد
+              &nbsp;|&nbsp;
+              {{ product.total_revenue|stringformat:",.0f" }} ﷼
+            </p>
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <div class="px-6 py-10 text-center text-gray-400">
+        <p class="text-3xl mb-2">📦</p>
+        <p class="text-sm">فروشی در این دوره ثبت نشده است.</p>
+      </div>
+      {% endif %}
+    </div>
+
+  </div>
+
+  {# ── ردیف دوم: هزینه بر دسته + موجودی کم ── #}
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+    {# هزینه بر اساس دسته‌بندی #}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div class="px-6 py-4 border-b border-gray-100">
+        <h3 class="font-semibold text-gray-800">🗂️ هزینه‌ها بر اساس دسته‌بندی</h3>
+        <p class="text-xs text-gray-400 mt-0.5">{{ health.days }} روز اخیر</p>
+      </div>
+
+      {% if health.expense_by_category %}
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="bg-gray-50 text-gray-500 text-xs">
+              <th class="px-5 py-2.5 text-right font-medium">دسته‌بندی</th>
+              <th class="px-5 py-2.5 text-left font-medium ltr">مبلغ (﷼)</th>
+              <th class="px-5 py-2.5 text-left font-medium w-32">سهم</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-50">
+            {% for item in health.expense_by_category %}
+            <tr class="hover:bg-gray-50 transition-colors">
+              <td class="px-5 py-2.5 text-gray-700 font-medium">{{ item.category_display }}</td>
+              <td class="px-5 py-2.5 text-gray-800 ltr text-left font-semibold">
+                {{ item.total|stringformat:",.0f" }}
+              </td>
+              <td class="px-5 py-2.5">
+                {% if health.total_expense > 0 %}
+                  {% widthratio item.total health.total_expense 100 as pct %}
+                  <div class="flex items-center gap-2">
+                    <div class="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                      <div class="h-1.5 bg-orange-400 rounded-full" style="width: {{ pct }}%"></div>
+                    </div>
+                    <span class="text-xs text-gray-500 w-8 text-left ltr">{{ pct }}٪</span>
+                  </div>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot>
+            <tr class="bg-gray-50 border-t border-gray-200">
+              <td class="px-5 py-2.5 text-gray-600 font-semibold text-xs">جمع کل</td>
+              <td class="px-5 py-2.5 text-gray-800 font-bold ltr text-left">
+                {{ health.total_expense|stringformat:",.0f" }}
+              </td>
+              <td class="px-5 py-2.5 text-xs text-gray-500 text-left ltr">۱۰۰٪</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      {% else %}
+      <div class="px-6 py-10 text-center text-gray-400">
+        <p class="text-3xl mb-2">🗂️</p>
+        <p class="text-sm">هزینه‌ای در این بازه ثبت نشده است.</p>
+      </div>
+      {% endif %}
+    </div>
+
+    {# محصولات با موجودی کم #}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+        <div>
+          <h3 class="font-semibold text-gray-800">⚠️ موجودی کم</h3>
+          <p class="text-xs text-gray-400 mt-0.5">محصولات فعال با موجودی کمتر از ۵ عدد</p>
+        </div>
+        {% if health.low_stock %}
+        <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700">
+          {{ health.low_stock|length }} محصول
+        </span>
+        {% endif %}
+      </div>
+
+      {% if health.low_stock %}
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="bg-gray-50 text-gray-500 text-xs">
+              <th class="px-5 py-2.5 text-right font-medium">محصول</th>
+              <th class="px-5 py-2.5 text-right font-medium">تنوع</th>
+              <th class="px-5 py-2.5 text-left font-medium ltr">موجودی</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-50">
+            {% for variant in health.low_stock %}
+            <tr class="hover:bg-gray-50 transition-colors">
+              <td class="px-5 py-2.5 text-gray-800 font-medium">{{ variant.product.name }}</td>
+              <td class="px-5 py-2.5 text-gray-500 text-xs">{{ variant.name|default:"—" }}</td>
+              <td class="px-5 py-2.5 text-left ltr">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold
+                             {% if variant.stock == 0 %}bg-red-100 text-red-700
+                             {% else %}bg-amber-100 text-amber-700{% endif %}">
+                  {% if variant.stock == 0 %}ناموجود{% else %}{{ variant.stock }} عدد{% endif %}
+                </span>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="px-6 py-10 text-center text-gray-400">
+        <p class="text-3xl mb-2">✅</p>
+        <p class="text-sm">همه محصولات موجودی کافی دارند.</p>
+      </div>
+      {% endif %}
+    </div>
+
+  </div>{# /grid #}
+
+</div>{# /rtl #}
+{% endblock %}
+
+{% block extra_scripts %}
+{# Chart.js از CDN — طبق مشخصات SO-35 #}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  // داده‌های روند درآمد از context Django
+  const trendData = JSON.parse(document.getElementById("trend-data").textContent);
+
+  const labels = trendData.map(function(d) { return d.label; });
+  const revenues = trendData.map(function(d) { return d.revenue; });
+
+  const ctx = document.getElementById("revenueChart").getContext("2d");
+
+  new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: labels,
+      datasets: [{
+        label: "درآمد (﷼)",
+        data: revenues,
+        borderColor: "#6366f1",
+        backgroundColor: "rgba(99, 102, 241, 0.08)",
+        borderWidth: 2.5,
+        pointBackgroundColor: "#6366f1",
+        pointRadius: 5,
+        pointHoverRadius: 7,
+        fill: true,
+        tension: 0.35,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          rtl: true,
+          callbacks: {
+            label: function(context) {
+              const val = context.parsed.y;
+              return " " + val.toLocaleString("fa-IR") + " ﷼";
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: "rgba(0,0,0,0.04)" },
+          ticks: { font: { size: 11 } }
+        },
+        y: {
+          grid: { color: "rgba(0,0,0,0.04)" },
+          ticks: {
+            font: { size: 11 },
+            callback: function(value) {
+              if (value >= 1000000) return (value / 1000000).toFixed(1) + "M";
+              if (value >= 1000) return (value / 1000).toFixed(0) + "K";
+              return value;
+            }
+          }
+        }
+      }
+    }
+  });
+})();
+</script>
+{% endblock %}

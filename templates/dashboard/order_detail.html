@@ -1,5 +1,6 @@
 {% extends "dashboard/base.html" %}
 {% load static %}
+{% load theme_tags %}
 {% block title %}سفارش #{{ order.pk }}{% endblock %}
 {% block content %}
 <div class="flex items-center justify-between mb-6">
@@ -103,6 +104,49 @@
     {% endfor %}
     </ul>
 </div>
+
+{# ─── بخش تغییر وضعیت سفارش ─── #}
+{% if allowed_transitions %}
+<section class="bg-white rounded-lg shadow p-6 mb-6">
+    <h3 class="font-semibold mb-4 text-gray-800">تغییر وضعیت سفارش</h3>
+    <form method="post" action="" class="flex flex-wrap gap-4 items-end">
+        {% csrf_token %}
+        <div class="flex flex-col gap-1 min-w-[180px]">
+            <label for="new_status" class="text-sm text-gray-600">وضعیت جدید</label>
+            <select name="new_status" id="new_status"
+                    class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                {% for s in allowed_transitions %}
+                <option value="{{ s }}">{{ status_labels|get_item:s }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="flex flex-col gap-1 flex-1 min-w-[220px]">
+            <label for="status_note" class="text-sm text-gray-600">یادداشت (اختیاری)</label>
+            <input type="text" name="note" id="status_note"
+                   placeholder="توضیحات تغییر وضعیت..."
+                   class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
+        </div>
+        <button type="submit"
+                class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-5 py-2 rounded-lg transition-colors">
+            تغییر وضعیت
+        </button>
+    </form>
+</section>
+{% else %}
+<section class="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
+    <p class="text-sm text-gray-500">
+        {% if order.status == 'delivered' %}
+            ✅ این سفارش تحویل داده شده و وضعیت آن قابل تغییر نیست.
+        {% elif order.status == 'cancelled' %}
+            🚫 این سفارش لغو شده و وضعیت آن قابل تغییر نیست.
+        {% elif order.status == 'refunded' %}
+            💸 این سفارش مسترد شده و وضعیت آن قابل تغییر نیست.
+        {% else %}
+            وضعیت فعلی قابل تغییر نیست.
+        {% endif %}
+    </p>
+</section>
+{% endif %}
 
 <div class="bg-white rounded-lg shadow p-6">
     <h3 class="font-semibold mb-3">تاریخچه وضعیت</h3>

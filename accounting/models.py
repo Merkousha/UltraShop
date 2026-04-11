@@ -53,3 +53,50 @@ class PlatformCommission(models.Model):
 
     class Meta:
         db_table = "platform_commissions"
+
+
+class Expense(models.Model):
+    class Category(models.TextChoices):
+        GOODS = "goods", "خرید کالا"
+        PACKAGING = "packaging", "بسته‌بندی"
+        SHIPPING = "shipping", "حمل‌ونقل"
+        MARKETING = "marketing", "تبلیغات"
+        RENT = "rent", "اجاره"
+        OTHER = "other", "سایر"
+
+    store = models.ForeignKey("core.Store", on_delete=models.CASCADE, related_name="expenses")
+    amount = models.PositiveBigIntegerField(help_text="مبلغ هزینه به ریال")
+    date = models.DateField()
+    vendor = models.CharField(max_length=200, blank=True, default="")
+    category = models.CharField(max_length=20, choices=Category.choices, default=Category.OTHER)
+    description = models.TextField(blank=True, default="")
+    receipt_image = models.ImageField(upload_to="receipts/", blank=True, null=True)
+    is_ai_extracted = models.BooleanField(default=False)
+    transaction = models.OneToOneField(
+        "StoreTransaction", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="expense"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "expenses"
+        ordering = ["-date", "-created_at"]
+
+    def __str__(self):
+        return f"هزینه {self.amount:,} ریال — {self.date}"
+
+
+class CFOReport(models.Model):
+    """SO-36: AI-generated CFO financial report per store."""
+    store = models.ForeignKey("core.Store", on_delete=models.CASCADE, related_name="cfo_reports")
+    content = models.TextField(help_text="گزارش متنی از AI")
+    suggestions = models.JSONField(default=list)
+    alerts = models.JSONField(default=list)
+    generated_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "cfo_reports"
+        ordering = ["-generated_at"]
+
+    def __str__(self):
+        return f"گزارش CFO — {self.store.name} — {self.generated_at:%Y-%m-%d %H:%M}"

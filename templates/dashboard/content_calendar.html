@@ -1,0 +1,166 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+
+{% block content %}
+<div dir="rtl" class="space-y-6">
+
+  <!-- Header -->
+  <div class="flex items-center justify-between flex-wrap gap-3">
+    <div>
+      <h2 class="text-2xl font-bold text-gray-800">📅 تقویم محتوایی AI</h2>
+      <p class="text-sm text-gray-500 mt-1">تولید خودکار پیشنهاد پست روزانه برای شبکه‌های اجتماعی</p>
+    </div>
+    <!-- Export CSV -->
+    {% if entries %}
+    <a href="{% url 'dashboard:content-calendar-export' %}?month={{ month_label }}"
+       class="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition">
+      ⬇️ دانلود CSV
+    </a>
+    {% endif %}
+  </div>
+
+  <!-- Month navigation + generate buttons -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+    <div class="flex flex-wrap items-center gap-3 justify-between">
+      <!-- Current month indicator -->
+      <p class="text-gray-700 font-semibold text-lg">📆 ماه هدف: <span class="text-indigo-600">{{ month_label }}</span></p>
+
+      <!-- Generate buttons -->
+      <div class="flex flex-wrap gap-3">
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="month_offset" value="0">
+          <button type="submit"
+                  class="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-5 py-2 rounded-lg transition">
+            🤖 تولید تقویم ماه جاری
+          </button>
+        </form>
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="month_offset" value="1">
+          <button type="submit"
+                  class="inline-flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium px-5 py-2 rounded-lg transition">
+            🤖 تولید تقویم ماه بعد
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Month tabs -->
+    <div class="flex gap-2 mt-4 text-sm">
+      <a href="?month={{ target_month|date:'Y-m' }}"
+         class="px-3 py-1 rounded-full {% if request.GET.month == target_month|date:'Y-m' or not request.GET.month %}bg-indigo-100 text-indigo-700 font-semibold{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">
+        {{ month_label }}
+      </a>
+    </div>
+  </div>
+
+  <!-- Calendar table -->
+  {% if entries %}
+  <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+    <table class="w-full text-sm text-right">
+      <thead class="bg-gray-50 border-b border-gray-200">
+        <tr>
+          <th class="px-4 py-3 text-gray-600 font-semibold w-20">روز</th>
+          <th class="px-4 py-3 text-gray-600 font-semibold">موضوع پست</th>
+          <th class="px-4 py-3 text-gray-600 font-semibold hidden md:table-cell">کپشن</th>
+          <th class="px-4 py-3 text-gray-600 font-semibold hidden lg:table-cell">هشتگ‌ها</th>
+          <th class="px-4 py-3 text-gray-600 font-semibold w-28">زمان</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for entry in entries %}
+        <tr class="hover:bg-gray-50 transition">
+          <!-- Day badge -->
+          <td class="px-4 py-3">
+            <span class="inline-flex items-center justify-center w-9 h-9 rounded-full bg-indigo-100 text-indigo-700 font-bold text-sm">
+              {{ entry.date.day }}
+            </span>
+          </td>
+
+          <!-- Topic -->
+          <td class="px-4 py-3">
+            <p class="font-semibold text-gray-800">{{ entry.topic }}</p>
+            {% if entry.is_ai_generated %}
+            <span class="text-xs text-indigo-500">✨ AI</span>
+            {% endif %}
+          </td>
+
+          <!-- Caption (collapsed, expandable) -->
+          <td class="px-4 py-3 hidden md:table-cell">
+            {% if entry.caption %}
+            <details class="cursor-pointer">
+              <summary class="text-gray-600 text-xs hover:text-gray-800">
+                {{ entry.caption|truncatechars:80 }}
+              </summary>
+              <p class="mt-2 text-gray-700 text-xs leading-relaxed whitespace-pre-line bg-gray-50 p-2 rounded">{{ entry.caption }}</p>
+            </details>
+            {% else %}
+            <span class="text-gray-400 text-xs">—</span>
+            {% endif %}
+          </td>
+
+          <!-- Hashtags -->
+          <td class="px-4 py-3 hidden lg:table-cell">
+            {% if entry.hashtags %}
+            <p class="text-indigo-600 text-xs break-all">{{ entry.hashtags }}</p>
+            {% else %}
+            <span class="text-gray-400 text-xs">—</span>
+            {% endif %}
+          </td>
+
+          <!-- Suggested time -->
+          <td class="px-4 py-3">
+            {% if entry.suggested_time %}
+            <span class="inline-block bg-green-100 text-green-700 text-xs font-medium px-2 py-1 rounded-full">
+              🕐 {{ entry.suggested_time }}
+            </span>
+            {% else %}
+            <span class="text-gray-400 text-xs">—</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Summary stats -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-4 text-center">
+      <p class="text-2xl font-bold text-indigo-700">{{ entries|length }}</p>
+      <p class="text-sm text-indigo-500 mt-1">پست تولیدشده</p>
+    </div>
+    <div class="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
+      <p class="text-2xl font-bold text-green-700">{{ days_in_month }}</p>
+      <p class="text-sm text-green-500 mt-1">روز در ماه</p>
+    </div>
+    <div class="bg-purple-50 border border-purple-200 rounded-xl p-4 text-center">
+      <p class="text-2xl font-bold text-purple-700">{{ month_label }}</p>
+      <p class="text-sm text-purple-500 mt-1">ماه هدف</p>
+    </div>
+    <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-center">
+      <p class="text-2xl font-bold text-yellow-700">✨</p>
+      <p class="text-sm text-yellow-600 mt-1">تولید با AI</p>
+    </div>
+  </div>
+
+  {% else %}
+  <!-- Empty state -->
+  <div class="bg-white rounded-xl border border-dashed border-gray-300 p-16 text-center">
+    <div class="text-5xl mb-4">📅</div>
+    <h3 class="text-lg font-semibold text-gray-700 mb-2">هنوز تقویمی برای این ماه وجود ندارد</h3>
+    <p class="text-gray-500 text-sm mb-6">روی دکمه «تولید تقویم» کلیک کنید تا AI پیشنهادات محتوا را بسازد.</p>
+    <form method="post" class="inline-block">
+      {% csrf_token %}
+      <input type="hidden" name="month_offset" value="0">
+      <button type="submit"
+              class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-6 py-3 rounded-lg transition">
+        🤖 تولید تقویم ماه جاری
+      </button>
+    </form>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

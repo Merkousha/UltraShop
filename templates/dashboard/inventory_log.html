@@ -1,0 +1,140 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+{% block title %}لاگ موجودی انبار{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+    <div class="flex items-center gap-3">
+        <a href="{% url 'dashboard:warehouse-list' %}" class="text-indigo-600 text-sm hover:underline">← انبارها</a>
+        <h2 class="text-2xl font-bold">📋 لاگ تغییرات موجودی</h2>
+    </div>
+</div>
+
+{% if messages %}
+<div class="mb-4">
+    {% for msg in messages %}
+    <div class="p-3 rounded text-sm {% if msg.tags == 'error' %}bg-red-100 text-red-700{% else %}bg-green-100 text-green-700{% endif %}">{{ msg }}</div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- فیلترها -->
+<div class="bg-white rounded-lg shadow p-4 mb-6">
+    <form method="get" class="flex flex-wrap gap-3 items-end">
+        <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">انبار</label>
+            <select name="warehouse" class="border rounded px-3 py-2 text-sm min-w-[160px]">
+                <option value="">همه انبارها</option>
+                {% for wh in warehouses %}
+                <option value="{{ wh.pk }}" {% if selected_warehouse == wh.pk|stringformat:"s" %}selected{% endif %}>{{ wh.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">نوع عملیات</label>
+            <select name="action" class="border rounded px-3 py-2 text-sm min-w-[160px]">
+                <option value="">همه عملیات‌ها</option>
+                {% for val, label in action_choices %}
+                <option value="{{ val }}" {% if selected_action == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="flex gap-2">
+            <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded text-sm hover:bg-indigo-700">اعمال فیلتر</button>
+            <a href="{% url 'dashboard:inventory-log' %}" class="bg-gray-200 text-gray-700 px-4 py-2 rounded text-sm hover:bg-gray-300">پاک‌کردن</a>
+        </div>
+    </form>
+</div>
+
+<!-- جدول لاگ‌ها -->
+<div class="bg-white rounded-lg shadow overflow-x-auto">
+    <table class="w-full text-sm">
+        <thead class="bg-gray-50">
+            <tr>
+                <th class="px-4 py-3 text-right font-semibold">زمان</th>
+                <th class="px-4 py-3 text-right font-semibold">انبار</th>
+                <th class="px-4 py-3 text-right font-semibold">محصول / تنوع</th>
+                <th class="px-4 py-3 text-right font-semibold">عملیات</th>
+                <th class="px-4 py-3 text-center font-semibold">قبل</th>
+                <th class="px-4 py-3 text-center font-semibold">تغییر</th>
+                <th class="px-4 py-3 text-center font-semibold">بعد</th>
+                <th class="px-4 py-3 text-right font-semibold">کاربر</th>
+                <th class="px-4 py-3 text-right font-semibold">یادداشت</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in logs %}
+            <tr class="border-t hover:bg-gray-50">
+                <!-- زمان -->
+                <td class="px-4 py-3 text-gray-500 text-xs whitespace-nowrap" dir="ltr">
+                    {{ log.created_at|date:"Y/m/d H:i" }}
+                </td>
+                <!-- انبار -->
+                <td class="px-4 py-3 font-medium">{{ log.warehouse.name }}</td>
+                <!-- محصول -->
+                <td class="px-4 py-3">
+                    <span class="font-medium">{{ log.variant.product.name }}</span>
+                    <span class="text-gray-500"> — {{ log.variant.name }}</span>
+                </td>
+                <!-- عملیات -->
+                <td class="px-4 py-3">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
+                        {% if log.action == 'transfer' %}bg-blue-100 text-blue-800
+                        {% elif log.action == 'adjust' %}bg-yellow-100 text-yellow-800
+                        {% elif log.action == 'receipt' %}bg-green-100 text-green-800
+                        {% elif log.action == 'sale' %}bg-red-100 text-red-800
+                        {% elif log.action == 'return' %}bg-purple-100 text-purple-800
+                        {% else %}bg-gray-100 text-gray-800{% endif %}">
+                        {{ log.get_action_display }}
+                    </span>
+                </td>
+                <!-- قبل -->
+                <td class="px-4 py-3 text-center" dir="ltr">{{ log.quantity_before }}</td>
+                <!-- تغییر -->
+                <td class="px-4 py-3 text-center font-bold" dir="ltr">
+                    {% if log.quantity_change > 0 %}
+                    <span class="text-green-600">+{{ log.quantity_change }}</span>
+                    {% elif log.quantity_change < 0 %}
+                    <span class="text-red-600">{{ log.quantity_change }}</span>
+                    {% else %}
+                    <span class="text-gray-400">0</span>
+                    {% endif %}
+                </td>
+                <!-- بعد -->
+                <td class="px-4 py-3 text-center" dir="ltr">{{ log.quantity_after }}</td>
+                <!-- کاربر -->
+                <td class="px-4 py-3 text-xs text-gray-600">
+                    {% if log.actor %}{{ log.actor.email }}{% else %}<span class="text-gray-400">—</span>{% endif %}
+                </td>
+                <!-- یادداشت -->
+                <td class="px-4 py-3 text-xs text-gray-500 max-w-xs truncate">
+                    {{ log.note|default:"—" }}
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="9" class="px-4 py-10 text-center text-gray-400">
+                    هیچ تغییر موجودی ثبت‌شده‌ای یافت نشد.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- صفحه‌بندی -->
+{% if is_paginated %}
+<div class="flex justify-center gap-2 mt-6">
+    {% if page_obj.has_previous %}
+    <a href="?page={{ page_obj.previous_page_number }}{% if selected_warehouse %}&warehouse={{ selected_warehouse }}{% endif %}{% if selected_action %}&action={{ selected_action }}{% endif %}"
+       class="px-3 py-1.5 rounded border text-sm hover:bg-gray-100">قبلی</a>
+    {% endif %}
+    <span class="px-3 py-1.5 text-sm text-gray-600">
+        صفحه {{ page_obj.number }} از {{ page_obj.paginator.num_pages }}
+    </span>
+    {% if page_obj.has_next %}
+    <a href="?page={{ page_obj.next_page_number }}{% if selected_warehouse %}&warehouse={{ selected_warehouse }}{% endif %}{% if selected_action %}&action={{ selected_action }}{% endif %}"
+       class="px-3 py-1.5 rounded border text-sm hover:bg-gray-100">بعدی</a>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

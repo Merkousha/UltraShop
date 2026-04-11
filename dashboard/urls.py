@@ -32,6 +32,8 @@ urlpatterns = [
     path("warehouses/<int:pk>/inventory/", views.WarehouseInventoryView.as_view(), name="warehouse-inventory"),
     path("warehouses/transfer/", views.StockTransferView.as_view(), name="stock-transfer"),
     path("warehouses/staff/", views.StaffWarehouseAssignmentView.as_view(), name="staff-warehouses"),
+    path("warehouses/forecast/", views.InventoryForecastView.as_view(), name="inventory-forecast"),
+    path("warehouses/inventory-log/", views.InventoryLogView.as_view(), name="inventory-log"),
 
     # Orders
     path("orders/", views.OrderListView.as_view(), name="order-list"),
@@ -42,6 +44,11 @@ urlpatterns = [
 
     # Accounting
     path("accounting/", views.AccountingLedgerView.as_view(), name="accounting-ledger"),
+    path("accounting/expenses/", views.ExpenseListView.as_view(), name="expense-list"),
+    path("accounting/expenses/new/", views.ExpenseCreateView.as_view(), name="expense-create"),
+    path("accounting/expenses/export/", views.ExpenseExportView.as_view(), name="expense-export"),
+    path("accounting/financial-health/", views.FinancialHealthView.as_view(), name="financial-health"),
+    path("accounting/cfo-agent/", views.CFOAgentView.as_view(), name="cfo-agent"),
 
     # Analytics (BI dashboard)
     path("analytics/", views.DashboardAnalyticsView.as_view(), name="analytics"),
@@ -80,4 +87,11 @@ urlpatterns = [
     # Phase 4: External Integrations
     path("integrations/", views.IntegrationsView.as_view(), name="integrations"),
     path("integrations/<str:integration_id>/test/", views.IntegrationTestView.as_view(), name="integration-test"),
+
+    # SO-18: Content Calendar
+    path("content-calendar/", views.ContentCalendarView.as_view(), name="content-calendar"),
+    path("content-calendar/export/", views.ContentCalendarExportView.as_view(), name="content-calendar-export"),
+
+    # SO-47: CRO Optimizer
+    path("cro-optimizer/", views.CROOptimizerView.as_view(), name="cro-optimizer"),
 ]
