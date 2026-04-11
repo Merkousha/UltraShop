@@ -3,8 +3,27 @@
 from .models import Warehouse
 
 
-# Max warehouses per store: free plan 1, premium 5+ (no plan model yet → use 5)
-MAX_WAREHOUSES_PER_STORE = 5
+# Default fallback when no plan is assigned
+_DEFAULT_MAX_WAREHOUSES = 5
+_DEFAULT_MAX_PRODUCTS = 100
+
+
+def get_max_warehouses_for_store(store) -> int:
+    """Return warehouse limit from the store's plan, or fallback default."""
+    if store.plan_id and store.plan:
+        return store.plan.max_warehouses
+    return _DEFAULT_MAX_WAREHOUSES
+
+
+def get_max_products_for_store(store) -> int:
+    """Return product limit from the store's plan, or fallback default."""
+    if store.plan_id and store.plan:
+        return store.plan.max_products
+    return _DEFAULT_MAX_PRODUCTS
+
+
+# Keep legacy constant for backward compatibility (used in existing views)
+MAX_WAREHOUSES_PER_STORE = _DEFAULT_MAX_WAREHOUSES
 
 
 def get_default_warehouse(store):

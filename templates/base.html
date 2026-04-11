@@ -14,8 +14,11 @@
     {% block extra_head %}{% endblock %}
 </head>
 <body class="bg-gray-50 text-gray-900 min-h-screen">
+    <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:right-2 focus:z-50 focus:bg-indigo-600 focus:text-white focus:px-4 focus:py-2 focus:rounded focus:outline-none focus:ring-2 focus:ring-white">رفتن به محتوای اصلی</a>
     {% block body %}
+    <main id="main-content" role="main" tabindex="-1">
     {% block content %}{% endblock %}
+    </main>
     {% endblock %}
     {% block extra_scripts %}{% endblock %}
 </body>

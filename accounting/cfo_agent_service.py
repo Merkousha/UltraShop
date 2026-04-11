@@ -1,10 +1,14 @@
 """CFO Agent Service (SO-36)."""
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def generate_cfo_report(store):
     """
     Analyze store financial data and generate a CFO report using AI.
-    Returns CFOReport instance.
+    Returns CFOReport instance. Sends an email alert to the store owner
+    if any financial alerts are found.
     """
     from accounting.financial_health_service import get_financial_health
     from accounting.models import CFOReport
@@ -57,4 +61,35 @@ def generate_cfo_report(store):
             alerts=[],
         )
 
+    # Send email alert to store owner if there are warnings
+    if report.alerts:
+        _send_cfo_alert_email(store, report)
+
     return report
+
+
+def _send_cfo_alert_email(store, report):
+    """Send an email to the store owner summarising CFO alerts."""
+    try:
+        from django.core.mail import send_mail
+        from django.conf import settings
+
+        owner_email = store.owner.email
+        if not owner_email:
+            return
+
+        alert_lines = "\n".join(f"• {a}" for a in report.alerts)
+        subject = f"[UltraShop] هشدار مالی فروشگاه «{store.name}»"
+        body = (
+            f"سلام،\n\n"
+            f"گزارش مالی هوشمند فروشگاه «{store.name}» هشدارهای زیر را شناسایی کرده است:\n\n"
+            f"{alert_lines}\n\n"
+            f"خلاصه وضعیت: {report.content}\n\n"
+            f"برای مشاهده جزئیات کامل وارد داشبورد فروشگاه شوید.\n\n"
+            f"با احترام،\nتیم UltraShop"
+        )
+        from_email = getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@ultra-shop.com")
+        send_mail(subject, body, from_email, [owner_email], fail_silently=True)
+    except Exception:
+        logger.warning("Failed to send CFO alert email for store %s", store.pk, exc_info=True)
+

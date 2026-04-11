@@ -442,6 +442,15 @@ class ChatView(StoreMixin, View):
         if is_new_session:
             _auto_create_chat_lead(chat_session, customer=chat_session.customer)
 
+        # Rate limit: max 20 user messages per session
+        CHAT_MESSAGE_LIMIT = 20
+        user_msg_count = chat_session.messages.filter(role=ChatMessage.Role.USER).count()
+        if user_msg_count >= CHAT_MESSAGE_LIMIT:
+            return JsonResponse(
+                {"error": "سقف پیام‌های این گفتگو به پایان رسید. لطفاً با فروشگاه تماس بگیرید."},
+                status=429,
+            )
+
         # Load last 10 messages for context
         past_msgs = list(
             chat_session.messages.order_by("-created_at").values("role", "content")[:10]

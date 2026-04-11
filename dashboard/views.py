@@ -5,6 +5,7 @@ from django.conf import settings
 from django.contrib import messages
 from core.encryption import encrypt_value
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.cache import cache
 from django.db.models import Q, F
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect
@@ -39,6 +40,8 @@ from core.models import (
 from core.warehouse_service import (
     get_default_warehouse,
     get_warehouses_for_user,
+    get_max_warehouses_for_store,
+    get_max_products_for_store,
     MAX_WAREHOUSES_PER_STORE,
     set_default_warehouse_quantity,
 )
@@ -651,10 +654,11 @@ class WarehouseListView(StoreAccessMixin, ListView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         store = self.request.current_store
-        ctx["max_warehouses"] = MAX_WAREHOUSES_PER_STORE
+        max_wh = get_max_warehouses_for_store(store)
+        ctx["max_warehouses"] = max_wh
         ctx["can_add"] = (
             store.owner == self.request.user
-            and Warehouse.objects.filter(store=store).count() < MAX_WAREHOUSES_PER_STORE
+            and Warehouse.objects.filter(store=store).count() < max_wh
         )
         return ctx
 
@@ -987,6 +991,12 @@ class OrderDetailView(StoreAccessMixin, TemplateView):
                 post_order_refunded(order, order.total_after_discount, "لغو سفارش")
             except Exception:
                 pass
+
+        # Invalidate analytics/financial caches for this store
+        for days in (7, 14, 30, 60, 90):
+            cache.delete(f"store_analytics_{order.store_id}_{days}")
+        for days in (7, 30, 90, 365):
+            cache.delete(f"financial_health_{order.store_id}_{days}")
 
         status_labels = {
             "pending": "در انتظار پرداخت",
@@ -1891,7 +1901,12 @@ class DashboardAnalyticsView(AccountingAccessMixin, TemplateView):
         except (ValueError, TypeError):
             days = 30
 
-        analytics = get_store_analytics(store, days=days)
+        cache_key = f"store_analytics_{store.pk}_{days}"
+        analytics = cache.get(cache_key)
+        if analytics is None:
+            analytics = get_store_analytics(store, days=days)
+            cache.set(cache_key, analytics, timeout=900)  # 15 minutes
+
         ctx["analytics"] = analytics
         ctx["days"] = days
         ctx["days_options"] = [7, 14, 30, 60, 90]
@@ -2186,7 +2201,15 @@ class FinancialHealthView(AccountingAccessMixin, TemplateView):
         days = int(self.request.GET.get("days", 30))
         if days not in [7, 30, 90, 365]:
             days = 30
-        ctx["health"] = get_financial_health(self.request.current_store, days=days)
+
+        store = self.request.current_store
+        cache_key = f"financial_health_{store.pk}_{days}"
+        health = cache.get(cache_key)
+        if health is None:
+            health = get_financial_health(store, days=days)
+            cache.set(cache_key, health, timeout=900)  # 15 minutes
+
+        ctx["health"] = health
         ctx["selected_days"] = days
         ctx["days_options"] = [
             (7, "۷ روز"),
@@ -2356,6 +2379,39 @@ class ContentCalendarExportView(StoreAccessMixin, View):
             writer.writerow([str(e.date), e.topic, e.caption, e.hashtags, e.suggested_time])
 
         return response
+
+
+class ContentCalendarPrintView(StoreAccessMixin, TemplateView):
+    """SO-18: Print-ready HTML view of the content calendar (can be saved as PDF via browser print)."""
+
+    template_name = "dashboard/content_calendar_print.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        from datetime import date
+
+        month_str = self.request.GET.get("month", "")
+        today = date.today()
+        if month_str:
+            try:
+                year, month = map(int, month_str.split("-"))
+                target = date(year, month, 1)
+            except Exception:
+                target = today.replace(day=1)
+        else:
+            target = today.replace(day=1)
+
+        entries = ContentCalendarEntry.objects.filter(
+            store=self.request.current_store,
+            date__year=target.year,
+            date__month=target.month,
+        ).order_by("date")
+
+        ctx["entries"] = entries
+        ctx["target_month"] = target
+        ctx["month_label"] = target.strftime("%Y/%m")
+        ctx["store"] = self.request.current_store
+        return ctx
 
 
 # ─── SO-47: CRO Optimizer ─────────────────────────────────────────────────────

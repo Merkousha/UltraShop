@@ -91,6 +91,7 @@ urlpatterns = [
     # SO-18: Content Calendar
     path("content-calendar/", views.ContentCalendarView.as_view(), name="content-calendar"),
     path("content-calendar/export/", views.ContentCalendarExportView.as_view(), name="content-calendar-export"),
+    path("content-calendar/print/", views.ContentCalendarPrintView.as_view(), name="content-calendar-print"),
 
     # SO-47: CRO Optimizer
     path("cro-optimizer/", views.CROOptimizerView.as_view(), name="cro-optimizer"),
