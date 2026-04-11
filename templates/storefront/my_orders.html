@@ -1,0 +1,71 @@
+{% extends "storefront/base.html" %}
+{% load static %}
+{% block title %}سفارشات من — {{ store.name }}{% endblock %}
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <h1 class="text-2xl font-bold mb-6">سفارشات من</h1>
+
+    {% if orders %}
+    <div class="space-y-4">
+        {% for order in orders %}
+        <div class="bg-white rounded-lg shadow p-5">
+            <div class="flex items-center justify-between mb-3">
+                <span class="font-bold text-sm">سفارش #{{ order.pk }}</span>
+                <span class="text-xs text-gray-400">{{ order.created_at|date:"Y/m/d" }}</span>
+            </div>
+            <div class="flex items-center justify-between text-sm mb-3">
+                <span class="text-gray-500">وضعیت:</span>
+                <span class="px-2 py-1 rounded text-xs
+                    {% if order.status == 'paid' %}bg-green-100 text-green-700
+                    {% elif order.status == 'delivered' %}bg-blue-100 text-blue-700
+                    {% elif order.status == 'cancelled' %}bg-red-100 text-red-700
+                    {% elif order.status == 'refunded' %}bg-yellow-100 text-yellow-700
+                    {% else %}bg-gray-100 text-gray-600{% endif %}">
+                    {% if order.status == 'pending' %}در انتظار پرداخت
+                    {% elif order.status == 'paid' %}پرداخت شده
+                    {% elif order.status == 'packed' %}بسته‌بندی شده
+                    {% elif order.status == 'shipped' %}ارسال شده
+                    {% elif order.status == 'delivered' %}تحویل داده شده
+                    {% elif order.status == 'cancelled' %}لغو شده
+                    {% elif order.status == 'refunded' %}مسترد شده
+                    {% else %}{{ order.status }}{% endif %}
+                </span>
+            </div>
+            <div class="flex items-center justify-between text-sm">
+                <span class="text-gray-500">مبلغ کل:</span>
+                <span class="font-semibold" dir="ltr">{{ order.total_after_discount|stringformat:",.0f" }} ریال</span>
+            </div>
+            <div class="mt-3 text-left">
+                <a href="{% url 'storefront:my-order-detail' store.username order.pk %}"
+                   class="text-sm text-indigo-600 hover:underline">
+                    مشاهده جزئیات ←
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% if is_paginated %}
+    <div class="flex justify-center gap-2 mt-6 text-sm">
+        {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}" class="px-3 py-1 border rounded hover:bg-gray-50">قبلی</a>
+        {% endif %}
+        <span class="px-3 py-1 bg-indigo-600 text-white rounded">{{ page_obj.number }}</span>
+        {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}" class="px-3 py-1 border rounded hover:bg-gray-50">بعدی</a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="bg-white rounded-lg shadow p-10 text-center text-gray-400">
+        <div class="text-5xl mb-4">📦</div>
+        <p>هنوز سفارشی ثبت نکرده‌اید.</p>
+        <a href="{% url 'storefront:home' store.username %}"
+           class="mt-4 inline-block btn-primary text-white px-6 py-2 rounded-lg text-sm">
+            مشاهده محصولات
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

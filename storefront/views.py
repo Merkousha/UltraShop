@@ -290,6 +290,7 @@ class CheckoutView(StoreMixin, TemplateView):
         needs_shipping = self._needs_shipping(cart)
         guest_name = request.POST.get("name", "").strip()
         guest_phone = request.POST.get("phone", "").strip()
+        guest_email = request.POST.get("email", "").strip()
 
         # ── Discount code ───────────────────────────────────────────
         discount_amount = 0
@@ -308,7 +309,7 @@ class CheckoutView(StoreMixin, TemplateView):
         final_total = max(0, total - discount_amount)
 
         # ── Save abandoned cart with phone before creating order ─────
-        self._save_abandoned_cart(request, cart, phone=guest_phone)
+        self._save_abandoned_cart(request, cart, phone=guest_phone, email=guest_email)
 
         order = Order.objects.create(
             store=self.store,
@@ -318,6 +319,7 @@ class CheckoutView(StoreMixin, TemplateView):
             shipping_city=request.POST.get("city", "").strip() if needs_shipping else "",
             shipping_province=request.POST.get("province", "").strip() if needs_shipping else "",
             shipping_postal_code=request.POST.get("postal_code", "").strip() if needs_shipping else "",
+            shipping_email=guest_email,
             status=Order.Status.PENDING,
             discount_code_used=code_str,
             discount_amount=discount_amount,
@@ -345,10 +347,41 @@ class CheckoutView(StoreMixin, TemplateView):
         # ── Mark abandoned cart as recovered ─────────────────────────
         self._mark_cart_recovered(request)
 
+        # ── C-23: Send order confirmation email ──────────────────────
+        self._send_order_confirmation_email(order)
+
         # Clear cart
         _save_cart(request, {})
 
         return redirect("storefront:order-confirm", store_username=self.store.username, pk=order.pk)
+
+    def _send_order_confirmation_email(self, order) -> None:
+        """C-23: ارسال ایمیل تأیید سفارش به مشتری (best-effort)."""
+        recipient = order.shipping_email or (order.customer.email if order.customer else "")
+        if not recipient:
+            return
+        try:
+            from django.conf import settings as django_settings
+            from django.core.mail import send_mail
+
+            lines_text = "\n".join(
+                f"  • {line.product_name}"
+                + (f" — {line.variant_name}" if line.variant_name else "")
+                + f"  ×{line.quantity}  {line.line_total:,} ریال"
+                for line in order.lines.all()
+            )
+            subject = f"تأیید سفارش #{order.pk} — {self.store.name}"
+            body = (
+                f"سلام {order.guest_name or 'مشتری گرامی'}،\n\n"
+                f"سفارش شماره #{order.pk} شما با موفقیت ثبت شد.\n\n"
+                f"اقلام سفارش:\n{lines_text}\n\n"
+                f"جمع کل: {order.total_after_discount:,} ریال\n\n"
+                f"با تشکر از خرید شما،\nتیم {self.store.name}"
+            )
+            from_email = getattr(django_settings, "DEFAULT_FROM_EMAIL", "noreply@ultra-shop.com")
+            send_mail(subject, body, from_email, [recipient], fail_silently=True)
+        except Exception:
+            pass  # email failure must never block the checkout flow
 
     def _record_order_activity(self, order, phone: str) -> None:
         """Create a CRM ContactActivity entry for the newly placed order."""
@@ -523,6 +556,93 @@ def _auto_create_chat_lead(chat_session, customer=None):
     except Exception:
         # Lead creation is best-effort — never block the chat response
         logger.exception("Failed to auto-create chat lead")
+
+
+# ─── C-20: My Orders (storefront customer order history) ──────────────────────
+
+class CustomerOrderListView(StoreMixin, ListView):
+    """C-20: مشتری لاگین‌شده لیست سفارشاتش را در ویترین می‌بیند."""
+
+    template_name = "storefront/my_orders.html"
+    context_object_name = "orders"
+    paginate_by = 20
+
+    def dispatch(self, request, *args, **kwargs):
+        super().dispatch(request, *args, **kwargs)
+        if not request.session.get("customer_id"):
+            return redirect(
+                "storefront:home", store_username=self.store.username
+            )
+        return super(StoreMixin, self).dispatch(request, *args, **kwargs)
+
+    def get_queryset(self):
+        from customers.models import Customer
+
+        customer = Customer.objects.filter(
+            pk=self.request.session["customer_id"], store=self.store
+        ).first()
+        if not customer:
+            return Order.objects.none()
+        return (
+            Order.objects.filter(store=self.store, customer=customer)
+            .prefetch_related("lines")
+            .order_by("-created_at")
+        )
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["status_labels"] = {
+            "pending": "در انتظار پرداخت",
+            "paid": "پرداخت شده",
+            "packed": "بسته‌بندی شده",
+            "shipped": "ارسال شده",
+            "delivered": "تحویل داده شده",
+            "cancelled": "لغو شده",
+            "refunded": "مسترد شده",
+        }
+        return ctx
+
+
+# ─── C-21: Customer Order Detail (storefront) ─────────────────────────────────
+
+class CustomerOrderDetailView(StoreMixin, TemplateView):
+    """C-21: نمایش جزئیات یک سفارش برای مشتری در ویترین."""
+
+    template_name = "storefront/my_order_detail.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        super().dispatch(request, *args, **kwargs)
+        if not request.session.get("customer_id"):
+            return redirect(
+                "storefront:home", store_username=self.store.username
+            )
+        return super(StoreMixin, self).dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        from customers.models import Customer
+
+        customer = Customer.objects.filter(
+            pk=self.request.session["customer_id"], store=self.store
+        ).first()
+        if not customer:
+            raise Http404
+        order = get_object_or_404(
+            Order, pk=self.kwargs["pk"], store=self.store, customer=customer
+        )
+        ctx["order"] = order
+        ctx["status_labels"] = {
+            "pending": "در انتظار پرداخت",
+            "paid": "پرداخت شده",
+            "packed": "بسته‌بندی شده",
+            "shipped": "ارسال شده",
+            "delivered": "تحویل داده شده",
+            "cancelled": "لغو شده",
+            "refunded": "مسترد شده",
+        }
+        # Shipment tracking info (C-22)
+        ctx["shipments"] = order.shipments.select_related("carrier").order_by("-created_at")
+        return ctx
 
 
 class ContactView(StoreMixin, TemplateView):

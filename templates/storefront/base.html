@@ -27,6 +27,9 @@
             <a href="{% url 'storefront:home' store.username %}" class="text-xl font-bold text-primary">{{ store.name }}</a>
             <nav class="flex items-center gap-4 text-sm" role="navigation" aria-label="ناوبری اصلی">
                 <a href="{% url 'storefront:category-list' store.username %}" class="hover:text-primary">دسته‌بندی‌ها</a>
+                {% if request.session.customer_id %}
+                <a href="{% url 'storefront:my-orders' store.username %}" class="hover:text-primary">سفارشات من</a>
+                {% endif %}
                 <form action="{% url 'storefront:product-search' store.username %}" method="get" class="flex">
                     <input type="text" name="q" placeholder="جستجو..." class="border rounded-r px-3 py-1 text-sm w-40">
                     <button type="submit" class="btn-primary text-white px-3 py-1 rounded-l text-sm" aria-label="جستجو">🔍</button>

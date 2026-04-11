@@ -24,4 +24,9 @@ urlpatterns = [
     path("order/<int:pk>/confirm/", views.OrderConfirmView.as_view(), name="order-confirm"),
     path("chat/", views.ChatView.as_view(), name="chat"),
     path("contact/", views.ContactView.as_view(), name="contact"),
+
+    # C-20: My orders (customer)
+    path("my-orders/", views.CustomerOrderListView.as_view(), name="my-orders"),
+    # C-21/C-22: Customer order detail + shipment tracking
+    path("my-orders/<int:pk>/", views.CustomerOrderDetailView.as_view(), name="my-order-detail"),
 ]

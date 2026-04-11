@@ -2292,6 +2292,13 @@ class InventoryForecastView(StoreAccessMixin, TemplateView):
         ctx["critical_count"] = sum(1 for f in forecasts if f["urgency"] == "critical")
         ctx["warning_count"] = sum(1 for f in forecasts if f["urgency"] == "warning")
         ctx["ok_count"] = sum(1 for f in forecasts if f["urgency"] == "ok")
+
+        # SO-53: اگر موارد بحرانی وجود دارند، هشدار flash نشان می‌دهیم
+        if ctx["critical_count"]:
+            messages.warning(
+                self.request,
+                f"⚠️ {ctx['critical_count']} قلم محصول کمتر از ۷ روز موجودی دارند!",
+            )
         return ctx
 
 
@@ -2434,10 +2441,16 @@ class CROOptimizerView(StoreAccessMixin, TemplateView):
         action = request.POST.get("action")
 
         if action == "generate":
-            from dashboard.cro_service import generate_cro_suggestions
+            from dashboard.cro_service import CRO_COOLDOWN_DAYS, generate_cro_suggestions
 
             suggestions = generate_cro_suggestions(request.current_store)
-            if suggestions:
+            if suggestions is None:
+                messages.warning(
+                    request,
+                    f"تحلیل CRO قبلاً این هفته انجام شده است. "
+                    f"تا {CRO_COOLDOWN_DAYS} روز پس از آخرین تحلیل می‌توانید دوباره درخواست دهید.",
+                )
+            elif suggestions:
                 messages.success(request, f"{len(suggestions)} پیشنهاد CRO جدید تولید شد.")
             else:
                 messages.error(request, "خطا در تولید پیشنهادات. لطفاً دوباره امتحان کنید.")

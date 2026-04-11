@@ -4,12 +4,31 @@
 """
 import json
 
+from django.utils import timezone
+
+# حداکثر ۱ تحلیل در هر ۷ روز (SO-47)
+CRO_COOLDOWN_DAYS = 7
+
+
+def can_generate_cro(store) -> bool:
+    """Return True if the store is allowed to generate new CRO suggestions.
+
+    Rate-limit: no new batch within CRO_COOLDOWN_DAYS days of the last batch.
+    """
+    from core.models import CROSuggestion
+
+    cutoff = timezone.now() - timezone.timedelta(days=CRO_COOLDOWN_DAYS)
+    return not CROSuggestion.objects.filter(store=store, created_at__gte=cutoff).exists()
+
 
 def generate_cro_suggestions(store):
     """Generate CRO suggestions for the store using AI.
 
     Returns list of newly created CROSuggestion instances.
+    Returns None (instead of []) when the weekly rate limit is active.
     """
+    if not can_generate_cro(store):
+        return None
     from core.ai_service import call_text_ai
     from core.models import CROSuggestion
     from catalog.models import Product, Category
