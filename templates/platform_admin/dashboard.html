@@ -20,6 +20,42 @@
     {% endif %}
 </div>
 
+<!-- Alerts -->
+{% if suspended_stores or high_pending_payouts or exception_shipments %}
+<div class="space-y-2 mb-6">
+    {% if suspended_stores > 0 %}
+    <div class="flex items-center gap-3 bg-orange-50 border border-orange-300 rounded-lg px-4 py-3">
+        <span class="text-orange-500 text-xl">⚠️</span>
+        <div>
+            <p class="font-semibold text-orange-800 text-sm">فروشگاه‌های تعلیق‌شده</p>
+            <p class="text-orange-700 text-xs">{{ suspended_stores }} فروشگاه تعلیق‌شده در سیستم وجود دارد.</p>
+        </div>
+        <a href="{% url 'platform_admin:store-list' %}" class="mr-auto text-xs text-orange-700 underline hover:text-orange-900">مشاهده</a>
+    </div>
+    {% endif %}
+    {% if high_pending_payouts %}
+    <div class="flex items-center gap-3 bg-red-50 border border-red-300 rounded-lg px-4 py-3">
+        <span class="text-red-500 text-xl">🚨</span>
+        <div>
+            <p class="font-semibold text-red-800 text-sm">درخواست برداشت زیاد در انتظار</p>
+            <p class="text-red-700 text-xs">تعداد یا مبلغ درخواست‌های برداشت بررسی نشده بالاست.</p>
+        </div>
+        <a href="{% url 'platform_admin:payout-list' %}" class="mr-auto text-xs text-red-700 underline hover:text-red-900">مشاهده</a>
+    </div>
+    {% endif %}
+    {% if exception_shipments > 0 %}
+    <div class="flex items-center gap-3 bg-red-50 border border-red-300 rounded-lg px-4 py-3">
+        <span class="text-red-500 text-xl">📦</span>
+        <div>
+            <p class="font-semibold text-red-800 text-sm">مرسولات با خطا</p>
+            <p class="text-red-700 text-xs">{{ exception_shipments }} مرسوله با خطا در سیستم ثبت شده است.</p>
+        </div>
+        <a href="{% url 'platform_admin:shipment-list' %}" class="mr-auto text-xs text-red-700 underline hover:text-red-900">مشاهده</a>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
 <!-- KPI Widgets -->
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
     <!-- Active Stores -->

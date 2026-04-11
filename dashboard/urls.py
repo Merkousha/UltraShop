@@ -20,6 +20,7 @@ urlpatterns = [
     path("products/<int:pk>/images/<int:image_id>/delete/", views.ProductImageDeleteView.as_view(), name="product-image-delete"),
     path("products/<int:pk>/images/<int:image_id>/set-primary/", views.ProductImageSetPrimaryView.as_view(), name="product-image-set-primary"),
     path("products/bulk-action/", views.ProductBulkActionView.as_view(), name="product-bulk-action"),
+    path("products/low-stock/", views.LowStockView.as_view(), name="low-stock"),
 
     # Categories
     path("categories/", views.CategoryListView.as_view(), name="category-list"),
@@ -80,6 +81,9 @@ urlpatterns = [
     # Phase 3: Abandoned Cart Recovery
     path("abandoned-carts/", views.AbandonedCartListView.as_view(), name="abandoned-carts"),
     path("abandoned-carts/<int:pk>/send-now/", views.AbandonedCartSendNowView.as_view(), name="abandoned-cart-send-now"),
+
+    # SS-05: Customer Search
+    path("customers/", views.CustomerSearchView.as_view(), name="customer-search"),
 
     # Phase 3: AI Chat History
     path("chat-history/", views.ChatHistoryView.as_view(), name="chat-history"),

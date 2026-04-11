@@ -68,6 +68,15 @@ class DashboardView(PlatformAdminMixin, TemplateView):
             status__in=["delivered", "exception"]
         ).count()
 
+        # ── Alerts ────────────────────────────────────────────────────
+        ctx["suspended_stores"] = Store.objects.filter(is_active=False).count()
+        pending_count = PayoutRequest.objects.filter(status=PayoutRequest.Status.PENDING).count()
+        pending_amount = PayoutRequest.objects.filter(
+            status=PayoutRequest.Status.PENDING
+        ).aggregate(t=Sum("amount"))["t"] or 0
+        ctx["high_pending_payouts"] = pending_count > 5 or pending_amount > 10_000_000
+        ctx["exception_shipments"] = Shipment.objects.filter(status="exception").count()
+
         ctx["settings"] = PlatformSettings.load()
         return ctx
 
@@ -533,6 +542,9 @@ class ThemePresetCreateView(PlatformAdminMixin, TemplateView):
             status=status,
             tokens=tokens,
         )
+        if request.FILES.get("thumbnail"):
+            preset.thumbnail = request.FILES["thumbnail"]
+            preset.save(update_fields=["thumbnail"])
         log_action(
             actor=request.user,
             action="theme_preset_created",
@@ -571,6 +583,9 @@ class ThemePresetEditView(PlatformAdminMixin, TemplateView):
         except Exception:
             pass
         preset.save()
+        if request.FILES.get("thumbnail"):
+            preset.thumbnail = request.FILES["thumbnail"]
+            preset.save(update_fields=["thumbnail"])
         store_count = preset.stores.count()
         log_action(
             actor=request.user,

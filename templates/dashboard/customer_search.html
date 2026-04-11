@@ -1,0 +1,83 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+{% block title %}جستجوی مشتریان{% endblock %}
+{% block content %}
+<div class="mb-6">
+    <h1 class="text-2xl font-bold">👥 مدیریت مشتریان</h1>
+    <p class="text-sm text-gray-500 mt-1">جستجو و مشاهده مشتریان فروشگاه</p>
+</div>
+
+<!-- Search Form -->
+<form method="get" class="bg-white rounded-lg shadow p-4 mb-6 flex gap-3">
+    <input type="text" name="q" value="{{ q }}"
+           placeholder="جستجو بر اساس نام، شماره تماس یا ایمیل..."
+           class="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
+    <button type="submit" class="bg-indigo-600 text-white px-5 py-2 rounded-lg text-sm hover:bg-indigo-700">
+        🔍 جستجو
+    </button>
+    {% if q %}
+    <a href="{% url 'dashboard:customer-search' %}" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm hover:bg-gray-300">
+        پاک کردن
+    </a>
+    {% endif %}
+</form>
+
+{% if q %}
+<p class="text-sm text-gray-500 mb-4">
+    نتایج جستجو برای «{{ q }}» — {{ paginator.count }} مشتری یافت شد.
+</p>
+{% endif %}
+
+{% if customers %}
+<div class="bg-white rounded-lg shadow overflow-hidden">
+    <table class="w-full text-sm">
+        <thead class="bg-gray-50 border-b">
+            <tr>
+                <th class="text-right px-4 py-3 font-medium text-gray-600">نام</th>
+                <th class="text-right px-4 py-3 font-medium text-gray-600">شماره تماس</th>
+                <th class="text-right px-4 py-3 font-medium text-gray-600">ایمیل</th>
+                <th class="text-right px-4 py-3 font-medium text-gray-600">تاریخ ثبت</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+            {% for customer in customers %}
+            <tr class="hover:bg-gray-50">
+                <td class="px-4 py-3 font-medium">
+                    {{ customer.name|default:"—" }}
+                </td>
+                <td class="px-4 py-3 text-gray-700" dir="ltr">{{ customer.phone }}</td>
+                <td class="px-4 py-3 text-gray-600 text-xs" dir="ltr">{{ customer.email|default:"—" }}</td>
+                <td class="px-4 py-3 text-gray-500 text-xs">
+                    {{ customer.created_at|date:"Y/m/d" }}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Pagination -->
+{% if is_paginated %}
+<div class="flex justify-center gap-2 mt-6">
+    {% if page_obj.has_previous %}
+    <a href="?q={{ q }}&page={{ page_obj.previous_page_number }}" class="px-3 py-1 border rounded text-sm hover:bg-gray-100">قبلی</a>
+    {% endif %}
+    <span class="px-3 py-1 text-sm text-gray-500">صفحه {{ page_obj.number }} از {{ page_obj.paginator.num_pages }}</span>
+    {% if page_obj.has_next %}
+    <a href="?q={{ q }}&page={{ page_obj.next_page_number }}" class="px-3 py-1 border rounded text-sm hover:bg-gray-100">بعدی</a>
+    {% endif %}
+</div>
+{% endif %}
+
+{% else %}
+<div class="bg-white rounded-lg shadow p-12 text-center">
+    <p class="text-4xl mb-3">🔍</p>
+    {% if q %}
+    <p class="text-gray-500 font-medium">نتیجه‌ای برای «{{ q }}» یافت نشد.</p>
+    <p class="text-sm text-gray-400 mt-1">عبارت دیگری امتحان کنید یا جستجو را پاک کنید.</p>
+    {% else %}
+    <p class="text-gray-500 font-medium">هنوز مشتری‌ای ثبت نشده است.</p>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

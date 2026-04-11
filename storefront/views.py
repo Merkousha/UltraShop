@@ -1,6 +1,6 @@
 import logging
 
-from django.db.models import Q
+from django.db.models import Min, Q
 
 logger = logging.getLogger(__name__)
 
@@ -12,7 +12,7 @@ from django.views.generic import DetailView, ListView, TemplateView
 
 from catalog.models import Category, DiscountCode, Product, ProductVariant
 from core.models import PlatformSettings, Store
-from customers.models import AbandonedCart
+from customers.models import AbandonedCart, SavedAddress
 from orders.models import Order, OrderLine
 
 
@@ -54,17 +54,31 @@ class CategoryListView(StoreMixin, ListView):
         return Category.objects.filter(store=self.store, parent__isnull=True)
 
 
+def _apply_sort(qs, sort):
+    """Apply sort parameter to a Product queryset."""
+    if sort == "price_asc":
+        return qs.annotate(min_price=Min("variants__price")).order_by("min_price")
+    elif sort == "price_desc":
+        return qs.annotate(min_price=Min("variants__price")).order_by("-min_price")
+    else:
+        # default: newest
+        return qs.order_by("-created_at")
+
+
 class CategoryDetailView(StoreMixin, TemplateView):
     template_name = "storefront/category_detail.html"
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
+        sort = self.request.GET.get("sort", "newest")
         ctx["category"] = get_object_or_404(
             Category, store=self.store, slug=self.kwargs["slug"]
         )
-        ctx["products"] = Product.objects.filter(
+        qs = Product.objects.filter(
             store=self.store, status="active", categories=ctx["category"]
         ).prefetch_related("images", "variants")
+        ctx["products"] = _apply_sort(qs, sort)
+        ctx["current_sort"] = sort
         return ctx
 
 
@@ -87,18 +101,21 @@ class ProductSearchView(StoreMixin, ListView):
 
     def get_queryset(self):
         q = self.request.GET.get("q", "").strip()
+        sort = self.request.GET.get("sort", "newest")
         if not q:
             return Product.objects.none()
-        return Product.objects.filter(
+        qs = Product.objects.filter(
             store=self.store,
             status="active",
         ).filter(
             Q(name__icontains=q) | Q(description__icontains=q) | Q(sku__icontains=q)
         ).prefetch_related("images", "variants")
+        return _apply_sort(qs, sort)
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["query"] = self.request.GET.get("q", "")
+        ctx["current_sort"] = self.request.GET.get("sort", "newest")
         return ctx
 
 
@@ -270,6 +287,12 @@ class CheckoutView(StoreMixin, TemplateView):
         ctx["discount_error"] = ""
         ctx["discount_code"] = ""
         ctx["final_total"] = total
+        # C-10: saved addresses for logged-in customers
+        customer_id = self.request.session.get("customer_id")
+        if customer_id:
+            ctx["saved_addresses"] = SavedAddress.objects.filter(
+                store=self.store, customer_id=customer_id
+            ).order_by("-is_default", "-created_at")
         return ctx
 
     def get(self, request, *args, **kwargs):
@@ -346,6 +369,30 @@ class CheckoutView(StoreMixin, TemplateView):
 
         # ── Mark abandoned cart as recovered ─────────────────────────
         self._mark_cart_recovered(request)
+
+        # ── C-10: Save address for logged-in customer if new ─────────
+        if needs_shipping:
+            customer_id = request.session.get("customer_id")
+            address_text = request.POST.get("address", "").strip()
+            city_text = request.POST.get("city", "").strip()
+            province_text = request.POST.get("province", "").strip()
+            if customer_id and address_text and city_text:
+                already_exists = SavedAddress.objects.filter(
+                    store=self.store,
+                    customer_id=customer_id,
+                    address=address_text,
+                    city=city_text,
+                    province=province_text,
+                ).exists()
+                if not already_exists:
+                    SavedAddress.objects.create(
+                        store=self.store,
+                        customer_id=customer_id,
+                        address=address_text,
+                        city=city_text,
+                        province=province_text,
+                        postal_code=request.POST.get("postal_code", "").strip(),
+                    )
 
         # ── C-23: Send order confirmation email ──────────────────────
         self._send_order_confirmation_email(order)

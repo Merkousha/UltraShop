@@ -600,7 +600,72 @@ class ProductBulkActionView(StoreAccessMixin, View):
         count = products.count()
         if count > 0:
             messages.success(request, f"{count} محصول به‌روزرسانی شد.")
+            from core.services import log_action
+            log_action(
+                actor=request.user,
+                store=store,
+                action=f"bulk_{action}",
+                resource_type="Product",
+                details={"product_ids": product_ids, "count": count},
+            )
         return redirect("dashboard:product-list")
+
+
+# ─── SS-05: Customer Search View ───────────────────────────
+class CustomerSearchView(StoreAccessMixin, ListView):
+    template_name = "dashboard/customer_search.html"
+    context_object_name = "customers"
+    paginate_by = 25
+
+    def dispatch(self, request, *args, **kwargs):
+        result = super().dispatch(request, *args, **kwargs)
+        # Restrict to owner and manager roles
+        if hasattr(result, "status_code") and result.status_code in (301, 302):
+            return result
+        role = _get_current_role(request)
+        if role not in {"owner", "manager"}:
+            messages.error(request, "شما دسترسی به مدیریت مشتریان را ندارید.")
+            return redirect("dashboard:home")
+        return result
+
+    def get_queryset(self):
+        from customers.models import Customer
+        store = self.request.current_store
+        q = self.request.GET.get("q", "").strip()
+        if q:
+            return Customer.objects.filter(store=store).filter(
+                Q(phone__icontains=q) | Q(name__icontains=q) | Q(email__icontains=q)
+            ).order_by("-created_at")
+        return Customer.objects.filter(store=store).order_by("-created_at")
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["q"] = self.request.GET.get("q", "")
+        return ctx
+
+
+# ─── SS-12/SO-13: Low Stock View ───────────────────────────
+class LowStockView(StoreAccessMixin, ListView):
+    template_name = "dashboard/low_stock.html"
+    context_object_name = "variants"
+    paginate_by = 25
+    THRESHOLD = 5
+
+    def get_queryset(self):
+        store = self.request.current_store
+        return (
+            ProductVariant.objects.filter(
+                product__store=store,
+                stock__lte=self.THRESHOLD,
+            )
+            .select_related("product")
+            .order_by("stock", "product__name")
+        )
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["threshold"] = self.THRESHOLD
+        return ctx
 
 
 # ─── Categories ────────────────────────────────────────────
