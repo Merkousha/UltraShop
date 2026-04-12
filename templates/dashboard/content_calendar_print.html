@@ -1,0 +1,182 @@
+{% load static %}<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>تقویم محتوایی — {{ store.name }} — {{ month_label }}</title>
+  <link rel="stylesheet" href="{% static 'css/vazirmatn.css' %}">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Vazirmatn', Tahoma, sans-serif;
+      font-size: 11pt;
+      color: #1a1a1a;
+      background: #fff;
+      padding: 20px;
+    }
+    .print-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid #6366f1;
+      padding-bottom: 12px;
+      margin-bottom: 20px;
+    }
+    .print-header h1 {
+      font-size: 16pt;
+      color: #6366f1;
+    }
+    .print-header p {
+      font-size: 10pt;
+      color: #6b7280;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+    }
+    thead tr {
+      background: #6366f1;
+      color: #fff;
+    }
+    thead th {
+      padding: 8px 10px;
+      text-align: right;
+      font-size: 10pt;
+      border: 1px solid #4f46e5;
+    }
+    tbody tr:nth-child(even) {
+      background: #f5f3ff;
+    }
+    tbody tr:hover {
+      background: #ede9fe;
+    }
+    tbody td {
+      padding: 7px 10px;
+      border: 1px solid #e5e7eb;
+      vertical-align: top;
+      font-size: 10pt;
+    }
+    .date-cell {
+      white-space: nowrap;
+      font-weight: 600;
+      color: #4f46e5;
+      min-width: 80px;
+    }
+    .topic-cell {
+      font-weight: 600;
+      min-width: 130px;
+    }
+    .caption-cell {
+      color: #374151;
+      max-width: 280px;
+    }
+    .hashtag-cell {
+      color: #6d28d9;
+      font-size: 9pt;
+      min-width: 120px;
+    }
+    .time-cell {
+      white-space: nowrap;
+      min-width: 70px;
+    }
+    .empty-state {
+      text-align: center;
+      padding: 40px;
+      color: #9ca3af;
+    }
+    .print-footer {
+      margin-top: 20px;
+      border-top: 1px solid #e5e7eb;
+      padding-top: 8px;
+      font-size: 9pt;
+      color: #9ca3af;
+      display: flex;
+      justify-content: space-between;
+    }
+    .no-print {
+      margin-bottom: 20px;
+      display: flex;
+      gap: 10px;
+    }
+    .btn {
+      padding: 8px 18px;
+      border-radius: 6px;
+      font-size: 10pt;
+      font-family: inherit;
+      cursor: pointer;
+      border: none;
+    }
+    .btn-primary {
+      background: #6366f1;
+      color: #fff;
+    }
+    .btn-secondary {
+      background: #e5e7eb;
+      color: #374151;
+    }
+    @media print {
+      .no-print { display: none !important; }
+      body { padding: 10px; }
+      thead tr { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      tbody tr:nth-child(even) { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+    @page {
+      size: A4 landscape;
+      margin: 15mm;
+    }
+  </style>
+</head>
+<body>
+  {# ─── دکمه‌های چاپ و بازگشت ─── #}
+  <div class="no-print">
+    <button class="btn btn-primary" onclick="window.print()">🖨️ چاپ / ذخیره PDF</button>
+    <a href="{% url 'dashboard:content-calendar' %}?month={{ month_label }}" class="btn btn-secondary">← بازگشت</a>
+  </div>
+
+  {# ─── سربرگ ─── #}
+  <div class="print-header">
+    <div>
+      <h1>📅 تقویم محتوایی</h1>
+      <p>فروشگاه: {{ store.name }} — ماه: {{ month_label }}</p>
+    </div>
+    <p>تعداد پست‌ها: {{ entries|length }}</p>
+  </div>
+
+  {# ─── جدول ─── #}
+  {% if entries %}
+  <table>
+    <thead>
+      <tr>
+        <th>تاریخ</th>
+        <th>موضوع</th>
+        <th>کپشن پیشنهادی</th>
+        <th>هشتگ‌ها</th>
+        <th>زمان پیشنهادی</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for entry in entries %}
+      <tr>
+        <td class="date-cell">{{ entry.date }}</td>
+        <td class="topic-cell">{{ entry.topic }}</td>
+        <td class="caption-cell">{{ entry.caption }}</td>
+        <td class="hashtag-cell">{{ entry.hashtags }}</td>
+        <td class="time-cell">{{ entry.suggested_time }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">
+    <p>📭 برای این ماه تقویم محتوایی تولید نشده است.</p>
+  </div>
+  {% endif %}
+
+  {# ─── پاورقی ─── #}
+  <div class="print-footer">
+    <span>UltraShop — تقویم محتوایی هوشمند</span>
+    <span>{{ month_label }}</span>
+  </div>
+</body>
+</html>

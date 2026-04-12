@@ -183,3 +183,55 @@ class WarehouseStock(models.Model):
     @property
     def available(self):
         return max(0, self.quantity - self.reserved)
+
+
+# ─── SS-13: Inventory Audit Log ────────────────────────────────
+class InventoryLog(models.Model):
+    """ثبت تمام تغییرات موجودی انبار برای هر تنوع محصول (SS-13)."""
+
+    class Action(models.TextChoices):
+        ADJUST = "adjust", "تنظیم موجودی"
+        TRANSFER = "transfer", "انتقال"
+        RECEIPT = "receipt", "رسید کالا"
+        SALE = "sale", "فروش"
+        RETURN = "return", "مرجوعی"
+
+    warehouse = models.ForeignKey(
+        "core.Warehouse",
+        on_delete=models.CASCADE,
+        related_name="inventory_logs",
+    )
+    variant = models.ForeignKey(
+        ProductVariant,
+        on_delete=models.CASCADE,
+        related_name="inventory_logs",
+    )
+    action = models.CharField(max_length=20, choices=Action.choices)
+    quantity_before = models.IntegerField()
+    quantity_change = models.IntegerField(
+        help_text="مثبت = افزایش، منفی = کاهش"
+    )
+    quantity_after = models.IntegerField()
+    note = models.TextField(blank=True, default="")
+    actor = models.ForeignKey(
+        "core.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="inventory_log_entries",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "inventory_logs"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["warehouse", "created_at"]),
+            models.Index(fields=["variant", "created_at"]),
+        ]
+
+    def __str__(self):
+        return (
+            f"[{self.get_action_display()}] {self.variant} @ {self.warehouse.name}: "
+            f"{self.quantity_before} → {self.quantity_after}"
+        )

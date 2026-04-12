@@ -60,32 +60,77 @@
                    class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
                    placeholder="09xxxxxxxxx">
         </div>
+        <div>
+            <label class="block text-sm font-medium mb-1">ایمیل (برای ارسال تأیید سفارش)</label>
+            <input type="email" name="email" dir="ltr"
+                   class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                   placeholder="example@email.com">
+        </div>
 
         {% if needs_shipping %}
         <h2 class="font-semibold text-base border-b pb-2 pt-2">آدرس ارسال</h2>
+
+        {% if saved_addresses %}
+        <div class="mb-3">
+            <label class="block text-sm font-medium mb-1">انتخاب آدرس ذخیره‌شده</label>
+            <div class="space-y-2">
+                {% for addr in saved_addresses %}
+                <div class="flex items-start gap-2 border rounded-lg p-3 cursor-pointer hover:bg-gray-50 saved-addr-item"
+                     data-address="{{ addr.address }}"
+                     data-city="{{ addr.city }}"
+                     data-province="{{ addr.province }}"
+                     data-postal="{{ addr.postal_code }}">
+                    <input type="radio" name="_saved_addr" value="{{ addr.pk }}" class="mt-1 saved-addr-radio">
+                    <div>
+                        {% if addr.title %}<p class="font-medium text-sm">{{ addr.title }}</p>{% endif %}
+                        <p class="text-sm text-gray-700">{{ addr.address }}</p>
+                        <p class="text-xs text-gray-500">{{ addr.city }}، {{ addr.province }}{% if addr.postal_code %} — کد پستی: {{ addr.postal_code }}{% endif %}</p>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            <p class="text-xs text-gray-400 mt-1">یا آدرس جدید وارد کنید:</p>
+        </div>
+        {% endif %}
+
         <div>
             <label class="block text-sm font-medium mb-1">آدرس کامل *</label>
-            <textarea name="address" required rows="2" aria-required="true"
+            <textarea name="address" id="field-address" required rows="2" aria-required="true"
                       class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
                       placeholder="آدرس دقیق خود را وارد کنید"></textarea>
         </div>
         <div class="grid grid-cols-2 gap-3">
             <div>
                 <label class="block text-sm font-medium mb-1">شهر *</label>
-                <input type="text" name="city" required aria-required="true"
+                <input type="text" name="city" id="field-city" required aria-required="true"
                        class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
             </div>
             <div>
                 <label class="block text-sm font-medium mb-1">استان *</label>
-                <input type="text" name="province" required aria-required="true"
+                <input type="text" name="province" id="field-province" required aria-required="true"
                        class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
             </div>
         </div>
         <div>
             <label class="block text-sm font-medium mb-1">کد پستی</label>
-            <input type="text" name="postal_code" dir="ltr"
+            <input type="text" name="postal_code" id="field-postal" dir="ltr"
                    class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
         </div>
+        {% if saved_addresses %}
+        <script>
+        (function() {
+            document.querySelectorAll('.saved-addr-item').forEach(function(item) {
+                item.addEventListener('click', function() {
+                    item.querySelector('.saved-addr-radio').checked = true;
+                    document.getElementById('field-address').value = item.dataset.address;
+                    document.getElementById('field-city').value = item.dataset.city;
+                    document.getElementById('field-province').value = item.dataset.province;
+                    document.getElementById('field-postal').value = item.dataset.postal;
+                });
+            });
+        })();
+        </script>
+        {% endif %}
         {% else %}
         <p class="text-sm text-gray-500 bg-blue-50 border border-blue-200 rounded p-3">
             ✉️ این سفارش شامل محصولات دانلودی یا غیرفیزیکی است و نیاز به آدرس ارسال ندارد.

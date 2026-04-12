@@ -1,10 +1,27 @@
 {% extends "storefront/base.html" %}
+{% load static %}
 {% block title %}جستجو: {{ query }} — {{ store.name }}{% endblock %}
 {% block content %}
-<h2 class="text-xl font-bold mb-2">🔍 نتایج جستجو</h2>
-<p class="text-sm text-gray-500 mb-6">عبارت: «{{ query }}» — {{ products.paginator.count }} نتیجه</p>
+<div class="flex items-center justify-between mb-2">
+    <div>
+        <h2 class="text-xl font-bold">🔍 نتایج جستجو</h2>
+        <p class="text-sm text-gray-500">عبارت: «{{ query }}» — {{ products.paginator.count }} نتیجه</p>
+    </div>
+    <!-- Sort dropdown — form-based to avoid XSS via window.location -->
+    <form method="get" id="sort-form" class="flex items-center gap-2">
+        <input type="hidden" name="q" value="{{ query }}">
+        <label class="text-sm text-gray-500" for="sort-select-search">مرتب‌سازی:</label>
+        <select id="sort-select-search" name="sort"
+                onchange="document.getElementById('sort-form').submit()"
+                class="border rounded px-2 py-1 text-sm bg-white">
+            <option value="newest" {% if current_sort == 'newest' %}selected{% endif %}>جدیدترین</option>
+            <option value="price_asc" {% if current_sort == 'price_asc' %}selected{% endif %}>ارزان‌ترین</option>
+            <option value="price_desc" {% if current_sort == 'price_desc' %}selected{% endif %}>گران‌ترین</option>
+        </select>
+    </form>
+</div>
 
-<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mt-4">
     {% for product in products %}
     <a href="{% url 'storefront:product-detail' store.username product.slug %}" class="bg-white rounded-lg shadow overflow-hidden hover:shadow-md transition group">
         {% with img=product.primary_image %}
@@ -33,9 +50,9 @@
 
 {% if products.has_other_pages %}
 <div class="flex justify-center gap-2 mt-6">
-    {% if products.has_previous %}<a href="?q={{ query }}&page={{ products.previous_page_number }}" class="px-3 py-1 border rounded text-sm hover:bg-gray-100">قبلی</a>{% endif %}
+    {% if products.has_previous %}<a href="?q={{ query }}&sort={{ current_sort }}&page={{ products.previous_page_number }}" class="px-3 py-1 border rounded text-sm hover:bg-gray-100">قبلی</a>{% endif %}
     <span class="px-3 py-1 text-sm text-gray-500">صفحه {{ products.number }} از {{ products.paginator.num_pages }}</span>
-    {% if products.has_next %}<a href="?q={{ query }}&page={{ products.next_page_number }}" class="px-3 py-1 border rounded text-sm hover:bg-gray-100">بعدی</a>{% endif %}
+    {% if products.has_next %}<a href="?q={{ query }}&sort={{ current_sort }}&page={{ products.next_page_number }}" class="px-3 py-1 border rounded text-sm hover:bg-gray-100">بعدی</a>{% endif %}
 </div>
 {% endif %}
 {% endblock %}

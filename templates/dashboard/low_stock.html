@@ -1,0 +1,74 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+{% block title %}کالاهای رو به اتمام{% endblock %}
+{% block content %}
+<div class="mb-6 flex items-center justify-between">
+    <div>
+        <h1 class="text-2xl font-bold">📉 کالاهای رو به اتمام</h1>
+        <p class="text-sm text-gray-500 mt-1">محصولاتی که موجودی آن‌ها کمتر یا مساوی {{ threshold }} عدد است.</p>
+    </div>
+    <a href="{% url 'dashboard:product-list' %}" class="bg-gray-200 text-gray-700 px-4 py-2 rounded text-sm hover:bg-gray-300">
+        بازگشت به محصولات
+    </a>
+</div>
+
+{% if variants %}
+<div class="bg-white rounded-lg shadow overflow-hidden">
+    <table class="w-full text-sm">
+        <thead class="bg-gray-50 border-b">
+            <tr>
+                <th class="text-right px-4 py-3 font-medium text-gray-600">محصول</th>
+                <th class="text-right px-4 py-3 font-medium text-gray-600">تنوع / SKU</th>
+                <th class="text-right px-4 py-3 font-medium text-gray-600">موجودی فعلی</th>
+                <th class="text-right px-4 py-3 font-medium text-gray-600">عملیات</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+            {% for variant in variants %}
+            <tr class="hover:bg-gray-50">
+                <td class="px-4 py-3 font-medium">{{ variant.product.name }}</td>
+                <td class="px-4 py-3 text-gray-600">
+                    {{ variant.name }}
+                    {% if variant.sku %}<span class="text-xs text-gray-400 mr-1">({{ variant.sku }})</span>{% endif %}
+                </td>
+                <td class="px-4 py-3">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
+                        {% if variant.stock == 0 %}bg-red-100 text-red-700
+                        {% elif variant.stock <= 2 %}bg-orange-100 text-orange-700
+                        {% else %}bg-yellow-100 text-yellow-700{% endif %}">
+                        {{ variant.stock }} عدد
+                    </span>
+                </td>
+                <td class="px-4 py-3">
+                    <a href="{% url 'dashboard:product-edit' variant.product.pk %}"
+                       class="text-indigo-600 hover:text-indigo-800 text-xs font-medium">
+                        ویرایش محصول
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Pagination -->
+{% if is_paginated %}
+<div class="flex justify-center gap-2 mt-6">
+    {% if page_obj.has_previous %}
+    <a href="?page={{ page_obj.previous_page_number }}" class="px-3 py-1 border rounded text-sm hover:bg-gray-100">قبلی</a>
+    {% endif %}
+    <span class="px-3 py-1 text-sm text-gray-500">صفحه {{ page_obj.number }} از {{ page_obj.paginator.num_pages }}</span>
+    {% if page_obj.has_next %}
+    <a href="?page={{ page_obj.next_page_number }}" class="px-3 py-1 border rounded text-sm hover:bg-gray-100">بعدی</a>
+    {% endif %}
+</div>
+{% endif %}
+
+{% else %}
+<div class="bg-white rounded-lg shadow p-12 text-center">
+    <p class="text-4xl mb-3">✅</p>
+    <p class="text-gray-500 font-medium">همه محصولات موجودی کافی دارند.</p>
+    <p class="text-sm text-gray-400 mt-1">محصولی با موجودی کمتر یا مساوی {{ threshold }} عدد وجود ندارد.</p>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,4 +1,5 @@
 {% extends "storefront/base.html" %}
+{% load static %}
 {% block title %}{{ category.name }} — {{ store.name }}{% endblock %}
 {% block content %}
 <nav class="text-sm text-gray-400 mb-4">
@@ -7,7 +8,19 @@
     <span>{{ category.name }}</span>
 </nav>
 
-<h2 class="text-xl font-bold mb-6">{{ category.name }}</h2>
+<div class="flex items-center justify-between mb-6">
+    <h2 class="text-xl font-bold">{{ category.name }}</h2>
+    <!-- Sort dropdown -->
+    <div class="flex items-center gap-2">
+        <label class="text-sm text-gray-500">مرتب‌سازی:</label>
+        <select id="sort-select" class="border rounded px-2 py-1 text-sm bg-white"
+                onchange="var u=new URL(window.location.href);u.searchParams.set('sort',['newest','price_asc','price_desc'].includes(this.value)?this.value:'newest');u.searchParams.delete('page');window.location.assign(u.toString())">
+            <option value="newest" {% if current_sort == 'newest' %}selected{% endif %}>جدیدترین</option>
+            <option value="price_asc" {% if current_sort == 'price_asc' %}selected{% endif %}>ارزان‌ترین</option>
+            <option value="price_desc" {% if current_sort == 'price_desc' %}selected{% endif %}>گران‌ترین</option>
+        </select>
+    </div>
+</div>
 
 {% if category.seo_description %}
 <p class="text-gray-500 text-sm mb-4">{{ category.seo_description }}</p>
@@ -49,9 +62,9 @@
 <!-- Pagination -->
 {% if products.has_other_pages %}
 <div class="flex justify-center gap-2 mt-6">
-    {% if products.has_previous %}<a href="?page={{ products.previous_page_number }}" class="px-3 py-1 border rounded text-sm hover:bg-gray-100">قبلی</a>{% endif %}
+    {% if products.has_previous %}<a href="?sort={{ current_sort }}&page={{ products.previous_page_number }}" class="px-3 py-1 border rounded text-sm hover:bg-gray-100">قبلی</a>{% endif %}
     <span class="px-3 py-1 text-sm text-gray-500">صفحه {{ products.number }} از {{ products.paginator.num_pages }}</span>
-    {% if products.has_next %}<a href="?page={{ products.next_page_number }}" class="px-3 py-1 border rounded text-sm hover:bg-gray-100">بعدی</a>{% endif %}
+    {% if products.has_next %}<a href="?sort={{ current_sort }}&page={{ products.next_page_number }}" class="px-3 py-1 border rounded text-sm hover:bg-gray-100">بعدی</a>{% endif %}
 </div>
 {% endif %}
 {% endblock %}

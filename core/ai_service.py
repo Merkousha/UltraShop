@@ -342,6 +342,105 @@ def chat_with_products(session_messages: list, product_context: str, store) -> s
             raise AIError(str(e), user_message="خطا در دستیار هوشمند. لطفاً بعداً امتحان کنید.")
 
 
+def call_vision_ai(store, image_file, prompt: str) -> str:
+    """
+    SO-34: Generic Vision AI call for receipt/invoice OCR.
+    Accepts an uploaded image file, encodes it to base64, and calls GPT-4o vision.
+    Returns the raw text response from the model.
+    """
+    import base64
+
+    _check_and_consume_rate_limit(store)
+    ps = PlatformSettings.load()
+    client = _get_client()
+    model = ps.vision_model or "gpt-4o"
+
+    image_data = image_file.read()
+    image_b64 = base64.b64encode(image_data).decode("utf-8")
+    # Try to detect MIME type from file name
+    name = getattr(image_file, "name", "receipt.jpg").lower()
+    if name.endswith(".png"):
+        mime = "image/png"
+    elif name.endswith(".webp"):
+        mime = "image/webp"
+    elif name.endswith(".gif"):
+        mime = "image/gif"
+    else:
+        mime = "image/jpeg"
+
+    max_retries = 2
+    for attempt in range(max_retries + 1):
+        try:
+            response = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": prompt},
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": f"data:{mime};base64,{image_b64}"},
+                            },
+                        ],
+                    }
+                ],
+                max_tokens=1024,
+            )
+            text = response.choices[0].message.content.strip()
+            # Strip markdown code block if present
+            if text.startswith("```"):
+                text = text.split("```")[1]
+                if text.startswith("json"):
+                    text = text[4:]
+                text = text.strip()
+            return text
+        except Exception as e:
+            err_msg = str(e).lower()
+            if "rate" in err_msg or "quota" in err_msg or "429" in err_msg:
+                raise AIError(str(e), user_message="محدودیت درخواست API. بعداً تلاش کنید.")
+            if attempt < max_retries:
+                time.sleep(1.0 * (attempt + 1))
+                continue
+            raise AIError(str(e), user_message="خطا در استخراج اطلاعات فاکتور. تصویر را بررسی کنید یا اطلاعات را دستی وارد کنید.")
+
+
+def call_text_ai(store, prompt: str) -> str:
+    """
+    SO-36: Generic text AI call. Consumes rate limit.
+    Sends `prompt` to the configured text model and returns the raw string response.
+    Strips markdown code blocks if present.
+    """
+    _check_and_consume_rate_limit(store)
+    ps = PlatformSettings.load()
+    client = _get_client()
+    model = ps.text_model or "gpt-4o-mini"
+
+    max_retries = 2
+    for attempt in range(max_retries + 1):
+        try:
+            response = client.chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=1024,
+            )
+            text = response.choices[0].message.content.strip()
+            if text.startswith("```"):
+                text = text.split("```")[1]
+                if text.startswith("json"):
+                    text = text[4:]
+                text = text.strip()
+            return text
+        except Exception as e:
+            err_msg = str(e).lower()
+            if "rate" in err_msg or "quota" in err_msg or "429" in err_msg:
+                raise AIError(str(e), user_message="محدودیت درخواست API. بعداً تلاش کنید.")
+            if attempt < max_retries:
+                time.sleep(1.0 * (attempt + 1))
+                continue
+            raise AIError(str(e), user_message="خطا در تولید گزارش AI. لطفاً بعداً امتحان کنید.")
+
+
 def text_generate_brand_identity(
     brand_name: str,
     business_type: str,
@@ -394,3 +493,35 @@ Base color preference: {base_color or "—"}
                 time.sleep(1.0 * (attempt + 1))
                 continue
             raise AIError(str(e), user_message="خطا در تولید هویت برند.")
+
+
+def generate_logo_image(store, brand_name: str, style: str = "minimal", colors: str = "blue and white") -> str:
+    """تولید لوگو با DALL-E 3 برای فروشگاه (SO-07).
+
+    Returns:
+        URL تصویر تولیدشده (رشته)
+    Raises:
+        AIError در صورت بروز خطا
+    """
+    _check_and_consume_rate_limit(store)
+    client = _get_client()
+
+    prompt = (
+        f'A professional minimalist logo for a brand called "{brand_name}". '
+        f"Style: {style}, clean, modern. "
+        f"Colors: {colors}. "
+        "No text in the logo. Simple icon suitable for e-commerce. "
+        "White background, high contrast."
+    )
+
+    try:
+        response = client.images.generate(
+            model="dall-e-3",
+            prompt=prompt,
+            size="1024x1024",
+            quality="standard",
+            n=1,
+        )
+        return response.data[0].url
+    except Exception as e:
+        raise AIError(str(e), user_message=f"خطا در تولید تصویر لوگو: {e}")

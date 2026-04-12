@@ -20,6 +20,7 @@ urlpatterns = [
     path("products/<int:pk>/images/<int:image_id>/delete/", views.ProductImageDeleteView.as_view(), name="product-image-delete"),
     path("products/<int:pk>/images/<int:image_id>/set-primary/", views.ProductImageSetPrimaryView.as_view(), name="product-image-set-primary"),
     path("products/bulk-action/", views.ProductBulkActionView.as_view(), name="product-bulk-action"),
+    path("products/low-stock/", views.LowStockView.as_view(), name="low-stock"),
 
     # Categories
     path("categories/", views.CategoryListView.as_view(), name="category-list"),
@@ -32,6 +33,8 @@ urlpatterns = [
     path("warehouses/<int:pk>/inventory/", views.WarehouseInventoryView.as_view(), name="warehouse-inventory"),
     path("warehouses/transfer/", views.StockTransferView.as_view(), name="stock-transfer"),
     path("warehouses/staff/", views.StaffWarehouseAssignmentView.as_view(), name="staff-warehouses"),
+    path("warehouses/forecast/", views.InventoryForecastView.as_view(), name="inventory-forecast"),
+    path("warehouses/inventory-log/", views.InventoryLogView.as_view(), name="inventory-log"),
 
     # Orders
     path("orders/", views.OrderListView.as_view(), name="order-list"),
@@ -42,6 +45,11 @@ urlpatterns = [
 
     # Accounting
     path("accounting/", views.AccountingLedgerView.as_view(), name="accounting-ledger"),
+    path("accounting/expenses/", views.ExpenseListView.as_view(), name="expense-list"),
+    path("accounting/expenses/new/", views.ExpenseCreateView.as_view(), name="expense-create"),
+    path("accounting/expenses/export/", views.ExpenseExportView.as_view(), name="expense-export"),
+    path("accounting/financial-health/", views.FinancialHealthView.as_view(), name="financial-health"),
+    path("accounting/cfo-agent/", views.CFOAgentView.as_view(), name="cfo-agent"),
 
     # Analytics (BI dashboard)
     path("analytics/", views.DashboardAnalyticsView.as_view(), name="analytics"),
@@ -74,10 +82,21 @@ urlpatterns = [
     path("abandoned-carts/", views.AbandonedCartListView.as_view(), name="abandoned-carts"),
     path("abandoned-carts/<int:pk>/send-now/", views.AbandonedCartSendNowView.as_view(), name="abandoned-cart-send-now"),
 
+    # SS-05: Customer Search
+    path("customers/", views.CustomerSearchView.as_view(), name="customer-search"),
+
     # Phase 3: AI Chat History
     path("chat-history/", views.ChatHistoryView.as_view(), name="chat-history"),
 
     # Phase 4: External Integrations
     path("integrations/", views.IntegrationsView.as_view(), name="integrations"),
     path("integrations/<str:integration_id>/test/", views.IntegrationTestView.as_view(), name="integration-test"),
+
+    # SO-18: Content Calendar
+    path("content-calendar/", views.ContentCalendarView.as_view(), name="content-calendar"),
+    path("content-calendar/export/", views.ContentCalendarExportView.as_view(), name="content-calendar-export"),
+    path("content-calendar/print/", views.ContentCalendarPrintView.as_view(), name="content-calendar-print"),
+
+    # SO-47: CRO Optimizer
+    path("cro-optimizer/", views.CROOptimizerView.as_view(), name="cro-optimizer"),
 ]

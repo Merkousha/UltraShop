@@ -45,6 +45,11 @@ class Store(models.Model):
     email_use_tls = models.BooleanField(default=True)
     email_from = models.EmailField(blank=True, default="")
 
+    generated_logo_url = models.URLField(
+        blank=True,
+        default="",
+        help_text="آدرس لوگوی تولیدشده توسط AI (SO-07)",
+    )
     timezone = models.CharField(max_length=50, default="Asia/Tehran")
     currency = models.CharField(max_length=10, default="IRR")
     allow_guest_checkout = models.BooleanField(default=True)
@@ -399,3 +404,68 @@ class StoreIntegration(models.Model):
 
     def __str__(self):
         return f"{self.integration_id} @ {self.store.name}"
+
+
+# ─── SO-18: Content Calendar ──────────────────────────────────
+class ContentCalendarEntry(models.Model):
+    """یک آیتم تقویم محتوایی AI برای یک روز خاص."""
+
+    store = models.ForeignKey(
+        "core.Store",
+        on_delete=models.CASCADE,
+        related_name="calendar_entries",
+    )
+    date = models.DateField()
+    topic = models.CharField(max_length=300)
+    caption = models.TextField(blank=True, default="")
+    hashtags = models.CharField(max_length=500, blank=True, default="")
+    suggested_time = models.CharField(max_length=50, blank=True, default="")
+    is_ai_generated = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "content_calendar_entries"
+        ordering = ["date"]
+
+    def __str__(self):
+        return f"{self.date} — {self.topic[:50]}"
+
+
+# ─── SO-47: CRO Optimizer ─────────────────────────────────────
+class CROSuggestion(models.Model):
+    """پیشنهاد بهینه‌سازی نرخ تبدیل (CRO) تولیدشده توسط AI."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "در انتظار"
+        ACCEPTED = "accepted", "پذیرفته شد"
+        DISMISSED = "dismissed", "رد شد"
+
+    class Impact(models.TextChoices):
+        LOW = "low", "کم"
+        MEDIUM = "medium", "متوسط"
+        HIGH = "high", "زیاد"
+
+    store = models.ForeignKey(
+        "core.Store",
+        on_delete=models.CASCADE,
+        related_name="cro_suggestions",
+    )
+    suggestion = models.TextField()
+    impact = models.CharField(
+        max_length=10,
+        choices=Impact.choices,
+        default=Impact.MEDIUM,
+    )
+    status = models.CharField(
+        max_length=10,
+        choices=Status.choices,
+        default=Status.PENDING,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "cro_suggestions"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"CRO [{self.impact}] {self.store.name}: {self.suggestion[:60]}"

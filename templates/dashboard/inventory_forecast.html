@@ -1,0 +1,195 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+{% block title %}پیش‌بینی موجودی{% endblock %}
+
+{% block content %}
+<div dir="rtl">
+
+  {# ── سربرگ ── #}
+  <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+    <div>
+      <h2 class="text-2xl font-bold text-gray-800">📉 پیش‌بینی موجودی</h2>
+      <p class="text-sm text-gray-500 mt-1">تحلیل زمان اتمام موجودی بر اساس فروش ۹۰ روز اخیر</p>
+    </div>
+  </div>
+
+  {# ── کارت‌های خلاصه ── #}
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+
+    <a href="?urgency=critical"
+       class="block bg-white rounded-xl shadow-sm border {% if urgency_filter == 'critical' %}border-red-400 ring-2 ring-red-200{% else %}border-gray-100{% endif %} p-5 hover:shadow-md transition-shadow">
+      <div class="flex items-center gap-3">
+        <span class="text-3xl">🔴</span>
+        <div>
+          <p class="text-xs text-gray-500 font-medium">بحرانی (≤ ۷ روز)</p>
+          <p class="text-2xl font-bold text-red-600">{{ critical_count }}</p>
+        </div>
+      </div>
+    </a>
+
+    <a href="?urgency=warning"
+       class="block bg-white rounded-xl shadow-sm border {% if urgency_filter == 'warning' %}border-amber-400 ring-2 ring-amber-200{% else %}border-gray-100{% endif %} p-5 hover:shadow-md transition-shadow">
+      <div class="flex items-center gap-3">
+        <span class="text-3xl">🟡</span>
+        <div>
+          <p class="text-xs text-gray-500 font-medium">هشدار (۸–۳۰ روز)</p>
+          <p class="text-2xl font-bold text-amber-600">{{ warning_count }}</p>
+        </div>
+      </div>
+    </a>
+
+    <a href="?urgency=ok"
+       class="block bg-white rounded-xl shadow-sm border {% if urgency_filter == 'ok' %}border-green-400 ring-2 ring-green-200{% else %}border-gray-100{% endif %} p-5 hover:shadow-md transition-shadow">
+      <div class="flex items-center gap-3">
+        <span class="text-3xl">🟢</span>
+        <div>
+          <p class="text-xs text-gray-500 font-medium">خوب (> ۳۰ روز)</p>
+          <p class="text-2xl font-bold text-green-600">{{ ok_count }}</p>
+        </div>
+      </div>
+    </a>
+
+  </div>
+
+  {# ── فیلتر فعال + دکمه پاک کردن ── #}
+  {% if urgency_filter %}
+  <div class="flex items-center gap-3 mb-4">
+    <span class="text-sm text-gray-500">فیلتر فعال:</span>
+    <span class="px-3 py-1 rounded-full text-sm font-medium
+      {% if urgency_filter == 'critical' %}bg-red-100 text-red-700
+      {% elif urgency_filter == 'warning' %}bg-amber-100 text-amber-700
+      {% else %}bg-green-100 text-green-700{% endif %}">
+      {% if urgency_filter == 'critical' %}🔴 بحرانی
+      {% elif urgency_filter == 'warning' %}🟡 هشدار
+      {% else %}🟢 خوب{% endif %}
+    </span>
+    <a href="?" class="text-sm text-indigo-600 hover:underline">× پاک کردن فیلتر</a>
+  </div>
+  {% endif %}
+
+  {# ── جدول اصلی ── #}
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+
+    {% if forecasts %}
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="bg-gray-50 text-gray-500 text-xs border-b border-gray-100">
+            <th class="px-5 py-3 text-right font-medium">محصول</th>
+            <th class="px-5 py-3 text-right font-medium">تنوع</th>
+            <th class="px-5 py-3 text-left font-medium ltr">موجودی فعلی</th>
+            <th class="px-5 py-3 text-left font-medium ltr">فروش روزانه</th>
+            <th class="px-5 py-3 text-left font-medium ltr">روزهای باقی‌مانده</th>
+            <th class="px-5 py-3 text-left font-medium ltr">پیشنهاد سفارش</th>
+            <th class="px-5 py-3 text-right font-medium">وضعیت</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-50">
+          {% for item in forecasts %}
+          <tr class="hover:bg-gray-50 transition-colors
+            {% if item.urgency == 'critical' %}bg-red-50{% elif item.urgency == 'warning' %}bg-amber-50{% endif %}">
+
+            {# محصول #}
+            <td class="px-5 py-3 font-medium text-gray-800">{{ item.product_name }}</td>
+
+            {# تنوع #}
+            <td class="px-5 py-3 text-gray-500 text-xs">{{ item.variant_name|default:"—" }}</td>
+
+            {# موجودی فعلی #}
+            <td class="px-5 py-3 text-left ltr">
+              <span class="font-semibold {% if item.current_stock == 0 %}text-red-600{% elif item.current_stock < 10 %}text-amber-600{% else %}text-gray-700{% endif %}">
+                {{ item.current_stock }}
+              </span>
+              <span class="text-xs text-gray-400 mr-1">عدد</span>
+            </td>
+
+            {# فروش روزانه #}
+            <td class="px-5 py-3 text-left ltr text-gray-600">
+              {% if item.avg_daily_sales > 0 %}
+                {{ item.avg_daily_sales }}
+                <span class="text-xs text-gray-400 mr-1">عدد/روز</span>
+              {% else %}
+                <span class="text-gray-400 text-xs">بدون فروش</span>
+              {% endif %}
+            </td>
+
+            {# روزهای باقی‌مانده #}
+            <td class="px-5 py-3 text-left ltr">
+              {% if item.days_until_stockout is None %}
+                <span class="text-green-600 text-xs font-medium">نامحدود</span>
+              {% elif item.days_until_stockout == 0 %}
+                <span class="text-red-700 font-bold">ناموجود</span>
+              {% else %}
+                <span class="font-semibold
+                  {% if item.days_until_stockout <= 7 %}text-red-600
+                  {% elif item.days_until_stockout <= 30 %}text-amber-600
+                  {% else %}text-green-600{% endif %}">
+                  {{ item.days_until_stockout }}
+                </span>
+                <span class="text-xs text-gray-400 mr-1">روز</span>
+              {% endif %}
+            </td>
+
+            {# پیشنهاد سفارش #}
+            <td class="px-5 py-3 text-left ltr">
+              {% if item.suggested_reorder > 0 %}
+                <span class="font-semibold text-indigo-700">{{ item.suggested_reorder }}</span>
+                <span class="text-xs text-gray-400 mr-1">عدد</span>
+              {% else %}
+                <span class="text-gray-400 text-xs">—</span>
+              {% endif %}
+            </td>
+
+            {# وضعیت badge #}
+            <td class="px-5 py-3 text-right">
+              <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold
+                {% if item.urgency == 'critical' %}bg-red-100 text-red-700
+                {% elif item.urgency == 'warning' %}bg-amber-100 text-amber-700
+                {% else %}bg-green-100 text-green-700{% endif %}">
+                {{ item.urgency_label }}
+              </span>
+            </td>
+
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {# پاورقی جدول #}
+    <div class="px-5 py-3 bg-gray-50 border-t border-gray-100 text-xs text-gray-400">
+      {{ forecasts|length }} محصول نمایش داده می‌شود.
+      پیش‌بینی بر اساس میانگین فروش ۹۰ روز گذشته محاسبه شده است.
+    </div>
+
+    {% else %}
+    {# حالت خالی #}
+    <div class="px-6 py-16 text-center">
+      <p class="text-5xl mb-4">📦</p>
+      {% if urgency_filter %}
+      <h3 class="text-lg font-semibold text-gray-700 mb-2">محصولی با این وضعیت یافت نشد</h3>
+      <p class="text-sm text-gray-400 mb-4">فیلتر را تغییر دهید یا <a href="?" class="text-indigo-600 hover:underline">همه موارد</a> را ببینید.</p>
+      {% else %}
+      <h3 class="text-lg font-semibold text-gray-700 mb-2">محصول فعالی برای پیش‌بینی یافت نشد</h3>
+      <p class="text-sm text-gray-400">ابتدا محصول فعال با موجودی اضافه کنید.</p>
+      {% endif %}
+    </div>
+    {% endif %}
+
+  </div>
+
+  {# راهنما #}
+  <div class="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-gray-500">
+    <div class="flex items-center gap-2 bg-red-50 rounded-lg px-3 py-2 border border-red-100">
+      <span>🔴</span> <span><strong>بحرانی:</strong> موجودی ظرف ۷ روز تمام می‌شود — فوری سفارش دهید.</span>
+    </div>
+    <div class="flex items-center gap-2 bg-amber-50 rounded-lg px-3 py-2 border border-amber-100">
+      <span>🟡</span> <span><strong>هشدار:</strong> موجودی ظرف ۸ تا ۳۰ روز تمام می‌شود.</span>
+    </div>
+    <div class="flex items-center gap-2 bg-green-50 rounded-lg px-3 py-2 border border-green-100">
+      <span>🟢</span> <span><strong>خوب:</strong> موجودی کافی (بیش از ۳۰ روز).</span>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,139 @@
+{% extends "storefront/base.html" %}
+{% load static %}
+{% block title %}سفارش #{{ order.pk }} — {{ store.name }}{% endblock %}
+{% block content %}
+<div class="max-w-2xl mx-auto">
+
+    <div class="flex items-center gap-3 mb-6">
+        <a href="{% url 'storefront:my-orders' store.username %}"
+           class="text-indigo-600 hover:underline text-sm">← سفارشات من</a>
+        <span class="text-gray-400 text-sm">/</span>
+        <span class="text-sm font-semibold">سفارش #{{ order.pk }}</span>
+    </div>
+
+    <!-- وضعیت -->
+    <div class="bg-white rounded-lg shadow p-6 mb-4">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="font-bold text-lg">جزئیات سفارش</h2>
+            <span class="px-3 py-1 rounded text-sm font-medium
+                {% if order.status == 'paid' %}bg-green-100 text-green-700
+                {% elif order.status == 'delivered' %}bg-blue-100 text-blue-700
+                {% elif order.status == 'cancelled' %}bg-red-100 text-red-700
+                {% elif order.status == 'refunded' %}bg-yellow-100 text-yellow-700
+                {% else %}bg-gray-100 text-gray-600{% endif %}">
+                {% if order.status == 'pending' %}در انتظار پرداخت
+                {% elif order.status == 'paid' %}پرداخت شده
+                {% elif order.status == 'packed' %}بسته‌بندی شده
+                {% elif order.status == 'shipped' %}ارسال شده
+                {% elif order.status == 'delivered' %}تحویل داده شده
+                {% elif order.status == 'cancelled' %}لغو شده
+                {% elif order.status == 'refunded' %}مسترد شده
+                {% else %}{{ order.status }}{% endif %}
+            </span>
+        </div>
+
+        <div class="space-y-2 text-sm text-gray-600">
+            <div class="flex justify-between">
+                <span>شماره سفارش:</span>
+                <span class="font-bold">#{{ order.pk }}</span>
+            </div>
+            <div class="flex justify-between">
+                <span>تاریخ ثبت:</span>
+                <span>{{ order.created_at|date:"Y/m/d H:i" }}</span>
+            </div>
+            {% if order.guest_name %}
+            <div class="flex justify-between">
+                <span>نام:</span>
+                <span>{{ order.guest_name }}</span>
+            </div>
+            {% endif %}
+            {% if order.guest_phone %}
+            <div class="flex justify-between">
+                <span>شماره تماس:</span>
+                <span dir="ltr">{{ order.guest_phone }}</span>
+            </div>
+            {% endif %}
+            {% if order.shipping_address %}
+            <div class="flex justify-between">
+                <span>آدرس ارسال:</span>
+                <span class="text-right max-w-xs">
+                    {{ order.shipping_address }}
+                    {% if order.shipping_city %}، {{ order.shipping_city }}{% endif %}
+                    {% if order.shipping_province %}، {{ order.shipping_province }}{% endif %}
+                </span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- اقلام سفارش -->
+    <div class="bg-white rounded-lg shadow p-6 mb-4">
+        <h3 class="font-semibold text-base mb-3 border-b pb-2">اقلام سفارش</h3>
+        {% for line in order.lines.all %}
+        <div class="flex justify-between text-sm py-2 border-b last:border-0">
+            <span>
+                {{ line.product_name }}
+                {% if line.variant_name %}
+                <span class="text-xs text-gray-400">— {{ line.variant_name }}</span>
+                {% endif %}
+                <span class="text-gray-400">× {{ line.quantity }}</span>
+            </span>
+            <span dir="ltr">{{ line.line_total|stringformat:",.0f" }} ریال</span>
+        </div>
+        {% endfor %}
+        {% if order.discount_amount %}
+        <div class="flex justify-between text-sm py-2 text-green-600">
+            <span>تخفیف {% if order.discount_code_used %}({{ order.discount_code_used }}){% endif %}</span>
+            <span dir="ltr">−{{ order.discount_amount|stringformat:",.0f" }} ریال</span>
+        </div>
+        {% endif %}
+        <div class="flex justify-between font-bold text-base mt-3 pt-2 border-t">
+            <span>جمع کل</span>
+            <span dir="ltr">{{ order.total_after_discount|stringformat:",.0f" }} ریال</span>
+        </div>
+    </div>
+
+    <!-- C-22: ردیابی مرسوله -->
+    {% if shipments %}
+    <div class="bg-white rounded-lg shadow p-6 mb-4">
+        <h3 class="font-semibold text-base mb-3 border-b pb-2">ردیابی مرسوله</h3>
+        {% for shipment in shipments %}
+        <div class="mb-4 last:mb-0">
+            <div class="flex items-center justify-between text-sm mb-2">
+                <span class="font-medium">
+                    {% if shipment.carrier %}{{ shipment.carrier.name }}{% else %}مرسوله #{{ shipment.pk }}{% endif %}
+                </span>
+                <span class="px-2 py-1 rounded text-xs
+                    {% if shipment.status == 'delivered' %}bg-blue-100 text-blue-700
+                    {% elif shipment.status == 'in_transit' %}bg-green-100 text-green-700
+                    {% elif shipment.status == 'exception' %}bg-red-100 text-red-700
+                    {% else %}bg-gray-100 text-gray-600{% endif %}">
+                    {% if shipment.status == 'created' %}ایجاد شده
+                    {% elif shipment.status == 'picked_up' %}تحویل به پیک
+                    {% elif shipment.status == 'in_transit' %}در مسیر
+                    {% elif shipment.status == 'delivered' %}تحویل داده شده
+                    {% elif shipment.status == 'exception' %}خطا در ارسال
+                    {% else %}{{ shipment.status }}{% endif %}
+                </span>
+            </div>
+            {% if shipment.tracking_number %}
+            <div class="text-sm text-gray-500">
+                کد رهگیری: <span dir="ltr" class="font-mono">{{ shipment.tracking_number }}</span>
+            </div>
+            {% endif %}
+            {% if shipment.note %}
+            <div class="text-xs text-gray-400 mt-1">{{ shipment.note }}</div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="text-center mt-4">
+        <a href="{% url 'storefront:home' store.username %}"
+           class="btn-primary text-white px-6 py-2 rounded-lg text-sm hover:opacity-90 transition inline-block">
+            بازگشت به فروشگاه
+        </a>
+    </div>
+</div>
+{% endblock %}

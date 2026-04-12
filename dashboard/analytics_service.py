@@ -3,7 +3,10 @@ BI Dashboard Analytics Service (Phase 4).
 
 Provides get_store_analytics(store, days=30) returning a dict with:
   - ltv              : Customer Lifetime Value (IRR, integer)
-  - cac              : Customer Acquisition Cost (None — needs ad spend data)
+  - cac              : Customer Acquisition Cost (IRR, integer)
+                       Computed as: total expense transactions / new customers acquired.
+                       Returns 0 when no new customers or no expense data.
+  - new_customers    : Number of first-time paying customers in the period
   - conversion_rate  : (paid orders / total orders) × 100  [%]
   - revenue_trend    : list of {date, revenue} for last `days` days
   - top_products     : top 5 products by units sold
@@ -28,7 +31,7 @@ PAID_STATUSES = [
 
 def get_store_analytics(store, days=30):
     """
-    Returns a dict with LTV, CAC (placeholder), conversion_rate,
+    Returns a dict with LTV, CAC, new_customers, conversion_rate,
     revenue_trend (list), and top_products (list).
 
     All monetary values are in IRR (integer).
@@ -42,8 +45,11 @@ def get_store_analytics(store, days=30):
     # ── LTV: avg order value × avg orders per unique customer ────────────
     ltv = _compute_ltv(paid_qs)
 
-    # ── CAC: placeholder (needs advertising spend data) ──────────────────
-    cac = None
+    # ── New customers acquired in this period ────────────────────────────
+    new_customers = _compute_new_customers(store, period_start)
+
+    # ── CAC: total expense transactions in period / new customers ────────
+    cac = _compute_cac(store, period_start, new_customers)
 
     # ── Conversion rate: paid orders / total orders (× 100) ─────────────
     total_orders = Order.objects.filter(store=store).count()
@@ -61,6 +67,7 @@ def get_store_analytics(store, days=30):
     return {
         "ltv": ltv,
         "cac": cac,
+        "new_customers": new_customers,
         "conversion_rate": conversion_rate,
         "revenue_trend": revenue_trend,
         "top_products": top_products,
@@ -73,16 +80,13 @@ def get_store_analytics(store, days=30):
 
 def _compute_ltv(paid_qs):
     """Average order value × average orders per paying customer (IRR, int)."""
-    # Fetch just the orders we need to compute totals for
     orders = list(paid_qs.prefetch_related("lines"))
     if not orders:
         return 0
 
-    # Average order value
     order_totals = [o.total for o in orders]
     avg_order_value = sum(order_totals) / len(order_totals)
 
-    # Average orders per customer (only customers with a linked Customer FK)
     customer_counts = (
         paid_qs.filter(customer__isnull=False)
         .values("customer")
@@ -93,18 +97,79 @@ def _compute_ltv(paid_qs):
         num_unique_customers = customer_counts.count()
         avg_orders_per_customer = total_customer_orders / num_unique_customers
     else:
-        # No identified customers yet — assume each order = 1 customer
         avg_orders_per_customer = 1
 
     return int(avg_order_value * avg_orders_per_customer)
 
 
+def _compute_new_customers(store, period_start):
+    """
+    Count customers whose first paid order is within the given period.
+    These are newly acquired customers (i.e. they had no paid order before period_start).
+    """
+    # Customers who had a paid order *before* the period (returning customers)
+    returning_customers = (
+        Order.objects.filter(
+            store=store,
+            status__in=PAID_STATUSES,
+            customer__isnull=False,
+            created_at__lt=period_start,
+        )
+        .values_list("customer", flat=True)
+        .distinct()
+    )
+
+    # Customers with a paid order in the period who are NOT returning customers
+    first_time = (
+        Order.objects.filter(
+            store=store,
+            status__in=PAID_STATUSES,
+            customer__isnull=False,
+            created_at__gte=period_start,
+        )
+        .exclude(customer__in=returning_customers)
+        .values("customer")
+        .distinct()
+        .count()
+    )
+
+    return first_time
+
+
+def _compute_cac(store, period_start, new_customers: int) -> int:
+    """
+    Customer Acquisition Cost = total marketing/expense spend in the period
+    divided by new customers acquired.
+
+    Uses StoreTransaction records of type EXPENSE as a proxy for marketing spend.
+    Returns 0 when there are no expense transactions or no new customers.
+    """
+    if new_customers == 0:
+        return 0
+
+    from accounting.models import StoreTransaction
+
+    expense_total = (
+        StoreTransaction.objects.filter(
+            store=store,
+            type=StoreTransaction.Type.EXPENSE,
+            created_at__gte=period_start,
+        )
+        .aggregate(total=Sum("amount"))
+        .get("total")
+    ) or 0
+
+    # Expenses are stored as negative debits; take absolute value
+    expense_total = abs(expense_total)
+    if expense_total == 0:
+        return 0
+
+    return int(expense_total / new_customers)
+
+
 def _compute_revenue_trend(store, days, now, period_start):
     """
     Return list of {date: str, revenue: int} for each of the last `days` days.
-
-    Fetches all paid orders in the period once, then groups them in Python to
-    avoid N+1 queries.
     """
     paid_in_period = list(
         Order.objects.filter(
@@ -114,7 +179,6 @@ def _compute_revenue_trend(store, days, now, period_start):
         ).prefetch_related("lines")
     )
 
-    # Build a map: date_str -> total revenue
     revenue_map = {}
     for order in paid_in_period:
         date_str = order.created_at.date().isoformat()
@@ -149,3 +213,4 @@ def _compute_top_products(paid_qs):
         .order_by("-total_qty")[:5]
     )
     return list(top)
+

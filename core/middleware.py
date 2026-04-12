@@ -24,6 +24,31 @@ class CSPMiddleware:
         return response
 
 
+class ThemeCSPMiddleware:
+    """
+    Set Content-Security-Policy header specifically for HTML responses.
+    Allows inline styles/scripts needed for dynamic theme rendering.
+    """
+    CSP_VALUE = (
+        "default-src 'self'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+        "img-src 'self' data: blob:; "
+        "font-src 'self' data:; "
+        "connect-src 'self';"
+    )
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+        content_type = response.get("Content-Type", "")
+        if "text/html" in content_type:
+            response["Content-Security-Policy"] = self.CSP_VALUE
+        return response
+
+
 class StoreMiddleware:
     """
     Resolve current store from subdomain or custom domain.

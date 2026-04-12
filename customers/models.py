@@ -56,6 +56,27 @@ class Customer(models.Model):
         return f"{self.phone} @ {self.store.name}"
 
 
+class SavedAddress(models.Model):
+    """Per-store saved shipping address for a customer."""
+    store = models.ForeignKey("core.Store", on_delete=models.CASCADE, related_name="saved_addresses")
+    customer = models.ForeignKey(
+        "customers.Customer", on_delete=models.CASCADE, related_name="saved_addresses"
+    )
+    title = models.CharField(max_length=100, blank=True)
+    address = models.TextField()
+    city = models.CharField(max_length=100)
+    province = models.CharField(max_length=100)
+    postal_code = models.CharField(max_length=20, blank=True)
+    is_default = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "saved_addresses"
+
+    def __str__(self):
+        return f"{self.customer.phone} — {self.city}"
+
+
 class LoginOTP(models.Model):
     store = models.ForeignKey("core.Store", on_delete=models.CASCADE)
     phone = models.CharField(max_length=20)

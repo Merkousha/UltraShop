@@ -37,6 +37,28 @@ def post_order_paid(order):
             amount=commission_amount,
         )
 
+    # ── CRM: record payment activity on the customer profile ─────────
+    try:
+        from crm.models import ContactActivity
+        from customers.models import Customer
+
+        customer = None
+        phone = getattr(order, "guest_phone", "") or ""
+        if phone:
+            customer = Customer.objects.filter(store=order.store, phone=phone).first()
+
+        ContactActivity.objects.get_or_create(
+            store=order.store,
+            activity_type=ContactActivity.ActivityType.ORDER,
+            reference_id=str(order.pk),
+            defaults={
+                "customer": customer,
+                "description": f"پرداخت سفارش #{order.pk} به مبلغ {order.total:,} ریال تأیید شد.",
+            },
+        )
+    except Exception:
+        pass
+
 
 def post_order_refunded(order, amount, reason=""):
     StoreTransaction.objects.create(

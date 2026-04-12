@@ -1,4 +1,9 @@
-from django.db.models import Q
+import logging
+
+from django.db.models import Min, Q
+
+logger = logging.getLogger(__name__)
+
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.utils import timezone
@@ -7,7 +12,7 @@ from django.views.generic import DetailView, ListView, TemplateView
 
 from catalog.models import Category, DiscountCode, Product, ProductVariant
 from core.models import PlatformSettings, Store
-from customers.models import AbandonedCart
+from customers.models import AbandonedCart, SavedAddress
 from orders.models import Order, OrderLine
 
 
@@ -49,17 +54,31 @@ class CategoryListView(StoreMixin, ListView):
         return Category.objects.filter(store=self.store, parent__isnull=True)
 
 
+def _apply_sort(qs, sort):
+    """Apply sort parameter to a Product queryset."""
+    if sort == "price_asc":
+        return qs.annotate(min_price=Min("variants__price")).order_by("min_price")
+    elif sort == "price_desc":
+        return qs.annotate(min_price=Min("variants__price")).order_by("-min_price")
+    else:
+        # default: newest
+        return qs.order_by("-created_at")
+
+
 class CategoryDetailView(StoreMixin, TemplateView):
     template_name = "storefront/category_detail.html"
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
+        sort = self.request.GET.get("sort", "newest")
         ctx["category"] = get_object_or_404(
             Category, store=self.store, slug=self.kwargs["slug"]
         )
-        ctx["products"] = Product.objects.filter(
+        qs = Product.objects.filter(
             store=self.store, status="active", categories=ctx["category"]
         ).prefetch_related("images", "variants")
+        ctx["products"] = _apply_sort(qs, sort)
+        ctx["current_sort"] = sort
         return ctx
 
 
@@ -82,18 +101,21 @@ class ProductSearchView(StoreMixin, ListView):
 
     def get_queryset(self):
         q = self.request.GET.get("q", "").strip()
+        sort = self.request.GET.get("sort", "newest")
         if not q:
             return Product.objects.none()
-        return Product.objects.filter(
+        qs = Product.objects.filter(
             store=self.store,
             status="active",
         ).filter(
             Q(name__icontains=q) | Q(description__icontains=q) | Q(sku__icontains=q)
         ).prefetch_related("images", "variants")
+        return _apply_sort(qs, sort)
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["query"] = self.request.GET.get("q", "")
+        ctx["current_sort"] = self.request.GET.get("sort", "newest")
         return ctx
 
 
@@ -265,6 +287,12 @@ class CheckoutView(StoreMixin, TemplateView):
         ctx["discount_error"] = ""
         ctx["discount_code"] = ""
         ctx["final_total"] = total
+        # C-10: saved addresses for logged-in customers
+        customer_id = self.request.session.get("customer_id")
+        if customer_id:
+            ctx["saved_addresses"] = SavedAddress.objects.filter(
+                store=self.store, customer_id=customer_id
+            ).order_by("-is_default", "-created_at")
         return ctx
 
     def get(self, request, *args, **kwargs):
@@ -285,6 +313,7 @@ class CheckoutView(StoreMixin, TemplateView):
         needs_shipping = self._needs_shipping(cart)
         guest_name = request.POST.get("name", "").strip()
         guest_phone = request.POST.get("phone", "").strip()
+        guest_email = request.POST.get("email", "").strip()
 
         # ── Discount code ───────────────────────────────────────────
         discount_amount = 0
@@ -303,7 +332,7 @@ class CheckoutView(StoreMixin, TemplateView):
         final_total = max(0, total - discount_amount)
 
         # ── Save abandoned cart with phone before creating order ─────
-        self._save_abandoned_cart(request, cart, phone=guest_phone)
+        self._save_abandoned_cart(request, cart, phone=guest_phone, email=guest_email)
 
         order = Order.objects.create(
             store=self.store,
@@ -313,6 +342,7 @@ class CheckoutView(StoreMixin, TemplateView):
             shipping_city=request.POST.get("city", "").strip() if needs_shipping else "",
             shipping_province=request.POST.get("province", "").strip() if needs_shipping else "",
             shipping_postal_code=request.POST.get("postal_code", "").strip() if needs_shipping else "",
+            shipping_email=guest_email,
             status=Order.Status.PENDING,
             discount_code_used=code_str,
             discount_amount=discount_amount,
@@ -334,13 +364,91 @@ class CheckoutView(StoreMixin, TemplateView):
         if discount_obj:
             DiscountCode.objects.filter(pk=discount_obj.pk).update(used_count=discount_obj.used_count + 1)
 
+        # ── Record CRM contact activity for this order ───────────────
+        self._record_order_activity(order, guest_phone)
+
         # ── Mark abandoned cart as recovered ─────────────────────────
         self._mark_cart_recovered(request)
+
+        # ── C-10: Save address for logged-in customer if new ─────────
+        if needs_shipping:
+            customer_id = request.session.get("customer_id")
+            address_text = request.POST.get("address", "").strip()
+            city_text = request.POST.get("city", "").strip()
+            province_text = request.POST.get("province", "").strip()
+            if customer_id and address_text and city_text:
+                already_exists = SavedAddress.objects.filter(
+                    store=self.store,
+                    customer_id=customer_id,
+                    address=address_text,
+                    city=city_text,
+                    province=province_text,
+                ).exists()
+                if not already_exists:
+                    SavedAddress.objects.create(
+                        store=self.store,
+                        customer_id=customer_id,
+                        address=address_text,
+                        city=city_text,
+                        province=province_text,
+                        postal_code=request.POST.get("postal_code", "").strip(),
+                    )
+
+        # ── C-23: Send order confirmation email ──────────────────────
+        self._send_order_confirmation_email(order)
 
         # Clear cart
         _save_cart(request, {})
 
         return redirect("storefront:order-confirm", store_username=self.store.username, pk=order.pk)
+
+    def _send_order_confirmation_email(self, order) -> None:
+        """C-23: ارسال ایمیل تأیید سفارش به مشتری (best-effort)."""
+        recipient = order.shipping_email or (order.customer.email if order.customer else "")
+        if not recipient:
+            return
+        try:
+            from django.conf import settings as django_settings
+            from django.core.mail import send_mail
+
+            lines_text = "\n".join(
+                f"  • {line.product_name}"
+                + (f" — {line.variant_name}" if line.variant_name else "")
+                + f"  ×{line.quantity}  {line.line_total:,} ریال"
+                for line in order.lines.all()
+            )
+            subject = f"تأیید سفارش #{order.pk} — {self.store.name}"
+            body = (
+                f"سلام {order.guest_name or 'مشتری گرامی'}،\n\n"
+                f"سفارش شماره #{order.pk} شما با موفقیت ثبت شد.\n\n"
+                f"اقلام سفارش:\n{lines_text}\n\n"
+                f"جمع کل: {order.total_after_discount:,} ریال\n\n"
+                f"با تشکر از خرید شما،\nتیم {self.store.name}"
+            )
+            from_email = getattr(django_settings, "DEFAULT_FROM_EMAIL", "noreply@ultra-shop.com")
+            send_mail(subject, body, from_email, [recipient], fail_silently=True)
+        except Exception:
+            pass  # email failure must never block the checkout flow
+
+    def _record_order_activity(self, order, phone: str) -> None:
+        """Create a CRM ContactActivity entry for the newly placed order."""
+        try:
+            from crm.models import ContactActivity
+            from customers.models import Customer
+
+            customer = None
+            if phone:
+                customer = Customer.objects.filter(store=self.store, phone=phone).first()
+
+            ContactActivity.objects.create(
+                store=self.store,
+                customer=customer,
+                activity_type=ContactActivity.ActivityType.ORDER,
+                description=f"سفارش #{order.pk} به مبلغ {order.total:,} ریال ثبت شد.",
+                reference_id=str(order.pk),
+            )
+        except Exception:
+            pass  # CRM activity failure must never block the checkout
 
 
 class CartRecoverView(StoreMixin, View):
@@ -405,10 +513,28 @@ class ChatView(StoreMixin, View):
         session_key = request.session.session_key or "anonymous"
 
         # Get or create chat session
-        chat_session, _ = ChatSession.objects.get_or_create(
+        chat_session, is_new_session = ChatSession.objects.get_or_create(
             store=self.store,
             session_key=session_key,
         )
+
+        # Auto-create a CRM Lead on the first message of a new chat session
+        if is_new_session:
+            _auto_create_chat_lead(chat_session, customer=chat_session.customer)
+
+        # Rate limit: max 20 user messages per session
+        CHAT_MESSAGE_LIMIT = 20
+        user_msg_count = chat_session.messages.filter(role=ChatMessage.Role.USER).count()
+        if user_msg_count >= CHAT_MESSAGE_LIMIT:
+            from django.urls import reverse as _reverse
+            contact_url = _reverse("storefront:contact", kwargs={"store_username": self.store.username})
+            return JsonResponse(
+                {
+                    "error": "سقف پیام‌های این گفتگو به پایان رسید.",
+                    "contact_url": contact_url,
+                },
+                status=429,
+            )
 
         # Load last 10 messages for context
         past_msgs = list(
@@ -439,3 +565,166 @@ class ChatView(StoreMixin, View):
 
         return JsonResponse({"reply": reply})
 
+
+
+# ─── helpers ──────────────────────────────────────────────────────────────────
+
+def _auto_create_chat_lead(chat_session, customer=None):
+    """
+    Auto-create a CRM Lead when a new chat session starts.
+    If a Lead already exists for this customer or session_key, skip silently.
+    """
+    try:
+        from crm.models import Lead
+
+        store = chat_session.store
+
+        # Avoid duplicate leads for the same identified customer
+        if customer and Lead.objects.filter(store=store, customer=customer).exists():
+            return
+
+        # Build contact info from customer record if available
+        phone = ""
+        email = ""
+        name = "بازدیدکننده (چت)"
+        if customer:
+            phone = customer.phone or ""
+            email = customer.email or ""
+            name = customer.name or phone or name
+
+        Lead.objects.create(
+            store=store,
+            name=name,
+            phone=phone,
+            email=email,
+            source="chat",
+            customer=customer,
+        )
+    except Exception:
+        # Lead creation is best-effort — never block the chat response
+        logger.exception("Failed to auto-create chat lead")
+
+
+# ─── C-20: My Orders (storefront customer order history) ──────────────────────
+
+class CustomerOrderListView(StoreMixin, ListView):
+    """C-20: مشتری لاگین‌شده لیست سفارشاتش را در ویترین می‌بیند."""
+
+    template_name = "storefront/my_orders.html"
+    context_object_name = "orders"
+    paginate_by = 20
+
+    def dispatch(self, request, *args, **kwargs):
+        super().dispatch(request, *args, **kwargs)
+        if not request.session.get("customer_id"):
+            return redirect(
+                "storefront:home", store_username=self.store.username
+            )
+        return super(StoreMixin, self).dispatch(request, *args, **kwargs)
+
+    def get_queryset(self):
+        from customers.models import Customer
+
+        customer = Customer.objects.filter(
+            pk=self.request.session["customer_id"], store=self.store
+        ).first()
+        if not customer:
+            return Order.objects.none()
+        return (
+            Order.objects.filter(store=self.store, customer=customer)
+            .prefetch_related("lines")
+            .order_by("-created_at")
+        )
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["status_labels"] = {
+            "pending": "در انتظار پرداخت",
+            "paid": "پرداخت شده",
+            "packed": "بسته‌بندی شده",
+            "shipped": "ارسال شده",
+            "delivered": "تحویل داده شده",
+            "cancelled": "لغو شده",
+            "refunded": "مسترد شده",
+        }
+        return ctx
+
+
+# ─── C-21: Customer Order Detail (storefront) ─────────────────────────────────
+
+class CustomerOrderDetailView(StoreMixin, TemplateView):
+    """C-21: نمایش جزئیات یک سفارش برای مشتری در ویترین."""
+
+    template_name = "storefront/my_order_detail.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        super().dispatch(request, *args, **kwargs)
+        if not request.session.get("customer_id"):
+            return redirect(
+                "storefront:home", store_username=self.store.username
+            )
+        return super(StoreMixin, self).dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        from customers.models import Customer
+
+        customer = Customer.objects.filter(
+            pk=self.request.session["customer_id"], store=self.store
+        ).first()
+        if not customer:
+            raise Http404
+        order = get_object_or_404(
+            Order, pk=self.kwargs["pk"], store=self.store, customer=customer
+        )
+        ctx["order"] = order
+        ctx["status_labels"] = {
+            "pending": "در انتظار پرداخت",
+            "paid": "پرداخت شده",
+            "packed": "بسته‌بندی شده",
+            "shipped": "ارسال شده",
+            "delivered": "تحویل داده شده",
+            "cancelled": "لغو شده",
+            "refunded": "مسترد شده",
+        }
+        # Shipment tracking info (C-22)
+        ctx["shipments"] = order.shipments.select_related("carrier").order_by("-created_at")
+        return ctx
+
+
+class ContactView(StoreMixin, TemplateView):
+    """
+    GET  — show contact form
+    POST — save lead in CRM and show success message
+    """
+    template_name = "storefront/contact.html"
+
+    def post(self, request, *args, **kwargs):
+        name = request.POST.get("name", "").strip()
+        phone = request.POST.get("phone", "").strip()
+        email = request.POST.get("email", "").strip()
+        message_text = request.POST.get("message", "").strip()
+
+        if not name:
+            ctx = self.get_context_data(**kwargs)
+            ctx["error"] = "نام الزامی است."
+            ctx["form_data"] = {"name": name, "phone": phone, "email": email, "message": message_text}
+            return self.render_to_response(ctx)
+
+        try:
+            from crm.models import Lead
+
+            Lead.objects.create(
+                store=self.store,
+                name=name,
+                phone=phone,
+                email=email,
+                source="contact_form",
+                note=message_text,
+            )
+        except Exception:
+            logger.exception("Failed to save contact-form lead for store %s", self.store.pk)
+
+        ctx = self.get_context_data(**kwargs)
+        ctx["success"] = True
+        return self.render_to_response(ctx)
