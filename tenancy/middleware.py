@@ -2,6 +2,8 @@ from django.conf import settings
 from django.db import connection
 from django.http import HttpResponseNotFound
 
+from core.models import Store
+
 from .models import Tenant
 
 
@@ -11,7 +13,7 @@ class URLPathTenantMiddleware:
     Example default: /s/my-store/
     """
 
-    PLATFORM_PATHS = ("/platform/", "/admin/", "/accounts/", "/dashboard/")
+    PLATFORM_PATHS = ("/platform/", "/admin/", "/accounts/")
 
     def __init__(self, get_response):
         self.get_response = get_response
@@ -21,6 +23,28 @@ class URLPathTenantMiddleware:
         prefix = f"/{getattr(settings, 'TENANT_PATH_PREFIX', 's').strip('/')}/"
 
         request.tenant = None
+
+        # Dashboard uses session-selected store; switch to that tenant schema.
+        if path.startswith("/dashboard/"):
+            store_id = request.session.get("current_store_id")
+            if store_id:
+                store = Store.objects.filter(pk=store_id, is_active=True).first()
+                if store:
+                    tenant = Tenant.objects.filter(store_slug=store.username, is_active=True).first()
+                    if tenant:
+                        request.tenant = tenant
+                        connection.set_tenant(tenant)
+                    else:
+                        connection.set_schema_to_public()
+                else:
+                    connection.set_schema_to_public()
+            else:
+                connection.set_schema_to_public()
+
+            try:
+                return self.get_response(request)
+            finally:
+                connection.set_schema_to_public()
 
         # Platform and static/media paths stay on public schema.
         if any(path.startswith(p) for p in self.PLATFORM_PATHS) or path.startswith(("/static/", "/media/")):

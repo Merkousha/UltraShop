@@ -87,9 +87,19 @@ class ProductDetailView(StoreMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["product"] = get_object_or_404(
+        product = get_object_or_404(
             Product, store=self.store, slug=self.kwargs["slug"], status="active"
         )
+        active_variants = product.variants.filter(is_active=True).order_by("price", "pk")
+        ctx["product"] = product
+        ctx["active_variants"] = active_variants
+        if active_variants.exists():
+            prices = list(active_variants.values_list("price", flat=True))
+            ctx["min_variant_price"] = min(prices)
+            ctx["max_variant_price"] = max(prices)
+        else:
+            ctx["min_variant_price"] = None
+            ctx["max_variant_price"] = None
         return ctx
 
 

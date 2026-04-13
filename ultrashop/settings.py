@@ -58,6 +58,7 @@ if USE_DJANGO_TENANTS:
         "django.contrib.sessions",
         "django.contrib.messages",
         "django.contrib.staticfiles",
+        "django.contrib.humanize",
         # Shared project apps (public schema)
         "platform_admin",
         "dashboard",
@@ -84,6 +85,7 @@ else:
         "django.contrib.sessions",
         "django.contrib.messages",
         "django.contrib.staticfiles",
+        "django.contrib.humanize",
         # Project apps
         "core",
         "catalog",

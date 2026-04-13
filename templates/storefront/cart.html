@@ -1,5 +1,6 @@
 {% extends "storefront/base.html" %}
 {% load static %}
+{% load humanize %}
 {% block title %}سبد خرید — {{ store.name }}{% endblock %}
 {% block content %}
 <div class="max-w-3xl mx-auto">
@@ -12,7 +13,8 @@
                 <tr>
                     <th class="p-4 text-right font-semibold">محصول</th>
                     <th class="p-4 text-center font-semibold">تعداد</th>
-                    <th class="p-4 text-left font-semibold">قیمت</th>
+                    <th class="p-4 text-left font-semibold">قیمت واحد</th>
+                    <th class="p-4 text-left font-semibold">جمع</th>
                     <th class="p-4"></th>
                 </tr>
             </thead>
@@ -24,7 +26,8 @@
                         <div class="text-xs text-gray-400">{{ item.variant.name }}</div>
                     </td>
                     <td class="p-4 text-center">{{ item.quantity }}</td>
-                    <td class="p-4 text-left ltr">{{ item.line_total|stringformat:",.0f" }} ریال</td>
+                    <td class="p-4 text-left ltr">{{ item.variant.price|intcomma }} ریال</td>
+                    <td class="p-4 text-left ltr">{{ item.line_total|intcomma }} ریال</td>
                     <td class="p-4 text-center">
                         <form method="post" action="{% url 'storefront:cart-remove' store.username %}">
                             {% csrf_token %}
@@ -40,7 +43,7 @@
 
     <div class="bg-white rounded-lg shadow p-4 mb-6 flex items-center justify-between">
         <span class="font-semibold text-lg">جمع کل:</span>
-        <span class="font-bold text-xl text-primary ltr">{{ cart_total|stringformat:",.0f" }} ریال</span>
+        <span class="font-bold text-xl text-primary ltr">{{ cart_total|intcomma }} ریال</span>
     </div>
 
     <div class="flex gap-3">
