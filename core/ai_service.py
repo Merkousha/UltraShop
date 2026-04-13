@@ -28,7 +28,8 @@ def _get_client():
         raise AIError("OpenAI API key not set", user_message="کلید API تنظیم نشده. در پنل ادمین تنظیمات AI را پر کنید.")
     try:
         from openai import OpenAI
-        return OpenAI(api_key=key)
+        base_url = (ps.openai_base_url or "").strip() or None
+        return OpenAI(api_key=key, base_url=base_url)
     except ImportError:
         raise AIError("openai package not installed", user_message="پکیج openai نصب نیست.")
 

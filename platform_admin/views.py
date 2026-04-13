@@ -1,9 +1,11 @@
 import json
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import views as auth_views
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.db.models import Count, Sum, Q
+from django.db.utils import OperationalError, ProgrammingError
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.utils import timezone
@@ -40,6 +42,30 @@ class PlatformLoginView(auth_views.LoginView):
 class DashboardView(PlatformAdminMixin, TemplateView):
     template_name = "platform_admin/dashboard.html"
 
+    def _sum_across_tenants(self, fn):
+        """Execute numeric aggregation fn() per tenant schema and sum safely."""
+        if not getattr(settings, "USE_DJANGO_TENANTS", False):
+            return fn()
+
+        try:
+            from django_tenants.utils import schema_context
+            from tenancy.models import Tenant
+        except Exception:
+            return 0
+
+        total = 0
+        schemas = list(
+            Tenant.objects.filter(is_active=True).values_list("schema_name", flat=True)
+        )
+        for schema_name in schemas:
+            try:
+                with schema_context(schema_name):
+                    total += fn() or 0
+            except (ProgrammingError, OperationalError):
+                # Skip tenants that are not fully migrated yet.
+                continue
+        return total
+
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         now = timezone.now()
@@ -50,35 +76,42 @@ class DashboardView(PlatformAdminMixin, TemplateView):
         ctx["active_stores"] = Store.objects.filter(is_active=True).count()
         ctx["total_stores"] = Store.objects.count()
 
-        ctx["orders_today"] = Order.objects.filter(created_at__gte=today_start).count()
-        ctx["orders_week"] = Order.objects.filter(created_at__gte=week_start).count()
-        ctx["orders_month"] = Order.objects.filter(created_at__gte=month_start).count()
+        ctx["orders_today"] = self._sum_across_tenants(
+            lambda: Order.objects.filter(created_at__gte=today_start).count()
+        )
+        ctx["orders_week"] = self._sum_across_tenants(
+            lambda: Order.objects.filter(created_at__gte=week_start).count()
+        )
+        ctx["orders_month"] = self._sum_across_tenants(
+            lambda: Order.objects.filter(created_at__gte=month_start).count()
+        )
 
-        commission_qs = PlatformCommission.objects.all()
-        ctx["commission_total"] = commission_qs.aggregate(t=Sum("amount"))["t"] or 0
-        ctx["commission_month"] = commission_qs.filter(
-            created_at__gte=month_start
-        ).aggregate(t=Sum("amount"))["t"] or 0
+        ctx["commission_total"] = self._sum_across_tenants(
+            lambda: PlatformCommission.objects.aggregate(t=Sum("amount"))["t"] or 0
+        )
+        ctx["commission_month"] = self._sum_across_tenants(
+            lambda: PlatformCommission.objects.filter(created_at__gte=month_start).aggregate(t=Sum("amount"))["t"] or 0
+        )
 
-        ctx["pending_payouts"] = PayoutRequest.objects.filter(
-            status=PayoutRequest.Status.PENDING
-        ).count()
-        ctx["pending_payouts_amount"] = PayoutRequest.objects.filter(
-            status=PayoutRequest.Status.PENDING
-        ).aggregate(t=Sum("amount"))["t"] or 0
+        ctx["pending_payouts"] = self._sum_across_tenants(
+            lambda: PayoutRequest.objects.filter(status=PayoutRequest.Status.PENDING).count()
+        )
+        ctx["pending_payouts_amount"] = self._sum_across_tenants(
+            lambda: PayoutRequest.objects.filter(status=PayoutRequest.Status.PENDING).aggregate(t=Sum("amount"))["t"] or 0
+        )
 
-        ctx["active_shipments"] = Shipment.objects.exclude(
-            status__in=["delivered", "exception"]
-        ).count()
+        ctx["active_shipments"] = self._sum_across_tenants(
+            lambda: Shipment.objects.exclude(status__in=["delivered", "exception"]).count()
+        )
 
         # ── Alerts ────────────────────────────────────────────────────
         ctx["suspended_stores"] = Store.objects.filter(is_active=False).count()
-        pending_count = PayoutRequest.objects.filter(status=PayoutRequest.Status.PENDING).count()
-        pending_amount = PayoutRequest.objects.filter(
-            status=PayoutRequest.Status.PENDING
-        ).aggregate(t=Sum("amount"))["t"] or 0
+        pending_count = ctx["pending_payouts"]
+        pending_amount = ctx["pending_payouts_amount"]
         ctx["high_pending_payouts"] = pending_count > 5 or pending_amount > 10_000_000
-        ctx["exception_shipments"] = Shipment.objects.filter(status="exception").count()
+        ctx["exception_shipments"] = self._sum_across_tenants(
+            lambda: Shipment.objects.filter(status="exception").count()
+        )
 
         ctx["settings"] = PlatformSettings.load()
         return ctx
@@ -272,6 +305,7 @@ class AISettingsView(PlatformAdminMixin, TemplateView):
         openai_key = request.POST.get("openai_api_key", "")
         if openai_key:
             ps.openai_api_key_encrypted = encrypt_value(openai_key)
+        ps.openai_base_url = request.POST.get("openai_base_url", "").strip()
         anthropic_key = request.POST.get("anthropic_api_key", "")
         if anthropic_key:
             ps.anthropic_api_key_encrypted = encrypt_value(anthropic_key)
@@ -288,7 +322,11 @@ class AISettingsView(PlatformAdminMixin, TemplateView):
             actor=request.user,
             action="ai_settings_updated",
             resource_type="PlatformSettings",
-            details={"ai_enabled": ps.ai_enabled, "vision_model": ps.vision_model},
+            details={
+                "ai_enabled": ps.ai_enabled,
+                "vision_model": ps.vision_model,
+                "openai_base_url_set": bool(ps.openai_base_url),
+            },
         )
         messages.success(request, "تنظیمات AI ذخیره شد.")
         return redirect("platform_admin:ai-settings")

@@ -20,6 +20,12 @@
                        class="w-full border rounded px-3 py-2">
                 <p class="text-xs text-gray-400 mt-1">فقط در صورت تغییر وارد کنید. رمزنگاری شده ذخیره می‌شود.</p>
             </div>
+            <div>
+                <label class="block text-sm font-medium mb-1">Base URL (اختیاری)</label>
+                <input type="url" name="openai_base_url" value="{{ settings.openai_base_url }}"
+                       class="w-full border rounded px-3 py-2" placeholder="https://api.openai.com/v1">
+                <p class="text-xs text-gray-400 mt-1">برای سرویس‌های OpenAI-compatible می‌توانید URL سفارشی وارد کنید.</p>
+            </div>
             <button type="button" onclick="testAI()" class="bg-blue-500 text-white px-4 py-1 rounded text-sm hover:bg-blue-600">
                 تست اتصال
             </button>

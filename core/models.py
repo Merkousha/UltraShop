@@ -131,6 +131,7 @@ class PlatformSettings(models.Model):
 
     # PA-13: AI service config (Sprint 5)
     openai_api_key_encrypted = models.TextField(blank=True, default="")
+    openai_base_url = models.URLField(blank=True, default="")
     anthropic_api_key_encrypted = models.TextField(blank=True, default="")
     vision_model = models.CharField(max_length=80, default="gpt-4o")
     text_model = models.CharField(max_length=80, default="gpt-4o-mini")
