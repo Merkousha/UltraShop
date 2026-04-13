@@ -46,6 +46,8 @@
                                 <span class="px-1.5 py-0.5 rounded
                                     {% if act.activity_type == 'order' %}bg-indigo-100 text-indigo-600
                                     {% elif act.activity_type == 'call' %}bg-green-100 text-green-600
+                                    {% elif act.activity_type == 'chat' %}bg-cyan-100 text-cyan-700
+                                    {% elif act.activity_type == 'ticket' %}bg-amber-100 text-amber-700
                                     {% else %}bg-gray-100 text-gray-500{% endif %}">
                                     {{ act.get_activity_type_display }}
                                 </span>
@@ -97,6 +99,8 @@
                                 {% if act.activity_type == 'order' %}bg-indigo-100 text-indigo-600
                                 {% elif act.activity_type == 'call' %}bg-green-100 text-green-600
                                 {% elif act.activity_type == 'email' %}bg-blue-100 text-blue-600
+                                {% elif act.activity_type == 'chat' %}bg-cyan-100 text-cyan-700
+                                {% elif act.activity_type == 'ticket' %}bg-amber-100 text-amber-700
                                 {% else %}bg-gray-100 text-gray-500{% endif %}">
                                 {{ act.get_activity_type_display }}
                             </span>

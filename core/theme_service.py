@@ -99,6 +99,55 @@ def validate_contrast(theme):
     return warnings
 
 
+def validate_accessibility(theme):
+    """
+    Extended accessibility checks for theme tokens.
+
+    Includes:
+    - WCAG AA contrast (normal text)
+    - AAA-level advisory warnings for small text (7:1)
+    - Focus-ring visibility guidance (>= 3:1 with white background)
+    - Font fallback presence check
+    """
+    warnings = list(validate_contrast(theme))
+    white = "#ffffff"
+
+    ratio_primary = contrast_ratio(theme.primary_color, white)
+    if ratio_primary < 7:
+        warnings.append(
+            f"برای متن‌های خیلی کوچک، رنگ اصلی ({theme.primary_color}) بهتر است کنتراست ۷:۱ داشته باشد "
+            f"(فعلی: {ratio_primary:.1f}:1)."
+        )
+
+    ratio_secondary = contrast_ratio(theme.secondary_color, white)
+    if ratio_secondary < 7:
+        warnings.append(
+            f"برای متن‌های خیلی کوچک، رنگ ثانویه ({theme.secondary_color}) بهتر است کنتراست ۷:۱ داشته باشد "
+            f"(فعلی: {ratio_secondary:.1f}:1)."
+        )
+
+    ratio_accent = contrast_ratio(theme.accent_color, white)
+    if ratio_accent < 3:
+        warnings.append(
+            f"رنگ تأکید ({theme.accent_color}) برای نمایش focus indicator ضعیف است "
+            f"(کنتراست {ratio_accent:.1f}:1، حداقل پیشنهادی ۳:۱)."
+        )
+
+    heading_font = (theme.heading_font or "").strip()
+    body_font = (theme.body_font or "").strip()
+    if not heading_font or not body_font:
+        warnings.append("فونت تیتر یا متن خالی است؛ برای دسترس‌پذیری یک فونت معتبر با fallback تعریف کنید.")
+
+    custom_css = (theme.custom_css or "").strip().lower()
+    if custom_css and (":focus" not in custom_css and ":focus-visible" not in custom_css):
+        warnings.append(
+            "در CSS سفارشی هیچ استایل focus/focus-visible دیده نشد؛ برای ناوبری با کیبورد، "
+            "حالت فوکوس را به‌صورت واضح تعریف کنید."
+        )
+
+    return warnings
+
+
 def compile_store_css(store):
     """Compile full CSS variable block for a store's theme. Cached per store + theme version."""
     from django.conf import settings

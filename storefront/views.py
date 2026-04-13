@@ -216,7 +216,11 @@ class CheckoutView(StoreMixin, TemplateView):
                 variant = ProductVariant.objects.select_related("product").get(
                     pk=int(variant_pk_str), product__store=self.store
                 )
-                if variant.product.requires_shipping:
+                # Product-level shipping flag (shipping_enabled), with legacy fallback.
+                product_shipping_enabled = getattr(variant.product, "shipping_enabled", None)
+                if product_shipping_enabled is None:
+                    product_shipping_enabled = getattr(variant.product, "requires_shipping", True)
+                if product_shipping_enabled:
                     return True
             except (ProductVariant.DoesNotExist, ValueError):
                 pass
@@ -560,6 +564,10 @@ class ChatView(StoreMixin, View):
         ChatMessage.objects.create(session=chat_session, role=ChatMessage.Role.USER, content=user_message)
         ChatMessage.objects.create(session=chat_session, role=ChatMessage.Role.ASSISTANT, content=reply)
 
+        # Add chat interaction to unified CRM contact history (first message per session).
+        if is_new_session:
+            _record_chat_activity(self.store, chat_session, user_message)
+
         # Update session timestamp
         chat_session.save(update_fields=["updated_at"])
 
@@ -603,6 +611,28 @@ def _auto_create_chat_lead(chat_session, customer=None):
     except Exception:
         # Lead creation is best-effort — never block the chat response
         logger.exception("Failed to auto-create chat lead")
+
+
+def _record_chat_activity(store, chat_session, first_message: str) -> None:
+    """Create a contact-history activity entry for a newly started chat session."""
+    try:
+        from crm.models import ContactActivity, Lead
+
+        customer = chat_session.customer
+        lead = None
+        if customer:
+            lead = Lead.objects.filter(store=store, customer=customer).first()
+
+        ContactActivity.objects.create(
+            store=store,
+            customer=customer,
+            lead=lead,
+            activity_type=ContactActivity.ActivityType.CHAT,
+            description=f"شروع گفتگو: {first_message[:120]}",
+            reference_id=str(chat_session.pk),
+        )
+    except Exception:
+        logger.exception("Failed to record chat activity for chat_session=%s", chat_session.pk)
 
 
 # ─── C-20: My Orders (storefront customer order history) ──────────────────────
@@ -712,15 +742,29 @@ class ContactView(StoreMixin, TemplateView):
             return self.render_to_response(ctx)
 
         try:
-            from crm.models import Lead
+            from crm.models import ContactActivity, Lead
+            from customers.models import Customer
 
-            Lead.objects.create(
+            lead = Lead.objects.create(
                 store=self.store,
                 name=name,
                 phone=phone,
                 email=email,
                 source="contact_form",
                 note=message_text,
+            )
+
+            customer = None
+            if phone:
+                customer = Customer.objects.filter(store=self.store, phone=phone).first()
+
+            ContactActivity.objects.create(
+                store=self.store,
+                customer=customer,
+                lead=lead,
+                activity_type=ContactActivity.ActivityType.TICKET,
+                description=message_text[:500] if message_text else "پیام فرم تماس ثبت شد.",
+                reference_id=str(lead.pk),
             )
         except Exception:
             logger.exception("Failed to save contact-form lead for store %s", self.store.pk)

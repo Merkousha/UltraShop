@@ -56,6 +56,8 @@ class SaleTask(models.Model):
         "core.User", on_delete=models.SET_NULL, null=True, blank=True,
         related_name="sale_tasks"
     )
+    reminder_sent_at = models.DateTimeField(null=True, blank=True)
+    overdue_reminder_sent_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -112,6 +114,7 @@ class ContactActivity(models.Model):
         CALL = "call", "تماس"
         EMAIL = "email", "ایمیل"
         CHAT = "chat", "چت"
+        TICKET = "ticket", "تیکت پشتیبانی"
 
     store = models.ForeignKey(
         "core.Store", on_delete=models.CASCADE, related_name="contact_activities"

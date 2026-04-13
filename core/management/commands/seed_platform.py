@@ -8,12 +8,18 @@ class Command(BaseCommand):
     help = "Seed initial platform data: PlatformAdmin group, PlatformSettings, superuser, plans"
 
     def handle(self, *args, **options):
-        # 1. Create PlatformAdmin group
-        group, created = Group.objects.get_or_create(name="PlatformAdmin")
+        # 1. Create platform roles
+        platform_admin_group, created = Group.objects.get_or_create(name="PlatformAdmin")
         if created:
             self.stdout.write(self.style.SUCCESS("Created PlatformAdmin group"))
         else:
             self.stdout.write("PlatformAdmin group already exists")
+
+        super_admin_group, created = Group.objects.get_or_create(name="SuperAdmin")
+        if created:
+            self.stdout.write(self.style.SUCCESS("Created SuperAdmin group"))
+        else:
+            self.stdout.write("SuperAdmin group already exists")
 
         # 2. Initialize PlatformSettings
         ps = PlatformSettings.load()
@@ -36,7 +42,8 @@ class Command(BaseCommand):
                 email=email,
                 password="Admin@12345",
             )
-            group.user_set.add(user)
+            platform_admin_group.user_set.add(user)
+            super_admin_group.user_set.add(user)
             self.stdout.write(self.style.SUCCESS(
                 f"Created superuser: {email} / Admin@12345"
             ))

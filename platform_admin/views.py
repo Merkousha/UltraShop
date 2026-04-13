@@ -22,7 +22,10 @@ class PlatformAdminMixin(LoginRequiredMixin, UserPassesTestMixin):
     login_url = "/platform/login/"
 
     def test_func(self):
-        return self.request.user.groups.filter(name="PlatformAdmin").exists() or self.request.user.is_superuser
+        return (
+            self.request.user.groups.filter(name__in=["PlatformAdmin", "SuperAdmin"]).exists()
+            or self.request.user.is_superuser
+        )
 
 
 class PlatformLoginView(auth_views.LoginView):

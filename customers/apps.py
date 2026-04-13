@@ -5,6 +5,7 @@ import threading
 import time
 
 from django.apps import AppConfig
+from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,13 @@ class CustomersConfig(AppConfig):
     name = "customers"
 
     def ready(self):
+        # In django-tenants mode, customers tables live in tenant schemas.
+        # This scheduler runs in the public process context, so skip startup
+        # until a tenant-aware scheduler is introduced.
+        if getattr(settings, "USE_DJANGO_TENANTS", False):
+            logger.info("Cart recovery scheduler disabled in django-tenants mode.")
+            return
+
         # Start the scheduler only in the actual web-server process.
         # - Django dev server: RUN_MAIN=true is set by the reloader in the child process.
         # - Gunicorn / Uvicorn workers: their entry point is in sys.argv[0].

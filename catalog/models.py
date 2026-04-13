@@ -70,6 +70,11 @@ class Product(models.Model):
     def primary_image(self):
         return self.images.filter(is_primary=True).first() or self.images.first()
 
+    @property
+    def shipping_enabled(self):
+        """Compatibility alias used by checkout/business rules."""
+        return self.requires_shipping
+
 
 class ProductImage(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="images")

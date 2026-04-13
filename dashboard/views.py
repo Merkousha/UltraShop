@@ -45,7 +45,7 @@ from core.warehouse_service import (
     MAX_WAREHOUSES_PER_STORE,
     set_default_warehouse_quantity,
 )
-from core.theme_service import generate_color_scale, validate_contrast
+from core.theme_service import generate_color_scale, validate_accessibility, validate_contrast
 from core.css_sanitizer import sanitize_css
 from orders.models import Order, OrderStatusEvent
 
@@ -1363,6 +1363,7 @@ class ThemeCustomizeView(StoreAccessMixin, TemplateView):
         ctx["shadow_choices"] = StoreTheme.ShadowLevel.choices
         ctx["primary_scale"] = generate_color_scale(theme.primary_color)
         ctx["contrast_warnings"] = validate_contrast(theme)
+        ctx["accessibility_warnings"] = validate_accessibility(theme)
         return ctx
 
     def post(self, request, *args, **kwargs):

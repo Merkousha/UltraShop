@@ -1,4 +1,12 @@
+import logging
+
+from django.conf import settings
+from django.core.mail import send_mail
+
 from core.models import AuditLog
+
+
+logger = logging.getLogger(__name__)
 
 
 def log_action(*, actor=None, store=None, action, resource_type="", resource_id="", details=None):
@@ -10,6 +18,47 @@ def log_action(*, actor=None, store=None, action, resource_type="", resource_id=
         resource_id=str(resource_id) if resource_id else "",
         details=details or {},
     )
+
+
+def send_notification(store, recipient: str, message: str, subject: str = "اطلاع‌رسانی فروشگاه") -> bool:
+    """
+    Send a best-effort notification.
+
+    Current behavior:
+    - Email recipients: send via Django email backend.
+    - Phone-like recipients: log-only fallback (SMS provider hooks can be added later).
+
+    Returns True when the notification is accepted for sending/logging.
+    """
+    if not recipient:
+        return False
+
+    recipient = recipient.strip()
+    if not recipient:
+        return False
+
+    try:
+        # Simple heuristic: if recipient contains '@', treat it as email.
+        if "@" in recipient:
+            from_email = getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@ultra-shop.com")
+            send_mail(subject, message, from_email, [recipient], fail_silently=True)
+            return True
+
+        # SMS gateway integration is intentionally deferred.
+        logger.info(
+            "Notification (sms-log) [store=%s recipient=%s]: %s",
+            getattr(store, "pk", None),
+            recipient,
+            message,
+        )
+        return True
+    except Exception:
+        logger.exception(
+            "Failed to send notification [store=%s recipient=%s]",
+            getattr(store, "pk", None),
+            recipient,
+        )
+        return False
 
 
 # ─── Plan Limit Enforcement ──────────────────────────────────
