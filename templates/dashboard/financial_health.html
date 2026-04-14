@@ -1,5 +1,6 @@
 {% extends "dashboard/base.html" %}
 {% load static %}
+{% load number_filters %}
 {% block title %}سلامت مالی فروشگاه{% endblock %}
 
 {% block content %}
@@ -56,7 +57,7 @@
         <span class="text-xs text-gray-500 font-medium">درآمد {{ health.days }} روز</span>
       </div>
       <p class="text-xl font-bold text-indigo-700 ltr">
-        {{ health.revenue|stringformat:",.0f" }}
+        {{ health.revenue|default:0|persian_number }}
         <span class="text-sm font-normal text-gray-400">﷼</span>
       </p>
       {% if health.prev_revenue > 0 %}
@@ -74,11 +75,11 @@
         <span class="text-xs text-gray-500 font-medium">هزینه‌ها</span>
       </div>
       <p class="text-xl font-bold text-orange-600 ltr">
-        {{ health.total_expense|stringformat:",.0f" }}
+        {{ health.total_expense|default:0|persian_number }}
         <span class="text-sm font-normal text-gray-400">﷼</span>
       </p>
       {% if health.commission > 0 %}
-      <p class="text-xs text-gray-400 mt-1">+ {{ health.commission|stringformat:",.0f" }} ﷼ کارمزد پلتفرم</p>
+      <p class="text-xs text-gray-400 mt-1">+ {{ health.commission|default:0|persian_number }} ﷼ کارمزد پلتفرم</p>
       {% endif %}
     </div>
 
@@ -89,7 +90,7 @@
         <span class="text-xs text-gray-500 font-medium">سود خالص</span>
       </div>
       <p class="text-xl font-bold ltr {% if health.net_profit >= 0 %}text-green-700{% else %}text-red-600{% endif %}">
-        {{ health.net_profit|stringformat:",.0f" }}
+        {{ health.net_profit|default:0|persian_number }}
         <span class="text-sm font-normal text-gray-400">﷼</span>
       </p>
     </div>
@@ -104,7 +105,7 @@
                 {% if health.profit_margin >= 20 %}text-green-700
                 {% elif health.profit_margin >= 10 %}text-amber-600
                 {% else %}text-red-600{% endif %}">
-        {{ health.profit_margin|stringformat:".1f" }}<span class="text-sm font-normal text-gray-400">٪</span>
+        {{ health.profit_margin|default:0|stringformat:".1f" }}<span class="text-sm font-normal text-gray-400">٪</span>
       </p>
       <div class="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden">
         <div class="h-1.5 rounded-full
@@ -124,7 +125,7 @@
       </div>
       {% if health.prev_revenue > 0 %}
       <p class="text-xl font-bold ltr {% if health.growth >= 0 %}text-green-700{% else %}text-red-600{% endif %}">
-        {{ health.growth|stringformat:"+.1f" }}<span class="text-sm font-normal text-gray-400">٪</span>
+        {{ health.growth|default:0|stringformat:"+.1f" }}<span class="text-sm font-normal text-gray-400">٪</span>
       </p>
       <p class="text-xs text-gray-400 mt-1">نسبت به {{ health.days }} روز قبل</p>
       {% else %}
@@ -171,7 +172,7 @@
             <p class="text-xs text-gray-400 mt-0.5 ltr">
               {{ product.total_units }} عدد
               &nbsp;|&nbsp;
-              {{ product.total_revenue|stringformat:",.0f" }} ﷼
+              {{ product.total_revenue|default:0|persian_number }} ﷼
             </p>
           </div>
         </li>
@@ -212,7 +213,7 @@
             <tr class="hover:bg-gray-50 transition-colors">
               <td class="px-5 py-2.5 text-gray-700 font-medium">{{ item.category_display }}</td>
               <td class="px-5 py-2.5 text-gray-800 ltr text-left font-semibold">
-                {{ item.total|stringformat:",.0f" }}
+                {{ item.total|persian_number }}
               </td>
               <td class="px-5 py-2.5">
                 {% if health.total_expense > 0 %}
@@ -232,7 +233,7 @@
             <tr class="bg-gray-50 border-t border-gray-200">
               <td class="px-5 py-2.5 text-gray-600 font-semibold text-xs">جمع کل</td>
               <td class="px-5 py-2.5 text-gray-800 font-bold ltr text-left">
-                {{ health.total_expense|stringformat:",.0f" }}
+                {{ health.total_expense|default:0|persian_number }}
               </td>
               <td class="px-5 py-2.5 text-xs text-gray-500 text-left ltr">۱۰۰٪</td>
             </tr>
