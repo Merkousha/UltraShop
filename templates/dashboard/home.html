@@ -1,29 +1,249 @@
 {% extends "dashboard/base.html" %}
+{% load number_filters %}
 {% block title %}داشبورد{% endblock %}
 {% block content %}
-<h2 class="text-2xl font-bold mb-6">خوش آمدید 👋</h2>
-{% if stores %}
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-    {% for store in stores %}
-    <div class="bg-white rounded-lg shadow p-5 {% if store.pk == current_store_id %}ring-2 ring-indigo-500{% endif %}">
-        <h3 class="font-bold text-lg">{{ store.name }}</h3>
-        <p class="text-sm text-gray-500 mt-1 mb-0.5" dir="ltr">{{ store.username }}.ultra-shop.com</p>
-        <p class="text-sm text-gray-500 mb-3" dir="ltr">/s/{{ store.username }}/</p>
-        <div class="flex flex-wrap gap-2">
-            <form method="post" action="{% url 'dashboard:select-store' store.pk %}" class="inline">
-                {% csrf_token %}
-                <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded text-sm hover:bg-indigo-700">
-                    {% if store.pk == current_store_id %}✓ انتخاب شده{% else %}انتخاب{% endif %}
-                </button>
-            </form>
-            <a href="{% url 'storefront:home' store_username=store.username %}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center px-4 py-2 rounded text-sm border border-indigo-600 text-indigo-600 hover:bg-indigo-50">
-                نمایش فروشگاه
-            </a>
+<div class="space-y-6">
+    <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div>
+            <h2 class="text-2xl font-bold">خوش آمدید 👋</h2>
+            <p class="text-sm text-gray-500 mt-1">نمای کلی فعالیت‌های فروشگاه فعلی و اتفاقات اخیر.</p>
         </div>
+        {% if current_store %}
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 px-4 py-3 min-w-[260px]">
+            <p class="text-xs text-gray-400">فروشگاه فعال</p>
+            <p class="font-semibold text-gray-800">{{ current_store.name }}</p>
+            <p class="text-xs text-gray-500 mt-1" dir="ltr">/s/{{ current_store.username }}/</p>
+        </div>
+        {% endif %}
     </div>
-    {% endfor %}
+
+    {% if current_store %}
+    <section class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-5">
+            <div>
+                <h3 class="text-lg font-bold">{{ current_store.name }}</h3>
+                <p class="text-sm text-gray-500 mt-1">آدرس فروشگاه: <span dir="ltr">{{ current_store.username }}.ultra-shop.com</span></p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <a href="{% url 'dashboard:product-create' %}" class="px-4 py-2 rounded-lg text-sm bg-indigo-600 text-white hover:bg-indigo-700">+ محصول جدید</a>
+                <a href="{% url 'dashboard:order-list' %}" class="px-4 py-2 rounded-lg text-sm border border-gray-200 hover:bg-gray-50">سفارش‌ها</a>
+                <a href="{% url 'dashboard:analytics' %}" class="px-4 py-2 rounded-lg text-sm border border-gray-200 hover:bg-gray-50">تحلیل فروش</a>
+                <a href="{% url 'dashboard:page-editor' %}" class="px-4 py-2 rounded-lg text-sm border border-gray-200 hover:bg-gray-50">ویرایش صفحه</a>
+                <a href="{% url 'storefront:home' store_username=current_store.username %}" target="_blank" rel="noopener noreferrer" class="px-4 py-2 rounded-lg text-sm border border-indigo-200 text-indigo-700 hover:bg-indigo-50">نمایش فروشگاه</a>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
+            <div class="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                <p class="text-xs text-gray-500">محصولات کل</p>
+                <p class="text-2xl font-bold mt-1">{{ overview.products_total|default:0|persian_number }}</p>
+                <p class="text-xs text-gray-400 mt-1">فعال: {{ overview.products_active|default:0|persian_number }}</p>
+            </div>
+            <div class="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                <p class="text-xs text-gray-500">سفارش‌ها</p>
+                <p class="text-2xl font-bold mt-1">{{ overview.orders_total|default:0|persian_number }}</p>
+                <p class="text-xs text-gray-400 mt-1">در انتظار: {{ overview.orders_pending|default:0|persian_number }}</p>
+            </div>
+            <div class="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                <p class="text-xs text-gray-500">درآمد ۷ روز اخیر</p>
+                <p class="text-2xl font-bold mt-1">{{ overview.revenue_7d|default:0|persian_number }} ریال</p>
+                <p class="text-xs text-gray-400 mt-1">مجموع فروش پرداخت‌شده</p>
+            </div>
+            <div class="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                <p class="text-xs text-gray-500">نرخ تبدیل</p>
+                <p class="text-2xl font-bold mt-1">{{ overview.conversion_rate|default:0 }}%</p>
+                <p class="text-xs text-gray-400 mt-1">پرداخت‌شده / کل سفارش‌ها</p>
+            </div>
+            <div class="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                <p class="text-xs text-gray-500">مشتری جدید</p>
+                <p class="text-2xl font-bold mt-1">{{ overview.new_customers|default:0|persian_number }}</p>
+                <p class="text-xs text-gray-400 mt-1">در ۳۰ روز اخیر</p>
+            </div>
+            <div class="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                <p class="text-xs text-gray-500">اعتبار AI</p>
+                <p class="text-2xl font-bold mt-1">{{ ai_usage.0|default:0|persian_number }}</p>
+                <p class="text-xs text-gray-400 mt-1">از {{ ai_usage.1|default:0|persian_number }} درخواست</p>
+            </div>
+        </div>
+    </section>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <section class="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                <div>
+                    <h3 class="font-semibold text-gray-800">📈 روند درآمد ۷ روز اخیر</h3>
+                    <p class="text-xs text-gray-400 mt-1">نگاهی سریع به رفتار فروش روزانه</p>
+                </div>
+                <a href="{% url 'dashboard:analytics' %}" class="text-sm text-indigo-600 hover:underline">مشاهده کامل</a>
+            </div>
+            {% if trend_points %}
+            <div class="p-6 space-y-3">
+                {% for point in trend_points %}
+                <div class="grid grid-cols-[90px_1fr_110px] gap-3 items-center">
+                    <div class="text-xs text-gray-500 ltr">{{ point.date }}</div>
+                    <div class="h-3 rounded-full bg-gray-100 overflow-hidden">
+                        <div class="h-3 rounded-full bg-indigo-500" style="width: {{ point.bar_width }}%"></div>
+                    </div>
+                    <div class="text-sm font-medium text-left ltr">{{ point.revenue|persian_number }} ریال</div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="p-10 text-center text-gray-400">
+                <p class="text-3xl mb-2">📉</p>
+                <p>هنوز داده‌ای برای نمایش روند درآمد وجود ندارد.</p>
+            </div>
+            {% endif %}
+        </section>
+
+        <section class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-100">
+                <h3 class="font-semibold text-gray-800">🏅 محصولات پرفروش</h3>
+                <p class="text-xs text-gray-400 mt-1">بر اساس فروش ۳۰ روز اخیر</p>
+            </div>
+            {% if overview.top_products %}
+            <ul class="divide-y divide-gray-50">
+                {% for product in overview.top_products %}
+                <li class="px-6 py-4">
+                    <p class="text-sm font-medium text-gray-800 truncate">{{ product.product_name }}</p>
+                    <div class="flex items-center justify-between text-xs text-gray-500 mt-2">
+                        <span>{{ product.total_qty|persian_number }} عدد</span>
+                        <span>{{ product.total_revenue|persian_number }} ریال</span>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <div class="p-10 text-center text-gray-400">
+                <p class="text-3xl mb-2">📦</p>
+                <p>هنوز فروشی ثبت نشده است.</p>
+            </div>
+            {% endif %}
+        </section>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <section class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                <div>
+                    <h3 class="font-semibold text-gray-800">🛒 سفارش‌های اخیر</h3>
+                    <p class="text-xs text-gray-400 mt-1">آخرین فعالیت‌های فروشگاه</p>
+                </div>
+                <a href="{% url 'dashboard:order-list' %}" class="text-sm text-indigo-600 hover:underline">همه سفارش‌ها</a>
+            </div>
+            {% if recent_orders %}
+            <div class="divide-y divide-gray-50">
+                {% for order in recent_orders %}
+                <div class="px-6 py-4 flex items-center justify-between gap-4">
+                    <div>
+                        <p class="font-medium text-sm">سفارش #{{ order.pk|persian_number }}</p>
+                        <p class="text-xs text-gray-500 mt-1">
+                            {% if order.customer %}{{ order.customer.phone }}{% else %}{{ order.guest_phone|default:"—" }}{% endif %}
+                        </p>
+                        <p class="text-xs text-gray-400 mt-1">{{ order.created_at|date:"Y/m/d H:i" }}</p>
+                    </div>
+                    <div class="text-left">
+                        <p class="text-sm font-semibold">{{ order.total_after_discount|persian_number }} ریال</p>
+                        <span class="inline-flex mt-1 px-2 py-0.5 rounded text-xs
+                            {% if order.status == 'paid' %}bg-green-100 text-green-700
+                            {% elif order.status == 'delivered' %}bg-blue-100 text-blue-700
+                            {% elif order.status == 'cancelled' %}bg-red-100 text-red-700
+                            {% elif order.status == 'refunded' %}bg-yellow-100 text-yellow-700
+                            {% else %}bg-gray-100 text-gray-600{% endif %}">
+                                {% if order.status == 'pending' %}در انتظار پرداخت
+                                {% elif order.status == 'paid' %}پرداخت شده
+                                {% elif order.status == 'packed' %}بسته‌بندی شده
+                                {% elif order.status == 'shipped' %}ارسال شده
+                                {% elif order.status == 'delivered' %}تحویل داده شده
+                                {% elif order.status == 'cancelled' %}لغو شده
+                                {% elif order.status == 'refunded' %}مسترد شده
+                                {% else %}{{ order.status }}{% endif %}
+                        </span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="p-10 text-center text-gray-400">
+                <p class="text-3xl mb-2">🧾</p>
+                <p>هنوز سفارشی ثبت نشده است.</p>
+            </div>
+            {% endif %}
+        </section>
+
+        <section class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                <div>
+                    <h3 class="font-semibold text-gray-800">📉 کالاهای رو به اتمام</h3>
+                    <p class="text-xs text-gray-400 mt-1">مواردی که نیاز به بررسی دارند</p>
+                </div>
+                <a href="{% url 'dashboard:low-stock' %}" class="text-sm text-indigo-600 hover:underline">همه</a>
+            </div>
+            {% if low_stock_variants %}
+            <ul class="divide-y divide-gray-50">
+                {% for variant in low_stock_variants %}
+                <li class="px-6 py-4 flex items-center justify-between gap-4">
+                    <div class="min-w-0">
+                        <p class="text-sm font-medium text-gray-800 truncate">{{ variant.product.name }}</p>
+                        <p class="text-xs text-gray-500 mt-1">{{ variant.name }}{% if variant.sku %} — {{ variant.sku }}{% endif %}</p>
+                    </div>
+                    <span class="inline-flex px-2.5 py-1 rounded text-xs font-medium
+                        {% if variant.total_stock == 0 %}bg-red-100 text-red-700
+                        {% elif variant.total_stock <= 2 %}bg-orange-100 text-orange-700
+                        {% else %}bg-yellow-100 text-yellow-700{% endif %}">
+                        {{ variant.total_stock|persian_number }} عدد
+                    </span>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <div class="p-10 text-center text-gray-400">
+                <p class="text-3xl mb-2">✅</p>
+                <p>همه محصولات موجودی کافی دارند.</p>
+            </div>
+            {% endif %}
+        </section>
+    </div>
+    {% endif %}
+
+    <section>
+        <div class="flex items-center justify-between gap-3 mb-4">
+            <div>
+                <h3 class="text-lg font-semibold">فروشگاه‌های شما</h3>
+                <p class="text-sm text-gray-500 mt-1">برای جابه‌جایی سریع بین فروشگاه‌ها</p>
+            </div>
+        </div>
+        {% if stores %}
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {% for store in stores %}
+            <div class="bg-white rounded-xl shadow-sm border {% if store.pk == current_store_id %}border-indigo-500 ring-2 ring-indigo-100{% else %}border-gray-100{% endif %} p-5">
+                <div class="flex items-start justify-between gap-3 mb-4">
+                    <div>
+                        <h4 class="font-semibold text-lg">{{ store.name }}</h4>
+                        <p class="text-sm text-gray-500 mt-1" dir="ltr">{{ store.username }}.ultra-shop.com</p>
+                    </div>
+                    {% if store.pk == current_store_id %}
+                    <span class="px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 text-xs font-medium">فعال</span>
+                    {% endif %}
+                </div>
+                <p class="text-xs text-gray-400 mb-4" dir="ltr">/s/{{ store.username }}/</p>
+                <div class="flex flex-wrap gap-2">
+                    <form method="post" action="{% url 'dashboard:select-store' store.pk %}" class="inline">
+                        {% csrf_token %}
+                        <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-indigo-700">
+                            {% if store.pk == current_store_id %}✓ انتخاب شده{% else %}انتخاب{% endif %}
+                        </button>
+                    </form>
+                    <a href="{% url 'storefront:home' store_username=store.username %}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center px-4 py-2 rounded-lg text-sm border border-indigo-600 text-indigo-600 hover:bg-indigo-50">
+                        نمایش فروشگاه
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-gray-500">هنوز فروشگاهی ندارید.</p>
+        {% endif %}
+    </section>
 </div>
-{% else %}
-<p class="text-gray-500">هنوز فروشگاهی ندارید.</p>
-{% endif %}
 {% endblock %}

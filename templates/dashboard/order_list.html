@@ -1,4 +1,5 @@
 {% extends "dashboard/base.html" %}
+{% load number_filters %}
 {% block title %}سفارش‌ها{% endblock %}
 {% block content %}
 <h2 class="text-2xl font-bold mb-6">🛒 سفارش‌ها</h2>
@@ -24,9 +25,9 @@
         <tbody>
         {% for order in orders %}
         <tr class="border-t hover:bg-gray-50">
-            <td class="px-4 py-3 font-mono text-xs">{{ order.pk }}</td>
+            <td class="px-4 py-3 font-mono text-xs">{{ order.pk|persian_number }}</td>
             <td class="px-4 py-3">{% if order.customer %}{{ order.customer.phone }}{% else %}{{ order.guest_phone|default:"—" }}{% endif %}</td>
-            <td class="px-4 py-3">{{ order.total|stringformat:",.0f" }}</td>
+            <td class="px-4 py-3">{{ order.total|persian_number }} ریال</td>
             <td class="px-4 py-3">
                 <span class="px-2 py-1 rounded text-xs
                     {% if order.status == 'delivered' %}bg-green-100 text-green-700

@@ -1,10 +1,10 @@
 {% extends "dashboard/base.html" %}
-{% block title %}افزودن دسته‌بندی{% endblock %}
+{% block title %}{% if is_edit %}ویرایش دسته‌بندی{% else %}افزودن دسته‌بندی{% endif %}{% endblock %}
 {% block content %}
 <div class="max-w-xl">
     <div class="flex items-center gap-3 mb-6">
         <a href="{% url 'dashboard:category-list' %}" class="text-indigo-600 text-sm hover:underline">← دسته‌بندی‌ها</a>
-        <h2 class="text-2xl font-bold">افزودن دسته‌بندی</h2>
+        <h2 class="text-2xl font-bold">{% if is_edit %}ویرایش دسته‌بندی{% else %}افزودن دسته‌بندی{% endif %}</h2>
     </div>
 
     {% if messages %}
@@ -15,28 +15,45 @@
     </div>
     {% endif %}
 
-    <form method="post" class="bg-white rounded-lg shadow p-6 space-y-4">
+    <form method="post" enctype="multipart/form-data" class="bg-white rounded-lg shadow p-6 space-y-4">
         {% csrf_token %}
         <div>
             <label class="block text-sm font-medium mb-1">نام دسته‌بندی <span class="text-red-500">*</span></label>
-            <input type="text" name="name" required class="w-full border rounded px-3 py-2 text-sm" placeholder="مثال: لوازم الکترونیکی">
+            <input id="category-name" type="text" name="name" required value="{{ category.name|default:'' }}" class="w-full border rounded px-3 py-2 text-sm" placeholder="مثال: لوازم الکترونیکی">
         </div>
         <div>
             <label class="block text-sm font-medium mb-1">دسته والد</label>
-            <select name="parent_id" class="w-full border rounded px-3 py-2 text-sm">
+            <select id="category-parent" name="parent_id" class="w-full border rounded px-3 py-2 text-sm">
                 <option value="">— بدون والد (دسته اصلی)</option>
                 {% for cat in categories %}
-                <option value="{{ cat.pk }}">{{ cat.name }}</option>
+                <option value="{{ cat.pk }}" {% if category and category.parent_id == cat.pk %}selected{% endif %}>{{ cat.name }}</option>
                 {% endfor %}
             </select>
         </div>
         <div>
             <label class="block text-sm font-medium mb-1">نامک (اختیاری)</label>
-            <input type="text" name="slug" class="w-full border rounded px-3 py-2 text-sm" dir="ltr" placeholder="خالی بگذارید تا از نام ساخته شود">
+            <input type="text" name="slug" value="{{ category.slug|default:'' }}" class="w-full border rounded px-3 py-2 text-sm" dir="ltr" placeholder="خالی بگذارید تا از نام ساخته شود">
+        </div>
+        <div>
+            <label class="block text-sm font-medium mb-1">تصویر دسته‌بندی</label>
+            <input type="file" name="image" accept="image/*" class="w-full border rounded px-3 py-2 text-sm bg-white">
+            {% if category and category.image %}
+            <div class="mt-3 flex items-center gap-3">
+                <img src="{{ category.image.url }}" alt="{{ category.name }}" class="w-16 h-16 rounded object-cover border">
+                <label class="inline-flex items-center gap-2 text-xs text-gray-600">
+                    <input type="checkbox" name="remove_image">
+                    حذف تصویر فعلی
+                </label>
+            </div>
+            {% endif %}
         </div>
         <div>
             <label class="block text-sm font-medium mb-1">توضیحات</label>
-            <textarea name="description" rows="3" class="w-full border rounded px-3 py-2 text-sm" placeholder="اختیاری"></textarea>
+            <textarea id="category-description" name="description" rows="5" class="w-full border rounded px-3 py-2 text-sm" placeholder="اختیاری">{{ category.description|default:'' }}</textarea>
+            <div class="mt-2 flex items-center gap-2">
+                <button id="generate-category-desc" type="button" class="bg-indigo-50 text-indigo-700 border border-indigo-200 px-3 py-1.5 rounded text-xs hover:bg-indigo-100">✨ تولید توضیحات با AI</button>
+                <span id="ai-desc-status" class="text-xs text-gray-500"></span>
+            </div>
         </div>
         <div class="flex gap-3">
             <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded text-sm hover:bg-indigo-700">ذخیره</button>
@@ -44,4 +61,74 @@
         </div>
     </form>
 </div>
+<script>
+(function () {
+    const btn = document.getElementById("generate-category-desc");
+    const status = document.getElementById("ai-desc-status");
+    const nameInput = document.getElementById("category-name");
+    const parentSelect = document.getElementById("category-parent");
+    const descInput = document.getElementById("category-description");
+
+    if (!btn || !status || !nameInput || !parentSelect || !descInput) {
+        return;
+    }
+
+    function getCookie(name) {
+        const v = document.cookie.match("(^|;) ?" + name + "=([^;]*)(;|$)");
+        return v ? v[2] : "";
+    }
+
+    btn.addEventListener("click", function () {
+        const name = (nameInput.value || "").trim();
+        if (!name) {
+            status.textContent = "ابتدا نام دسته‌بندی را وارد کنید.";
+            status.className = "text-xs text-red-600";
+            return;
+        }
+
+        const parentName = parentSelect.options[parentSelect.selectedIndex]
+            ? parentSelect.options[parentSelect.selectedIndex].text
+            : "";
+
+        btn.disabled = true;
+        status.textContent = "در حال تولید...";
+        status.className = "text-xs text-gray-500";
+
+        fetch("{% url 'dashboard:category-ai-description' %}", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": getCookie("csrftoken"),
+            },
+            body: JSON.stringify({
+                name: name,
+                parent_name: parentName.includes("بدون والد") ? "" : parentName,
+                current_description: descInput.value || "",
+            }),
+        })
+            .then(function (r) {
+                return r.json().then(function (data) {
+                    return { status: r.status, data: data };
+                });
+            })
+            .then(function (res) {
+                if (res.status >= 200 && res.status < 300 && res.data.description) {
+                    descInput.value = res.data.description;
+                    status.textContent = "توضیحات با AI تولید شد.";
+                    status.className = "text-xs text-green-600";
+                } else {
+                    status.textContent = res.data.error || "خطا در تولید توضیحات.";
+                    status.className = "text-xs text-red-600";
+                }
+            })
+            .catch(function () {
+                status.textContent = "خطا در ارتباط با سرور.";
+                status.className = "text-xs text-red-600";
+            })
+            .finally(function () {
+                btn.disabled = false;
+            });
+    });
+})();
+</script>
 {% endblock %}

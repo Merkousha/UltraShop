@@ -1,6 +1,7 @@
 {% extends "storefront/base.html" %}
 {% load humanize %}
-{% block title %}{{ product.name }} — {{ store.name }}{% endblock %}
+{% load number_filters %}
+{% block title %}{{ product.name|persian_number }} — {{ store.name }}{% endblock %}
 {% block extra_head %}
 {% if product.seo_title %}<meta name="title" content="{{ product.seo_title }}">{% endif %}
 {% if product.seo_description %}<meta name="description" content="{{ product.seo_description }}">{% endif %}
@@ -17,13 +18,20 @@
     <div>
         {% with images=product.images.all %}
         {% if images %}
-        <div class="bg-white rounded-lg shadow overflow-hidden mb-4">
-            <img id="main-image" src="{{ images.0.image.url }}" class="w-full h-96 object-contain" alt="{{ product.name }}">
+        <div class="bg-white rounded-lg shadow overflow-hidden mb-2 relative group">
+            <button type="button"
+                    id="open-lightbox"
+                    class="absolute top-3 left-3 z-10 bg-black/60 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition"
+                    aria-label="نمایش بزرگ تصویر محصول">
+                زوم تصویر
+            </button>
+            <img id="main-image" src="{{ images.0.image.url }}" data-index="0" class="w-full h-96 object-contain cursor-zoom-in" alt="{{ product.name|persian_number }}">
         </div>
+        <p class="text-xs text-gray-400 mb-4">برای مشاهده تصویر بزرگ‌تر روی عکس کلیک کنید.</p>
         {% if images|length > 1 %}
         <div class="flex gap-2 overflow-x-auto pb-2">
             {% for img in images %}
-            <img src="{{ img.image.url }}" class="w-16 h-16 object-cover rounded cursor-pointer border-2 {% if forloop.first %}border-indigo-500{% else %}border-transparent{% endif %} hover:border-indigo-300 thumb-img" data-src="{{ img.image.url }}" alt="تصویر {{ forloop.counter }}">
+            <img src="{{ img.image.url }}" class="w-16 h-16 object-cover rounded cursor-pointer border-2 {% if forloop.first %}border-indigo-500{% else %}border-transparent{% endif %} hover:border-indigo-300 thumb-img" data-src="{{ img.image.url }}" data-index="{{ forloop.counter0 }}" alt="تصویر {{ forloop.counter|persian_number }}">
             {% endfor %}
         </div>
         {% endif %}
@@ -35,16 +43,22 @@
 
     <!-- Product Info -->
     <div class="space-y-4">
-        <h1 class="text-2xl font-bold" id="product-heading">{{ product.name }}</h1>
+        <h1 class="text-2xl font-bold" id="product-heading">{{ product.name|persian_number }}</h1>
+
+        <div class="flex items-center gap-2 text-xs text-gray-500">
+            <span class="px-2 py-1 bg-green-50 text-green-700 rounded">ارسال سریع</span>
+            <span class="px-2 py-1 bg-blue-50 text-blue-700 rounded">ضمانت اصالت</span>
+            <span class="px-2 py-1 bg-amber-50 text-amber-700 rounded">پشتیبانی خرید</span>
+        </div>
 
         {% if min_variant_price %}
-        <div class="bg-white rounded-lg shadow p-4 flex items-center justify-between">
+        <div class="bg-white rounded-lg shadow p-4 flex items-center justify-between border border-gray-100">
             <span class="text-sm text-gray-500">قیمت</span>
             <div class="text-left">
                 {% if min_variant_price == max_variant_price %}
-                <p class="font-bold text-xl text-primary">{{ min_variant_price|intcomma }} <span class="text-xs text-gray-400">ریال</span></p>
+                <p class="font-bold text-xl text-primary">{{ min_variant_price|persian_number }} <span class="text-xs text-gray-400">ریال</span></p>
                 {% else %}
-                <p class="font-bold text-xl text-primary">{{ min_variant_price|intcomma }} تا {{ max_variant_price|intcomma }} <span class="text-xs text-gray-400">ریال</span></p>
+                <p class="font-bold text-xl text-primary">{{ min_variant_price|persian_number }} تا {{ max_variant_price|persian_number }} <span class="text-xs text-gray-400">ریال</span></p>
                 {% endif %}
             </div>
         </div>
@@ -53,23 +67,31 @@
         {% if active_variants %}
         <div class="space-y-3">
             {% for variant in active_variants %}
-            <div class="bg-white rounded-lg shadow p-4 flex items-center justify-between">
+            <div class="bg-white rounded-lg shadow p-4 flex items-center justify-between border border-gray-100">
                 <div>
                     <p class="font-medium">{{ variant.name }}</p>
                     {% if variant.sku %}<p class="text-xs text-gray-400" dir="ltr">SKU: {{ variant.sku }}</p>{% endif %}
                 </div>
                 <div class="text-left">
-                    <p class="font-bold text-lg text-primary">{{ variant.price|intcomma }} <span class="text-xs text-gray-400">ریال</span></p>
-                    {% if variant.compare_at_price %}<p><del class="text-sm text-gray-400">{{ variant.compare_at_price|intcomma }}</del></p>{% endif %}
+                    <p class="font-bold text-lg text-primary">{{ variant.price|persian_number }} <span class="text-xs text-gray-400">ریال</span></p>
+                    {% if variant.compare_at_price %}<p><del class="text-sm text-gray-400">{{ variant.compare_at_price|persian_number }} ریال</del></p>{% endif %}
                     {% if variant.stock > 0 %}
-                    <p class="text-xs text-green-600">✓ موجود ({{ variant.stock }})</p>
-                    <form method="post" action="{% url 'storefront:cart-add' store.username %}" class="mt-2">
+                    <p class="text-xs text-green-600">✓ موجود ({{ variant.stock|persian_number }})</p>
+                    <form method="post" action="{% url 'storefront:cart-add' store.username %}" class="mt-3 flex items-center justify-end gap-2">
                         {% csrf_token %}
                         <input type="hidden" name="variant_id" value="{{ variant.pk }}">
-                        <input type="hidden" name="quantity" value="1">
+                        <button type="button"
+                            class="qty-minus h-8 w-8 rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
+                            aria-label="کاهش تعداد {{ product.name|persian_number }} — {{ variant.name|persian_number }}">−</button>
+                        <input type="number" name="quantity" min="1" max="{{ variant.stock }}" value="1"
+                               class="qty-input w-16 border border-gray-300 rounded px-2 py-1 text-sm text-center"
+                               aria-label="تعداد {{ product.name|persian_number }} — {{ variant.name|persian_number }}">
+                        <button type="button"
+                            class="qty-plus h-8 w-8 rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
+                            aria-label="افزایش تعداد {{ product.name|persian_number }} — {{ variant.name|persian_number }}">+</button>
                         <button type="submit"
-                                class="btn-primary text-white text-xs px-3 py-1 rounded hover:opacity-90 transition"
-                                aria-label="افزودن {{ product.name }} — {{ variant.name }} به سبد خرید">
+                                class="btn-primary text-white text-sm font-semibold px-5 py-2 rounded-lg hover:opacity-90 transition shadow-sm"
+                                aria-label="افزودن {{ product.name|persian_number }} — {{ variant.name|persian_number }} به سبد خرید">
                             افزودن به سبد
                         </button>
                     </form>
@@ -89,18 +111,141 @@
         {% if product.description %}
         <div class="bg-white rounded-lg shadow p-6">
             <h3 class="font-semibold mb-3">توضیحات محصول</h3>
-            <div class="text-sm text-gray-600 leading-7">{{ product.description|linebreaks }}</div>
+            <div class="text-sm text-gray-600 leading-7">{{ product.description|persian_number|linebreaks }}</div>
         </div>
         {% endif %}
     </div>
 </div>
 
+<!-- Image Lightbox -->
+<div id="image-lightbox" class="fixed inset-0 bg-black/80 z-[1200] hidden items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="نمایش بزرگ تصویر محصول">
+    <button type="button" id="close-lightbox" class="absolute top-4 right-4 text-white text-2xl leading-none" aria-label="بستن">×</button>
+    <button type="button" id="prev-lightbox" class="absolute right-4 top-1/2 -translate-y-1/2 text-white text-3xl leading-none px-3 py-2 bg-black/40 rounded" aria-label="تصویر قبلی">›</button>
+    <button type="button" id="next-lightbox" class="absolute left-4 top-1/2 -translate-y-1/2 text-white text-3xl leading-none px-3 py-2 bg-black/40 rounded" aria-label="تصویر بعدی">‹</button>
+    <img id="lightbox-image" src="" alt="تصویر بزرگ محصول" class="max-w-full max-h-[85vh] object-contain rounded shadow-2xl">
+</div>
+
 <script>
-document.querySelectorAll('.thumb-img').forEach(img => {
+const mainImage = document.getElementById('main-image');
+const lightbox = document.getElementById('image-lightbox');
+const lightboxImage = document.getElementById('lightbox-image');
+const closeLightboxBtn = document.getElementById('close-lightbox');
+const openLightboxBtn = document.getElementById('open-lightbox');
+const prevLightboxBtn = document.getElementById('prev-lightbox');
+const nextLightboxBtn = document.getElementById('next-lightbox');
+const thumbs = Array.from(document.querySelectorAll('.thumb-img'));
+const imageSources = thumbs.map(function (img) { return img.dataset.src; });
+
+function setActiveImage(index) {
+    if (!mainImage || !imageSources.length) {
+        return;
+    }
+    const total = imageSources.length;
+    const safeIndex = (index + total) % total;
+    mainImage.src = imageSources[safeIndex];
+    mainImage.dataset.index = String(safeIndex);
+    thumbs.forEach(function (t) {
+        t.classList.replace('border-indigo-500', 'border-transparent');
+    });
+    if (thumbs[safeIndex]) {
+        thumbs[safeIndex].classList.replace('border-transparent', 'border-indigo-500');
+    }
+}
+
+thumbs.forEach(img => {
     img.addEventListener('click', function() {
-        document.getElementById('main-image').src = this.dataset.src;
-        document.querySelectorAll('.thumb-img').forEach(t => t.classList.replace('border-indigo-500', 'border-transparent'));
-        this.classList.replace('border-transparent', 'border-indigo-500');
+        setActiveImage(parseInt(this.dataset.index || '0', 10));
+    });
+});
+
+function openLightbox() {
+    if (!mainImage) {
+        return;
+    }
+    const index = parseInt(mainImage.dataset.index || '0', 10);
+    if (imageSources.length) {
+        lightboxImage.src = imageSources[index] || mainImage.src;
+        lightboxImage.dataset.index = String(index);
+    } else {
+        lightboxImage.src = mainImage.src;
+        lightboxImage.dataset.index = '0';
+    }
+    lightbox.classList.remove('hidden');
+    lightbox.classList.add('flex');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeLightbox() {
+    lightbox.classList.add('hidden');
+    lightbox.classList.remove('flex');
+    document.body.style.overflow = '';
+}
+
+function moveLightbox(step) {
+    if (!imageSources.length) {
+        return;
+    }
+    const current = parseInt(lightboxImage.dataset.index || '0', 10);
+    const next = (current + step + imageSources.length) % imageSources.length;
+    lightboxImage.src = imageSources[next];
+    lightboxImage.dataset.index = String(next);
+    setActiveImage(next);
+}
+
+if (mainImage) {
+    mainImage.addEventListener('click', openLightbox);
+}
+if (openLightboxBtn) {
+    openLightboxBtn.addEventListener('click', openLightbox);
+}
+if (closeLightboxBtn) {
+    closeLightboxBtn.addEventListener('click', closeLightbox);
+}
+if (prevLightboxBtn) {
+    prevLightboxBtn.addEventListener('click', function () { moveLightbox(-1); });
+}
+if (nextLightboxBtn) {
+    nextLightboxBtn.addEventListener('click', function () { moveLightbox(1); });
+}
+if (lightbox) {
+    lightbox.addEventListener('click', function (e) {
+        if (e.target === lightbox) {
+            closeLightbox();
+        }
+    });
+}
+document.addEventListener('keydown', function (e) {
+    if (lightbox && !lightbox.classList.contains('hidden')) {
+        if (e.key === 'Escape') {
+            closeLightbox();
+        }
+        if (e.key === 'ArrowLeft') {
+            moveLightbox(1);
+        }
+        if (e.key === 'ArrowRight') {
+            moveLightbox(-1);
+        }
+    }
+});
+
+document.querySelectorAll('form').forEach(function (form) {
+    const qtyInput = form.querySelector('.qty-input');
+    const minusBtn = form.querySelector('.qty-minus');
+    const plusBtn = form.querySelector('.qty-plus');
+    if (!qtyInput || !minusBtn || !plusBtn) {
+        return;
+    }
+
+    minusBtn.addEventListener('click', function () {
+        const min = parseInt(qtyInput.min || '1', 10);
+        const current = parseInt(qtyInput.value || '1', 10);
+        qtyInput.value = String(Math.max(min, current - 1));
+    });
+
+    plusBtn.addEventListener('click', function () {
+        const max = parseInt(qtyInput.max || '9999', 10);
+        const current = parseInt(qtyInput.value || '1', 10);
+        qtyInput.value = String(Math.min(max, current + 1));
     });
 });
 </script>

@@ -167,9 +167,6 @@
 
       {% if analytics.top_products %}
       <ul class="divide-y divide-gray-50">
-        {% for idx, product in analytics.top_products|enumerate %}
-        {# Note: enumerate not a built-in tag; we use forloop.counter instead #}
-        {% endfor %}
         {% for product in analytics.top_products %}
         <li class="px-6 py-3 flex items-center gap-3">
           <span class="w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold

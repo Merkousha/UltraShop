@@ -25,6 +25,8 @@ urlpatterns = [
     # Categories
     path("categories/", views.CategoryListView.as_view(), name="category-list"),
     path("categories/add/", views.CategoryCreateView.as_view(), name="category-create"),
+    path("categories/<int:pk>/edit/", views.CategoryEditView.as_view(), name="category-edit"),
+    path("categories/ai-description/", views.CategoryGenerateDescriptionView.as_view(), name="category-ai-description"),
 
     # Warehouses (Sprint 4 — SO-50, SO-51, SS-13)
     path("warehouses/", views.WarehouseListView.as_view(), name="warehouse-list"),

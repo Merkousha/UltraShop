@@ -1,5 +1,6 @@
 {% extends "storefront/base.html" %}
 {% load static %}
+{% load number_filters %}
 {% block title %}سفارش #{{ order.pk }} — {{ store.name }}{% endblock %}
 {% block content %}
 <div class="max-w-2xl mx-auto">
@@ -8,7 +9,7 @@
         <a href="{% url 'storefront:my-orders' store.username %}"
            class="text-indigo-600 hover:underline text-sm">← سفارشات من</a>
         <span class="text-gray-400 text-sm">/</span>
-        <span class="text-sm font-semibold">سفارش #{{ order.pk }}</span>
+        <span class="text-sm font-semibold">سفارش #{{ order.pk|persian_number }}</span>
     </div>
 
     <!-- وضعیت -->
@@ -35,7 +36,7 @@
         <div class="space-y-2 text-sm text-gray-600">
             <div class="flex justify-between">
                 <span>شماره سفارش:</span>
-                <span class="font-bold">#{{ order.pk }}</span>
+                <span class="font-bold">#{{ order.pk|persian_number }}</span>
             </div>
             <div class="flex justify-between">
                 <span>تاریخ ثبت:</span>
@@ -76,20 +77,20 @@
                 {% if line.variant_name %}
                 <span class="text-xs text-gray-400">— {{ line.variant_name }}</span>
                 {% endif %}
-                <span class="text-gray-400">× {{ line.quantity }}</span>
+                <span class="text-gray-400">× {{ line.quantity|persian_number }}</span>
             </span>
-            <span dir="ltr">{{ line.line_total|stringformat:",.0f" }} ریال</span>
+            <span>{{ line.line_total|persian_number }} ریال</span>
         </div>
         {% endfor %}
         {% if order.discount_amount %}
         <div class="flex justify-between text-sm py-2 text-green-600">
             <span>تخفیف {% if order.discount_code_used %}({{ order.discount_code_used }}){% endif %}</span>
-            <span dir="ltr">−{{ order.discount_amount|stringformat:",.0f" }} ریال</span>
+            <span>−{{ order.discount_amount|persian_number }} ریال</span>
         </div>
         {% endif %}
         <div class="flex justify-between font-bold text-base mt-3 pt-2 border-t">
             <span>جمع کل</span>
-            <span dir="ltr">{{ order.total_after_discount|stringformat:",.0f" }} ریال</span>
+            <span>{{ order.total_after_discount|persian_number }} ریال</span>
         </div>
     </div>
 
@@ -118,7 +119,7 @@
             </div>
             {% if shipment.tracking_number %}
             <div class="text-sm text-gray-500">
-                کد رهگیری: <span dir="ltr" class="font-mono">{{ shipment.tracking_number }}</span>
+                کد رهگیری: <span class="font-mono">{{ shipment.tracking_number|persian_number }}</span>
             </div>
             {% endif %}
             {% if shipment.note %}

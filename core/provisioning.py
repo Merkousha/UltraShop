@@ -13,6 +13,7 @@ When USE_DJANGO_TENANTS=False (SQLite or shared-schema mode) this is a no-op.
 import logging
 
 from django.conf import settings
+from django.db import transaction
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +73,58 @@ def provision_store_schema(store):
     except Exception as exc:
         logger.exception("Failed to provision schema for store %s: %s", store.pk, exc)
         raise RuntimeError(f"Schema provisioning failed: {exc}") from exc
+
+
+def sync_store_tenant_slug(store, old_username: str):
+    """Sync an existing tenant's store_slug after a Store.username change.
+
+    This keeps the existing schema_name intact and only updates the lookup key
+    used by URLPathTenantMiddleware. If a duplicate tenant exists for the new
+    username (created by older buggy behavior), remove that duplicate first so
+    the original tenant can safely claim the new slug.
+    """
+    if not getattr(settings, "USE_DJANGO_TENANTS", False):
+        return None
+
+    old_username = (old_username or "").strip()
+    if not old_username or old_username == store.username:
+        return None
+
+    try:
+        from tenancy.models import Tenant
+
+        with transaction.atomic():
+            source_tenant = Tenant.objects.filter(store_slug=old_username, is_active=True).first()
+            if not source_tenant:
+                logger.warning(
+                    "No tenant found for old store slug '%s' while syncing store %s",
+                    old_username,
+                    store.pk,
+                )
+                return None
+
+            conflicting_tenant = Tenant.objects.filter(store_slug=store.username, is_active=True).first()
+            if conflicting_tenant and conflicting_tenant.pk != source_tenant.pk:
+                logger.warning(
+                    "Removing conflicting tenant '%s' before renaming tenant '%s' to '%s'",
+                    conflicting_tenant.schema_name,
+                    source_tenant.schema_name,
+                    store.username,
+                )
+                conflicting_tenant.delete()
+
+            source_tenant.store_slug = store.username
+            source_tenant.save(update_fields=["store_slug"])
+            logger.info(
+                "Synced tenant slug for store %s: %s -> %s",
+                store.pk,
+                old_username,
+                store.username,
+            )
+            return source_tenant
+    except Exception as exc:
+        logger.exception("Failed to sync tenant slug for store %s: %s", store.pk, exc)
+        raise RuntimeError(f"Tenant slug sync failed: {exc}") from exc
 
 
 def _safe_schema_name(store_username: str) -> str:

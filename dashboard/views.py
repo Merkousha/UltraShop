@@ -1,11 +1,13 @@
 import json
 import logging
+import os
 
 from django.conf import settings
 from django.contrib import messages
 from core.encryption import encrypt_value
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.cache import cache
+from django.core.files.storage import default_storage
 from django.db.models import Q, F
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect
@@ -16,6 +18,7 @@ from django.views import View
 from django.views.generic import ListView, TemplateView
 
 from catalog.models import Category, Product, ProductImage, ProductVariant, WarehouseStock
+from core.date_utils import parse_jalali_or_gregorian_date, to_jalali_date_string
 from core.blocks import (
     BLOCK_REGISTRY,
     get_block_by_id,
@@ -193,23 +196,92 @@ class DashboardHomeView(LoginRequiredMixin, TemplateView):
         user = self.request.user
         owned = Store.objects.filter(owner=user)
         staff = Store.objects.filter(staff_members__user=user)
-        ctx["stores"] = (owned | staff).distinct()
-        ctx["current_store_id"] = self.request.session.get("current_store_id")
+        stores = (owned | staff).distinct()
+        ctx["stores"] = stores
+        current_store_id = self.request.session.get("current_store_id")
+        ctx["current_store_id"] = current_store_id
 
         # Provide current_role for the sidebar role-based menu
-        store_id = self.request.session.get("current_store_id")
-        if store_id:
-            store = Store.objects.filter(pk=store_id).first()
-            if store:
-                if store.owner == user:
+        current_store = None
+        if current_store_id:
+            current_store = Store.objects.filter(pk=current_store_id).first()
+            if current_store:
+                if current_store.owner == user:
                     ctx["current_role"] = "owner"
                 else:
-                    s = StoreStaff.objects.filter(store=store, user=user).first()
+                    s = StoreStaff.objects.filter(store=current_store, user=user).first()
                     ctx["current_role"] = s.role if s else "staff"
             else:
                 ctx["current_role"] = "owner"
         else:
             ctx["current_role"] = "owner"
+
+        ctx["current_store"] = current_store
+
+        if current_store:
+            from dashboard.analytics_service import get_store_analytics
+            from core.ai_service import get_ai_usage_today
+
+            cache_key_30 = f"dashboard_home_analytics_{current_store.pk}_30"
+            analytics_30 = cache.get(cache_key_30)
+            if analytics_30 is None:
+                analytics_30 = get_store_analytics(current_store, days=30)
+                cache.set(cache_key_30, analytics_30, timeout=900)
+
+            cache_key_7 = f"dashboard_home_analytics_{current_store.pk}_7"
+            analytics_7 = cache.get(cache_key_7)
+            if analytics_7 is None:
+                analytics_7 = get_store_analytics(current_store, days=7)
+                cache.set(cache_key_7, analytics_7, timeout=900)
+
+            revenue_trend = list(analytics_7.get("revenue_trend") or [])
+            max_revenue = max([p.get("revenue", 0) for p in revenue_trend], default=0) or 1
+            trend_points = []
+            for point in revenue_trend:
+                revenue = point.get("revenue", 0) or 0
+                width = round((revenue / max_revenue) * 100, 1) if revenue else 0
+                trend_points.append({
+                    **point,
+                    "bar_width": width,
+                })
+
+            recent_orders = (
+                Order.objects.filter(store=current_store)
+                .select_related("customer")
+                .prefetch_related("lines")
+                .order_by("-created_at")[:5]
+            )
+
+            low_stock_candidates = list(
+                ProductVariant.objects.filter(product__store=current_store, is_active=True)
+                .select_related("product")
+                .order_by("stock", "product__name")[:50]
+            )
+            low_stock_variants = [v for v in low_stock_candidates if v.total_stock <= 5]
+            low_stock_variants = sorted(low_stock_variants, key=lambda v: v.total_stock)[:5]
+
+            ctx["overview"] = {
+                "products_total": Product.objects.filter(store=current_store).count(),
+                "products_active": Product.objects.filter(store=current_store, status=Product.Status.ACTIVE).count(),
+                "orders_total": Order.objects.filter(store=current_store).count(),
+                "orders_pending": Order.objects.filter(store=current_store, status=Order.Status.PENDING).count(),
+                "revenue_30d": sum(p.get("revenue", 0) or 0 for p in analytics_30.get("revenue_trend", [])),
+                "revenue_7d": sum(p.get("revenue", 0) or 0 for p in revenue_trend),
+                "conversion_rate": analytics_30.get("conversion_rate", 0),
+                "new_customers": analytics_30.get("new_customers", 0),
+                "top_products": analytics_30.get("top_products", [])[:3],
+            }
+            ctx["trend_points"] = trend_points
+            ctx["recent_orders"] = recent_orders
+            ctx["low_stock_variants"] = low_stock_variants
+            ctx["ai_usage"] = get_ai_usage_today(current_store)
+            ctx["store_analytics"] = analytics_30
+        else:
+            ctx["overview"] = {}
+            ctx["trend_points"] = []
+            ctx["recent_orders"] = []
+            ctx["low_stock_variants"] = []
+            ctx["ai_usage"] = (0, 0)
         return ctx
 
 
@@ -683,6 +755,8 @@ class CategoryCreateView(StoreAccessMixin, TemplateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["categories"] = Category.objects.filter(store=self.request.current_store)
+        ctx["category"] = None
+        ctx["is_edit"] = False
         return ctx
 
     def post(self, request, *args, **kwargs):
@@ -703,9 +777,101 @@ class CategoryCreateView(StoreAccessMixin, TemplateView):
             name=name,
             slug=slug or slugify(name, allow_unicode=True),
             description=description,
+            image=request.FILES.get("image"),
         )
         messages.success(request, f"دسته‌بندی «{name}» اضافه شد.")
         return redirect("dashboard:category-list")
+
+
+class CategoryEditView(StoreAccessMixin, TemplateView):
+    template_name = "dashboard/category_form.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        category = get_object_or_404(
+            Category,
+            pk=self.kwargs["pk"],
+            store=self.request.current_store,
+        )
+        ctx["category"] = category
+        ctx["is_edit"] = True
+        ctx["categories"] = Category.objects.filter(store=self.request.current_store).exclude(pk=category.pk)
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        store = request.current_store
+        category = get_object_or_404(Category, pk=self.kwargs["pk"], store=store)
+
+        name = (request.POST.get("name") or "").strip()
+        if not name:
+            messages.error(request, "نام دسته‌بندی را وارد کنید.")
+            return redirect("dashboard:category-edit", pk=category.pk)
+
+        parent = None
+        parent_id = request.POST.get("parent_id") or ""
+        if parent_id:
+            parent = Category.objects.filter(pk=parent_id, store=store).exclude(pk=category.pk).first()
+
+        slug = (request.POST.get("slug") or "").strip()
+        category.name = name
+        category.parent = parent
+        category.slug = slug or slugify(name, allow_unicode=True)
+        category.description = (request.POST.get("description") or "").strip()
+
+        if request.POST.get("remove_image") == "on":
+            category.image = None
+        if request.FILES.get("image"):
+            category.image = request.FILES["image"]
+
+        category.save()
+        messages.success(request, f"دسته‌بندی «{category.name}» به‌روزرسانی شد.")
+        return redirect("dashboard:category-list")
+
+
+class CategoryGenerateDescriptionView(StoreAccessMixin, View):
+    """Generate category description with AI for SEO helper in dashboard form."""
+
+    def post(self, request, *args, **kwargs):
+        from core.ai_service import AIError, call_text_ai
+
+        try:
+            body = json.loads(request.body or "{}")
+        except (ValueError, TypeError):
+            body = {}
+
+        store = request.current_store
+        name = (body.get("name") or "").strip()
+        parent_name = (body.get("parent_name") or "").strip()
+        current_text = (body.get("current_description") or "").strip()
+
+        if not name:
+            return JsonResponse({"error": "نام دسته‌بندی الزامی است."}, status=400)
+
+        prompt = (
+            "برای دسته‌بندی فروشگاه اینترنتی، یک توضیح SEO-friendly به فارسی بنویس. "
+            "خروجی باید فقط متن ساده باشد (بدون مارک‌داون). "
+            "طول متن بین 3 تا 5 جمله و حداکثر 600 کاراکتر باشد. "
+            "لحن طبیعی و کاربرپسند باشد و تکرار کلمه کلیدی بیش از حد نداشته باشد.\n\n"
+            f"نام دسته‌بندی: {name}\n"
+            f"دسته والد: {parent_name or '—'}\n"
+            f"توضیح فعلی (در صورت وجود): {current_text or '—'}"
+        )
+
+        try:
+            text = call_text_ai(store, prompt)
+            text = (text or "").strip()
+            if text.startswith("```"):
+                text = text.split("```")[1]
+                if text.startswith("text"):
+                    text = text[4:]
+                text = text.strip()
+            if len(text) > 2000:
+                text = text[:2000]
+            return JsonResponse({"description": text})
+        except AIError as e:
+            return JsonResponse({"error": e.user_message}, status=400)
+        except Exception:
+            return JsonResponse({"error": "خطا در تولید توضیحات با AI. دوباره تلاش کنید."}, status=500)
 
 
 # ─── Sprint 4: Warehouses (SO-50, SS-13) ─────────────────────
@@ -1107,10 +1273,14 @@ class ExpenseListView(AccountingAccessMixin, ListView):
             qs = qs.filter(category=category)
         date_from = self.request.GET.get("date_from")
         if date_from:
-            qs = qs.filter(date__gte=date_from)
+            parsed_date_from = parse_jalali_or_gregorian_date(date_from)
+            if parsed_date_from:
+                qs = qs.filter(date__gte=parsed_date_from)
         date_to = self.request.GET.get("date_to")
         if date_to:
-            qs = qs.filter(date__lte=date_to)
+            parsed_date_to = parse_jalali_or_gregorian_date(date_to)
+            if parsed_date_to:
+                qs = qs.filter(date__lte=parsed_date_to)
         return qs
 
     def get_context_data(self, **kwargs):
@@ -1119,8 +1289,8 @@ class ExpenseListView(AccountingAccessMixin, ListView):
         from django.db.models import Sum
         ctx["categories"] = Expense.Category.choices
         ctx["selected_category"] = self.request.GET.get("category", "")
-        ctx["date_from"] = self.request.GET.get("date_from", "")
-        ctx["date_to"] = self.request.GET.get("date_to", "")
+        ctx["date_from"] = to_jalali_date_string(self.request.GET.get("date_from", ""))
+        ctx["date_to"] = to_jalali_date_string(self.request.GET.get("date_to", ""))
         total = Expense.objects.filter(store=self.request.current_store).aggregate(
             t=Sum("amount")
         )["t"] or 0
@@ -1135,6 +1305,9 @@ class ExpenseCreateView(AccountingAccessMixin, View):
         from accounting.models import Expense
         from django.shortcuts import render as _render
         ai_data = request.session.pop("ai_expense_data", {})
+        if ai_data.get("date"):
+            ai_data = dict(ai_data)
+            ai_data["date"] = to_jalali_date_string(ai_data["date"])
         return _render(request, self.template_name, {
             "categories": Expense.Category.choices,
             "ai_data": ai_data,
@@ -1157,6 +1330,9 @@ class ExpenseCreateView(AccountingAccessMixin, View):
                 try:
                     from accounting.expense_service import extract_expense_from_image
                     data = extract_expense_from_image(request.current_store, image)
+                    if data.get("date"):
+                        data = dict(data)
+                        data["date"] = to_jalali_date_string(data["date"])
                     return _render(request, self.template_name, {
                         "categories": Expense.Category.choices,
                         "ai_data": data,
@@ -1181,7 +1357,9 @@ class ExpenseCreateView(AccountingAccessMixin, View):
             if amount <= 0:
                 raise ValueError("مبلغ باید بزرگ‌تر از صفر باشد.")
             date_str = request.POST.get("date") or str(datetime.date.today())
-            date_obj = datetime.date.fromisoformat(date_str)
+            date_obj = parse_jalali_or_gregorian_date(date_str)
+            if not date_obj:
+                raise ValueError("تاریخ وارد شده معتبر نیست.")
             vendor = request.POST.get("vendor", "").strip()
             category = request.POST.get("category", Expense.Category.OTHER)
             description = request.POST.get("description", "").strip()
@@ -1670,7 +1848,7 @@ class PageEditorView(StoreAccessMixin, TemplateView):
             "subtitle": "زیرعنوان",
             "cta_text": "متن دکمه",
             "cta_url": "لینک دکمه",
-            "image": "آدرس تصویر",
+            "image": "تصویر",
             "columns": "تعداد ستون",
             "limit": "تعداد محصول",
             "link": "لینک",
@@ -1720,9 +1898,21 @@ class PageEditorView(StoreAccessMixin, TemplateView):
         for bid in block_order:
             block_enabled[bid] = request.POST.get("enabled_" + bid) == "on"
         block_settings = {}
+        # remove_setting_{block_id_safe}_{setting_key}
+        remove_flags = set()
+        for key in request.POST.keys():
+            if key.startswith("remove_setting_"):
+                parts = key.replace("remove_setting_", "", 1).split("_", 1)
+                if len(parts) == 2:
+                    block_id = parts[0].replace("-", "_")
+                    setting_key = parts[1]
+                    remove_flags.add((block_id, setting_key))
+
         # Collect item-based keys: setting_{block_id_safe}_item_{index}_{field}
         items_by_block = {}
         for key, value in request.POST.items():
+            if key.startswith("remove_setting_"):
+                continue
             if key.startswith("setting_") and "_item_" in key:
                 rest = key.replace("setting_", "", 1)
                 if "_item_" not in rest:
@@ -1746,6 +1936,31 @@ class PageEditorView(StoreAccessMixin, TemplateView):
                     if setting_key == "items":
                         continue
                     block_settings.setdefault(block_id, {})[setting_key] = value
+
+        # Collect uploaded setting files: upload_setting_{block_id_safe}_{setting_key}
+        for key, uploaded in request.FILES.items():
+            if not key.startswith("upload_setting_"):
+                continue
+            parts = key.replace("upload_setting_", "", 1).split("_", 1)
+            if len(parts) != 2:
+                continue
+            block_id = parts[0].replace("-", "_")
+            setting_key = parts[1]
+
+            content_type = getattr(uploaded, "content_type", "") or ""
+            if content_type and not content_type.startswith("image/"):
+                continue
+
+            _, ext = os.path.splitext(uploaded.name or "")
+            ext = (ext or "").lower()[:10]
+            filename = f"layout/{store.username}/{block_id}_{setting_key}_{timezone.now().strftime('%Y%m%d%H%M%S%f')}{ext}"
+            saved_path = default_storage.save(filename, uploaded)
+            file_url = default_storage.url(saved_path)
+            block_settings.setdefault(block_id, {})[setting_key] = file_url
+
+        # Apply explicit remove flags after text/file parsing.
+        for block_id, setting_key in remove_flags:
+            block_settings.setdefault(block_id, {})[setting_key] = ""
         for block_id, indices_map in items_by_block.items():
             max_i = max(indices_map.keys()) if indices_map else -1
             items_list = []

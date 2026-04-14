@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}{{ platform_settings.name|default:"UltraShop" }}{% endblock %}</title>
     <link rel="stylesheet" href="{% static 'css/vazirmatn.css' %}">
+    <link rel="stylesheet" href="{% static 'admin/css/django_jalali.min.css' %}">
     <script src="{% static 'js/tailwind.js' %}"></script>
     <style>
         body { font-family: 'Vazirmatn', Tahoma, sans-serif; }
@@ -20,6 +21,7 @@
     {% block content %}{% endblock %}
     </main>
     {% endblock %}
+    <script src="{% static 'admin/js/django_jalali.min.js' %}"></script>
     {% block extra_scripts %}{% endblock %}
 </body>
 </html>

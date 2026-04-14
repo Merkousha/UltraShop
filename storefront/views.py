@@ -1,5 +1,8 @@
 import logging
+import re
+from urllib.parse import unquote
 
+from django.db import IntegrityError, connection
 from django.db.models import Min, Q
 
 logger = logging.getLogger(__name__)
@@ -348,19 +351,20 @@ class CheckoutView(StoreMixin, TemplateView):
         # ── Save abandoned cart with phone before creating order ─────
         self._save_abandoned_cart(request, cart, phone=guest_phone, email=guest_email)
 
-        order = Order.objects.create(
-            store=self.store,
-            guest_name=guest_name,
-            guest_phone=guest_phone,
-            shipping_address=request.POST.get("address", "").strip() if needs_shipping else "",
-            shipping_city=request.POST.get("city", "").strip() if needs_shipping else "",
-            shipping_province=request.POST.get("province", "").strip() if needs_shipping else "",
-            shipping_postal_code=request.POST.get("postal_code", "").strip() if needs_shipping else "",
-            shipping_email=guest_email,
-            status=Order.Status.PENDING,
-            discount_code_used=code_str,
-            discount_amount=discount_amount,
-        )
+        order_kwargs = {
+            "store": self.store,
+            "guest_name": guest_name,
+            "guest_phone": guest_phone,
+            "shipping_address": request.POST.get("address", "").strip() if needs_shipping else "",
+            "shipping_city": request.POST.get("city", "").strip() if needs_shipping else "",
+            "shipping_province": request.POST.get("province", "").strip() if needs_shipping else "",
+            "shipping_postal_code": request.POST.get("postal_code", "").strip() if needs_shipping else "",
+            "shipping_email": guest_email,
+            "status": Order.Status.PENDING,
+            "discount_code_used": code_str,
+            "discount_amount": discount_amount,
+        }
+        order = self._create_order_with_sequence_repair(order_kwargs)
 
         for item in items:
             OrderLine.objects.create(
@@ -415,6 +419,36 @@ class CheckoutView(StoreMixin, TemplateView):
         _save_cart(request, {})
 
         return redirect("storefront:order-confirm", store_username=self.store.username, pk=order.pk)
+
+    def _create_order_with_sequence_repair(self, order_kwargs):
+        """Create Order and self-heal PK sequence drift once if needed (PostgreSQL)."""
+        try:
+            return Order.objects.create(**order_kwargs)
+        except IntegrityError as exc:
+            msg = str(exc)
+            if "orders_pkey" not in msg and "duplicate key value violates unique constraint" not in msg:
+                raise
+            self._repair_order_pk_sequence()
+            return Order.objects.create(**order_kwargs)
+
+    def _repair_order_pk_sequence(self):
+        if connection.vendor != "postgresql":
+            return
+
+        table = Order._meta.db_table
+        with connection.cursor() as cursor:
+            cursor.execute(f'SELECT COALESCE(MAX(id), 0) FROM "{table}"')
+            max_id = int((cursor.fetchone() or [0])[0] or 0)
+            if max_id <= 0:
+                cursor.execute(
+                    "SELECT setval(pg_get_serial_sequence(%s, %s), %s, %s)",
+                    [table, "id", 1, False],
+                )
+            else:
+                cursor.execute(
+                    "SELECT setval(pg_get_serial_sequence(%s, %s), %s, %s)",
+                    [table, "id", max_id, True],
+                )
 
     def _send_order_confirmation_email(self, order) -> None:
         """C-23: ارسال ایمیل تأیید سفارش به مشتری (best-effort)."""
@@ -518,6 +552,7 @@ class ChatView(StoreMixin, View):
             body = {}
 
         user_message = (body.get("message") or "").strip()
+        page_context = body.get("page_context") or {}
         if not user_message:
             return JsonResponse({"error": "پیام خالی است."}, status=400)
 
@@ -562,6 +597,9 @@ class ChatView(StoreMixin, View):
 
         # RAG: search products for the user query
         product_context = search_products_for_chat(user_message, self.store)
+        current_product_context = _build_current_page_product_context(self.store, page_context)
+        if current_product_context:
+            product_context = current_product_context + "\n\n" + product_context
 
         # Call AI
         try:
@@ -643,6 +681,58 @@ def _record_chat_activity(store, chat_session, first_message: str) -> None:
         )
     except Exception:
         logger.exception("Failed to record chat activity for chat_session=%s", chat_session.pk)
+
+
+def _extract_product_slug_from_path(path: str, store_username: str) -> str:
+    path = unquote((path or "").strip())
+    pattern = rf"^/s/{re.escape(store_username)}/products/(?P<slug>[^/]+)/?$"
+    match = re.match(pattern, path)
+    if match:
+        return (match.group("slug") or "").strip()
+    return ""
+
+
+def _build_current_page_product_context(store, page_context: dict) -> str:
+    """Build product-specific context when chat originates from a product page."""
+    from catalog.models import Product
+
+    if not isinstance(page_context, dict):
+        return ""
+
+    slug = _extract_product_slug_from_path(page_context.get("path", ""), store.username)
+    heading = (page_context.get("heading") or "").strip()
+
+    product = None
+    if slug:
+        product = Product.objects.filter(store=store, status="active", slug=slug).prefetch_related("variants").first()
+    if not product and heading:
+        product = Product.objects.filter(store=store, status="active", name__iexact=heading).prefetch_related("variants").first()
+
+    if not product:
+        return ""
+
+    variants = list(product.variants.filter(is_active=True).order_by("price", "pk"))
+    if variants:
+        variant_lines = []
+        for v in variants:
+            variant_lines.append(
+                f"- {v.name} | قیمت: {v.price:,} ریال | موجودی: {v.total_stock}"
+            )
+        variants_text = "\n".join(variant_lines)
+    else:
+        variants_text = "- واریانت فعال ثبت نشده"
+
+    short_desc = (product.description or "").strip().replace("\n", " ")
+    if len(short_desc) > 450:
+        short_desc = short_desc[:450] + "..."
+
+    return (
+        "کانتکست صفحه فعلی کاربر (بالاترین اولویت پاسخ):\n"
+        f"محصول فعلی: {product.name}\n"
+        f"توضیحات: {short_desc or '—'}\n"
+        "واریانت‌ها:\n"
+        f"{variants_text}"
+    )
 
 
 # ─── C-20: My Orders (storefront customer order history) ──────────────────────

@@ -38,11 +38,18 @@
         });
     });
 
-    document.querySelectorAll('.remove-block-form').forEach(function(form) {
-        form.addEventListener('submit', function(e) {
-            if (!confirm('این بلوک حذف شود؟')) {
-                e.preventDefault();
+    var removeForm = document.getElementById('remove-block-form');
+    var removeBlockIdInput = document.getElementById('remove-block-id');
+    document.querySelectorAll('.remove-block-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            if (!removeForm || !removeBlockIdInput) {
+                return;
             }
+            if (!confirm('این بلوک حذف شود؟')) {
+                return;
+            }
+            removeBlockIdInput.value = btn.getAttribute('data-block-id') || '';
+            removeForm.submit();
         });
     });
 })();

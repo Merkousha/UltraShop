@@ -1,5 +1,6 @@
 {% extends "storefront/base.html" %}
 {% load static %}
+{% load number_filters %}
 {% block title %}{{ category.name }} — {{ store.name }}{% endblock %}
 {% block content %}
 <nav class="text-sm text-gray-400 mb-4">
@@ -47,7 +48,7 @@
             {% with v=product.variants.first %}
             {% if v %}
             <p class="text-sm mt-1">
-                <span class="font-bold text-primary">{{ v.price|stringformat:",.0f" }}</span>
+                <span class="font-bold text-primary">{{ v.price|persian_number }}</span>
                 <span class="text-xs text-gray-400">ریال</span>
             </p>
             {% endif %}
@@ -66,5 +67,12 @@
     <span class="px-3 py-1 text-sm text-gray-500">صفحه {{ products.number }} از {{ products.paginator.num_pages }}</span>
     {% if products.has_next %}<a href="?sort={{ current_sort }}&page={{ products.next_page_number }}" class="px-3 py-1 border rounded text-sm hover:bg-gray-100">بعدی</a>{% endif %}
 </div>
+{% endif %}
+
+{% if category.description %}
+<section class="mt-8 bg-white rounded-lg shadow p-5 border border-gray-100">
+    <h3 class="text-lg font-bold mb-3">توضیحات دسته‌بندی</h3>
+    <div class="text-sm text-gray-600 leading-7">{{ category.description|linebreaks }}</div>
+</section>
 {% endif %}
 {% endblock %}

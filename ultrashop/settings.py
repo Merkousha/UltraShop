@@ -59,6 +59,7 @@ if USE_DJANGO_TENANTS:
         "django.contrib.messages",
         "django.contrib.staticfiles",
         "django.contrib.humanize",
+        "jalali_date",
         # Shared project apps (public schema)
         "platform_admin",
         "dashboard",
@@ -86,6 +87,7 @@ else:
         "django.contrib.messages",
         "django.contrib.staticfiles",
         "django.contrib.humanize",
+        "jalali_date",
         # Project apps
         "core",
         "catalog",
@@ -218,6 +220,9 @@ MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Allow same-origin iframe preview inside dashboard page editor.
+X_FRAME_OPTIONS = "SAMEORIGIN"
 
 LOGIN_URL = "/accounts/login/"
 LOGIN_REDIRECT_URL = "/dashboard/"

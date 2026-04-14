@@ -58,7 +58,6 @@
   {% endwith %}
 
   <!-- Section: در انتظار -->
-  {% with has_pending=False %}
   {% for s in suggestions %}{% if s.status == "pending" %}{% if forloop.first %}
   <div class="space-y-3">
     <h3 class="text-base font-bold text-gray-700 border-b border-gray-200 pb-2">🕐 در انتظار بررسی ({{ pending_count }})</h3>

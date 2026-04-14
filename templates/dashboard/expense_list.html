@@ -39,13 +39,15 @@
         </div>
         <div>
             <label class="block text-xs text-gray-600 mb-1">از تاریخ</label>
-            <input type="date" name="date_from" value="{{ date_from }}"
-                   class="border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+             <input type="text" name="date_from" value="{{ date_from }}" dir="ltr" readonly inputmode="none"
+                 class="border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 jalali_date-date"
+                 data-jdp data-jdp-only-date>
         </div>
         <div>
             <label class="block text-xs text-gray-600 mb-1">تا تاریخ</label>
-            <input type="date" name="date_to" value="{{ date_to }}"
-                   class="border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+             <input type="text" name="date_to" value="{{ date_to }}" dir="ltr" readonly inputmode="none"
+                 class="border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 jalali_date-date"
+                 data-jdp data-jdp-only-date>
         </div>
         <div class="flex gap-2">
             <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm">🔍 فیلتر</button>

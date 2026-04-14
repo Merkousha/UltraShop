@@ -25,11 +25,13 @@
     </div>
     <div>
         <label class="block text-xs text-gray-500 mb-1">از تاریخ</label>
-        <input type="date" name="date_from" value="{{ current_filters.date_from }}" class="border rounded px-3 py-2 text-sm">
+        <input type="text" name="date_from" value="{{ current_filters.date_from }}" dir="ltr" readonly inputmode="none"
+               class="border rounded px-3 py-2 text-sm jalali_date-date" data-jdp data-jdp-only-date>
     </div>
     <div>
         <label class="block text-xs text-gray-500 mb-1">تا تاریخ</label>
-        <input type="date" name="date_to" value="{{ current_filters.date_to }}" class="border rounded px-3 py-2 text-sm">
+        <input type="text" name="date_to" value="{{ current_filters.date_to }}" dir="ltr" readonly inputmode="none"
+               class="border rounded px-3 py-2 text-sm jalali_date-date" data-jdp data-jdp-only-date>
     </div>
     <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded text-sm hover:bg-indigo-700">فیلتر</button>
     <a href="{% url 'platform_admin:shipment-list' %}" class="text-sm text-gray-500 hover:text-gray-700">پاک کردن</a>

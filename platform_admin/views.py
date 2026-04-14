@@ -1,4 +1,5 @@
 import json
+from collections import defaultdict
 
 from django.conf import settings
 from django.contrib import messages
@@ -13,11 +14,73 @@ from django.views import View
 from django.views.generic import ListView, DetailView, TemplateView
 
 from accounting.models import PayoutRequest, PlatformCommission, StoreTransaction
+from core.date_utils import parse_jalali_or_gregorian_date, to_jalali_date_string
 from core.encryption import encrypt_value, decrypt_value
 from core.models import AuditLog, PlatformSettings, Store, ThemePreset
 from core.services import log_action
 from orders.models import Order
 from shipping.models import Shipment, ShippingCarrier
+
+
+def _iter_tenant_schema_names():
+    """Return active tenant schema names in django-tenants mode."""
+    if not getattr(settings, "USE_DJANGO_TENANTS", False):
+        return []
+    try:
+        from tenancy.models import Tenant
+
+        return list(Tenant.objects.filter(is_active=True).values_list("schema_name", flat=True))
+    except Exception:
+        return []
+
+
+def _collect_across_tenants(fetcher):
+    """
+    Collect iterable results per tenant schema.
+    fetcher(): callable executed inside each tenant schema_context.
+    """
+    if not getattr(settings, "USE_DJANGO_TENANTS", False):
+        return list(fetcher())
+
+    try:
+        from django_tenants.utils import schema_context
+    except Exception:
+        return []
+
+    results = []
+    for schema_name in _iter_tenant_schema_names():
+        try:
+            with schema_context(schema_name):
+                rows = list(fetcher())
+                for row in rows:
+                    setattr(row, "_tenant_schema_name", schema_name)
+                results.extend(rows)
+        except (ProgrammingError, OperationalError):
+            continue
+    return results
+
+
+def _sum_across_tenants(fetcher):
+    """
+    Sum numeric results per tenant schema.
+    fetcher(): callable returning numeric value.
+    """
+    if not getattr(settings, "USE_DJANGO_TENANTS", False):
+        return fetcher() or 0
+
+    try:
+        from django_tenants.utils import schema_context
+    except Exception:
+        return 0
+
+    total = 0
+    for schema_name in _iter_tenant_schema_names():
+        try:
+            with schema_context(schema_name):
+                total += fetcher() or 0
+        except (ProgrammingError, OperationalError):
+            continue
+    return total
 
 
 class PlatformAdminMixin(LoginRequiredMixin, UserPassesTestMixin):
@@ -42,30 +105,6 @@ class PlatformLoginView(auth_views.LoginView):
 class DashboardView(PlatformAdminMixin, TemplateView):
     template_name = "platform_admin/dashboard.html"
 
-    def _sum_across_tenants(self, fn):
-        """Execute numeric aggregation fn() per tenant schema and sum safely."""
-        if not getattr(settings, "USE_DJANGO_TENANTS", False):
-            return fn()
-
-        try:
-            from django_tenants.utils import schema_context
-            from tenancy.models import Tenant
-        except Exception:
-            return 0
-
-        total = 0
-        schemas = list(
-            Tenant.objects.filter(is_active=True).values_list("schema_name", flat=True)
-        )
-        for schema_name in schemas:
-            try:
-                with schema_context(schema_name):
-                    total += fn() or 0
-            except (ProgrammingError, OperationalError):
-                # Skip tenants that are not fully migrated yet.
-                continue
-        return total
-
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         now = timezone.now()
@@ -76,31 +115,31 @@ class DashboardView(PlatformAdminMixin, TemplateView):
         ctx["active_stores"] = Store.objects.filter(is_active=True).count()
         ctx["total_stores"] = Store.objects.count()
 
-        ctx["orders_today"] = self._sum_across_tenants(
+        ctx["orders_today"] = _sum_across_tenants(
             lambda: Order.objects.filter(created_at__gte=today_start).count()
         )
-        ctx["orders_week"] = self._sum_across_tenants(
+        ctx["orders_week"] = _sum_across_tenants(
             lambda: Order.objects.filter(created_at__gte=week_start).count()
         )
-        ctx["orders_month"] = self._sum_across_tenants(
+        ctx["orders_month"] = _sum_across_tenants(
             lambda: Order.objects.filter(created_at__gte=month_start).count()
         )
 
-        ctx["commission_total"] = self._sum_across_tenants(
+        ctx["commission_total"] = _sum_across_tenants(
             lambda: PlatformCommission.objects.aggregate(t=Sum("amount"))["t"] or 0
         )
-        ctx["commission_month"] = self._sum_across_tenants(
+        ctx["commission_month"] = _sum_across_tenants(
             lambda: PlatformCommission.objects.filter(created_at__gte=month_start).aggregate(t=Sum("amount"))["t"] or 0
         )
 
-        ctx["pending_payouts"] = self._sum_across_tenants(
+        ctx["pending_payouts"] = _sum_across_tenants(
             lambda: PayoutRequest.objects.filter(status=PayoutRequest.Status.PENDING).count()
         )
-        ctx["pending_payouts_amount"] = self._sum_across_tenants(
+        ctx["pending_payouts_amount"] = _sum_across_tenants(
             lambda: PayoutRequest.objects.filter(status=PayoutRequest.Status.PENDING).aggregate(t=Sum("amount"))["t"] or 0
         )
 
-        ctx["active_shipments"] = self._sum_across_tenants(
+        ctx["active_shipments"] = _sum_across_tenants(
             lambda: Shipment.objects.exclude(status__in=["delivered", "exception"]).count()
         )
 
@@ -109,7 +148,7 @@ class DashboardView(PlatformAdminMixin, TemplateView):
         pending_count = ctx["pending_payouts"]
         pending_amount = ctx["pending_payouts_amount"]
         ctx["high_pending_payouts"] = pending_count > 5 or pending_amount > 10_000_000
-        ctx["exception_shipments"] = self._sum_across_tenants(
+        ctx["exception_shipments"] = _sum_across_tenants(
             lambda: Shipment.objects.filter(status="exception").count()
         )
 
@@ -337,7 +376,34 @@ class TestAIView(PlatformAdminMixin, View):
     def post(self, request, *args, **kwargs):
         try:
             from core.ai_service import AIError, _get_client
-            client = _get_client()
+
+            payload = {}
+            if request.content_type and "application/json" in request.content_type:
+                try:
+                    payload = json.loads(request.body or "{}")
+                except Exception:
+                    payload = {}
+
+            openai_key = (
+                (payload.get("openai_api_key") if payload else None)
+                or request.POST.get("openai_api_key", "")
+            ).strip()
+            openai_base_url = (
+                (payload.get("openai_base_url") if payload else None)
+                or request.POST.get("openai_base_url", "")
+            ).strip()
+
+            if openai_key:
+                from openai import OpenAI
+
+                client = OpenAI(
+                    api_key=openai_key,
+                    base_url=openai_base_url or None,
+                )
+            else:
+                # Fallback to persisted settings if no inline key is provided.
+                client = _get_client()
+
             client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[{"role": "user", "content": "Say OK in one word."}],
@@ -384,13 +450,22 @@ class ShipmentListView(PlatformAdminMixin, ListView):
 
         date_from = self.request.GET.get("date_from")
         if date_from:
-            qs = qs.filter(created_at__date__gte=date_from)
+            parsed_date_from = parse_jalali_or_gregorian_date(date_from)
+            if parsed_date_from:
+                qs = qs.filter(created_at__date__gte=parsed_date_from)
 
         date_to = self.request.GET.get("date_to")
         if date_to:
-            qs = qs.filter(created_at__date__lte=date_to)
+            parsed_date_to = parse_jalali_or_gregorian_date(date_to)
+            if parsed_date_to:
+                qs = qs.filter(created_at__date__lte=parsed_date_to)
+        if not getattr(settings, "USE_DJANGO_TENANTS", False):
+            return qs
 
-        return qs
+        def fetch():
+            return qs.order_by("-created_at")
+
+        return _collect_across_tenants(fetch)
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -399,8 +474,8 @@ class ShipmentListView(PlatformAdminMixin, ListView):
         ctx["current_filters"] = {
             "store": self.request.GET.get("store", ""),
             "status": self.request.GET.get("status", ""),
-            "date_from": self.request.GET.get("date_from", ""),
-            "date_to": self.request.GET.get("date_to", ""),
+            "date_from": to_jalali_date_string(self.request.GET.get("date_from", "")),
+            "date_to": to_jalali_date_string(self.request.GET.get("date_to", "")),
         }
         return ctx
 
@@ -458,9 +533,7 @@ class StoreListView(PlatformAdminMixin, ListView):
     paginate_by = 25
 
     def get_queryset(self):
-        qs = Store.objects.annotate(
-            order_count=Count("orders"),
-        ).all()
+        qs = Store.objects.all()
         q = self.request.GET.get("q")
         if q:
             qs = qs.filter(Q(name__icontains=q) | Q(username__icontains=q))
@@ -469,7 +542,18 @@ class StoreListView(PlatformAdminMixin, ListView):
             qs = qs.filter(is_active=True)
         elif status == "suspended":
             qs = qs.filter(is_active=False)
-        return qs.order_by("-created_at")
+
+        qs = qs.order_by("-created_at")
+        stores = list(qs)
+
+        if not getattr(settings, "USE_DJANGO_TENANTS", False):
+            return list(Store.objects.filter(pk__in=[s.pk for s in stores]).annotate(order_count=Count("orders")).order_by("-created_at"))
+
+        for store in stores:
+            store.order_count = _sum_across_tenants(
+                lambda s_id=store.pk: Order.objects.filter(store_id=s_id).count()
+            )
+        return stores
 
 
 class StoreDetailView(PlatformAdminMixin, DetailView):
@@ -493,7 +577,10 @@ class PayoutListView(PlatformAdminMixin, ListView):
     paginate_by = 25
 
     def get_queryset(self):
-        return PayoutRequest.objects.select_related("store").all()
+        qs = PayoutRequest.objects.select_related("store").all()
+        if not getattr(settings, "USE_DJANGO_TENANTS", False):
+            return qs
+        return _collect_across_tenants(lambda: qs.order_by("-created_at"))
 
 
 # ─── PA-34: Commission Report ──────────────────────────────
@@ -507,12 +594,32 @@ class CommissionReportView(PlatformAdminMixin, TemplateView):
         date_from = self.request.GET.get("date_from")
         date_to = self.request.GET.get("date_to")
         if date_from:
-            qs = qs.filter(created_at__date__gte=date_from)
+            parsed_date_from = parse_jalali_or_gregorian_date(date_from)
+            if parsed_date_from:
+                qs = qs.filter(created_at__date__gte=parsed_date_from)
         if date_to:
-            qs = qs.filter(created_at__date__lte=date_to)
+            parsed_date_to = parse_jalali_or_gregorian_date(date_to)
+            if parsed_date_to:
+                qs = qs.filter(created_at__date__lte=parsed_date_to)
 
-        ctx["total"] = qs.aggregate(t=Sum("amount"))["t"] or 0
-        ctx["by_store"] = qs.values("store__name").annotate(total=Sum("amount")).order_by("-total")
+        if not getattr(settings, "USE_DJANGO_TENANTS", False):
+            ctx["total"] = qs.aggregate(t=Sum("amount"))["t"] or 0
+            ctx["by_store"] = qs.values("store__name").annotate(total=Sum("amount")).order_by("-total")
+            return ctx
+
+        commissions = _collect_across_tenants(lambda: qs)
+        total = sum(c.amount for c in commissions)
+        by_store_map = defaultdict(int)
+        for c in commissions:
+            by_store_map[c.store.name if c.store_id else "—"] += c.amount
+
+        by_store = [
+            {"store__name": name, "total": amount}
+            for name, amount in sorted(by_store_map.items(), key=lambda i: i[1], reverse=True)
+        ]
+
+        ctx["total"] = total
+        ctx["by_store"] = by_store
         return ctx
 
 

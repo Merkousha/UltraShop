@@ -51,16 +51,6 @@ def signup_view(request):
             )
             request.session["current_store_id"] = store.pk
             request.session.modified = True
-            # Provision tenant schema in multi-tenant mode (no-op in SQLite mode)
-            try:
-                from core.provisioning import provision_store_schema
-                provision_store_schema(store)
-            except RuntimeError as exc:
-                import logging
-                logging.getLogger(__name__).error(
-                    "Tenant provisioning failed for store %s: %s", store.pk, exc
-                )
-                # Don't break signup — store still created in shared mode
             return redirect("dashboard:home")
 
     return render(

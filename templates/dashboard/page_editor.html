@@ -42,7 +42,7 @@
     </div>
     {% endif %}
 
-    <form method="post" id="page-editor-form">
+    <form method="post" enctype="multipart/form-data" id="page-editor-form">
         {% csrf_token %}
         <input type="hidden" name="block_order" id="block_order" value="{% for b in layout_blocks %}{{ b.id }}{% if not forloop.last %},{% endif %}{% endfor %}">
 
@@ -59,11 +59,7 @@
                         <input type="checkbox" name="enabled_{{ b.id }}" id="enabled_{{ b.id }}" {% if b.enabled %}checked{% endif %} class="rounded">
                         <label for="enabled_{{ b.id }}" class="flex-1 font-medium">{{ b.label }}</label>
                         <button type="button" class="block-settings-toggle text-indigo-600 text-sm hover:underline" data-block-id="{{ b.id }}" aria-expanded="false">تنظیمات محتوا</button>
-                        <form method="post" action="{% url 'dashboard:page-editor-remove-block' %}" class="inline remove-block-form">
-                            {% csrf_token %}
-                            <input type="hidden" name="block_id" value="{{ b.id }}">
-                            <button type="submit" class="text-red-600 text-sm hover:underline">حذف</button>
-                        </form>
+                        <button type="button" class="text-red-600 text-sm hover:underline remove-block-btn" data-block-id="{{ b.id }}">حذف</button>
                     </div>
                     <div class="block-settings-panel hidden px-4 pb-4 pt-0 bg-gray-50" id="settings-{{ b.id }}">
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
@@ -72,6 +68,18 @@
                                 <label class="block text-gray-600 mb-1">{{ label }}</label>
                                 {% if key == 'html' %}
                                 <textarea name="setting_{{ b.block_id_safe }}_{{ key }}" rows="4" class="w-full border rounded px-2 py-1 font-mono text-xs">{{ value|default:'' }}</textarea>
+                                {% elif key == 'image' %}
+                                <input type="hidden" name="setting_{{ b.block_id_safe }}_{{ key }}" value="{{ value|default:'' }}">
+                                {% if value %}
+                                <div class="mb-2">
+                                    <img src="{{ value }}" alt="پیش‌نمایش تصویر" class="w-full max-w-xs h-28 object-cover rounded border">
+                                </div>
+                                {% endif %}
+                                <input type="file" name="upload_setting_{{ b.block_id_safe }}_{{ key }}" accept="image/*" class="w-full border rounded px-2 py-1 text-sm bg-white">
+                                <label class="mt-2 inline-flex items-center gap-2 text-xs text-gray-600">
+                                    <input type="checkbox" name="remove_setting_{{ b.block_id_safe }}_{{ key }}">
+                                    حذف تصویر فعلی
+                                </label>
                                 {% else %}
                                 <input type="text" name="setting_{{ b.block_id_safe }}_{{ key }}" value="{{ value|default:'' }}" class="w-full border rounded px-2 py-1">
                                 {% endif %}
@@ -115,6 +123,11 @@
                 <span class="text-xs text-gray-500">می‌توانید چند بار یک نوع (مثلاً بنر) اضافه کنید.</span>
             </div>
         </div>
+    </form>
+
+    <form method="post" action="{% url 'dashboard:page-editor-remove-block' %}" id="remove-block-form" class="hidden">
+        {% csrf_token %}
+        <input type="hidden" name="block_id" id="remove-block-id" value="">
     </form>
 
     <div class="flex flex-wrap gap-4">

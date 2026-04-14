@@ -7,6 +7,7 @@ from django.views.generic import ListView, TemplateView
 
 from crm.models import ContactActivity, Lead, SaleTask
 from customers.models import Customer
+from core.date_utils import parse_jalali_or_gregorian_date
 from dashboard.views import SalesAccessMixin
 
 
@@ -174,6 +175,8 @@ class TaskCreateView(SalesAccessMixin, TemplateView):
         if lead_pk:
             lead = Lead.objects.filter(pk=lead_pk, store=store).first()
         due_date = request.POST.get("due_date") or None
+        if due_date:
+            due_date = parse_jalali_or_gregorian_date(due_date)
         task = SaleTask.objects.create(
             store=store,
             lead=lead,

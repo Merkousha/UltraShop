@@ -5,9 +5,13 @@ Uses OpenAI. Encrypted keys from PlatformSettings. Rate limit per store per day.
 
 import json
 import time
+import base64
+import binascii
 
 from django.db.models import Q
 from django.utils import timezone
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 
 from core.encryption import decrypt_value
 from core.models import AIDailyUsage, PlatformSettings
@@ -303,6 +307,55 @@ def search_products_for_chat(query: str, store) -> str:
     return "\n".join(lines)
 
 
+def _search_products_structured_for_chat(query: str, store, limit: int = 5) -> list:
+    """Return structured product data for function-calling in chat."""
+    from catalog.models import Product
+
+    words = [w.strip() for w in (query or "").split() if len(w.strip()) >= 2]
+    if not words:
+        products = Product.objects.filter(store=store, status="active").prefetch_related("variants")[:limit]
+    else:
+        q_filter = None
+        for word in words:
+            condition = Q(name__icontains=word) | Q(description__icontains=word)
+            q_filter = condition if q_filter is None else q_filter | condition
+        products = Product.objects.filter(
+            store=store, status="active"
+        ).filter(q_filter).prefetch_related("variants")[:limit]
+
+    result = []
+    for p in products:
+        active_variants = list(p.variants.filter(is_active=True).order_by("price", "pk"))
+        if active_variants:
+            prices = [v.price for v in active_variants]
+            total_stock = sum(getattr(v, "total_stock", 0) or 0 for v in active_variants)
+            variants = [
+                {
+                    "name": v.name,
+                    "price": v.price,
+                    "stock": getattr(v, "total_stock", 0) or 0,
+                }
+                for v in active_variants[:5]
+            ]
+        else:
+            prices = []
+            total_stock = 0
+            variants = []
+
+        result.append(
+            {
+                "name": p.name,
+                "description": (p.description or "")[:350],
+                "price_min": min(prices) if prices else None,
+                "price_max": max(prices) if prices else None,
+                "total_stock": total_stock,
+                "variants": variants,
+            }
+        )
+
+    return result
+
+
 def chat_with_products(session_messages: list, product_context: str, store) -> str:
     """
     session_messages: [{"role": "user"|"assistant", "content": "..."}]
@@ -315,24 +368,107 @@ def chat_with_products(session_messages: list, product_context: str, store) -> s
     model = ps.text_model or "gpt-4o-mini"
 
     system_prompt = (
-        "شما یک دستیار فروش مفید فارسی‌زبان برای یک فروشگاه اینترنتی هستید. "
-        "از کاتالوگ محصولات زیر برای پاسخ به سوالات استفاده کنید. "
-        "کوتاه و مفید پاسخ بدهید. همیشه به فارسی پاسخ بدهید.\n\n"
-        "محصولات موجود:\n" + product_context
+        "شما یک دستیار فروش فارسی‌زبان برای فروشگاه اینترنتی هستید. "
+        "همیشه به فارسی پاسخ بدهید و پاسخ را کاربردی و دقیق نگه دارید. "
+        "برای اطلاعات موجودی/پیشنهاد محصول، از function های ابزار استفاده کن و حدسی پاسخ نده. "
+        "اگر سوال جنبه پزشکی داشته باشد، هشدار کوتاه بده که تشخیص پزشکی نمی‌دهی و پیشنهاد مراجعه به پزشک بده.\n\n"
+        "کانتکست اولیه محصولات:\n" + product_context
     )
 
     messages = [{"role": "system", "content": system_prompt}]
     messages.extend(session_messages[-10:])  # last 10 messages for context
 
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "search_catalog_products",
+                "description": "Search active store products and return structured candidates for recommendation.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string", "description": "User need or search phrase in Persian."},
+                        "limit": {"type": "integer", "minimum": 1, "maximum": 10, "default": 5},
+                    },
+                    "required": ["query"],
+                },
+            },
+        }
+    ]
+
     max_retries = 2
     for attempt in range(max_retries + 1):
         try:
-            response = client.chat.completions.create(
+            working_messages = list(messages)
+
+            for _ in range(3):
+                response = client.chat.completions.create(
+                    model=model,
+                    messages=working_messages,
+                    tools=tools,
+                    tool_choice="auto",
+                    max_tokens=700,
+                )
+                msg = response.choices[0].message
+                tool_calls = getattr(msg, "tool_calls", None) or []
+
+                if not tool_calls:
+                    return (msg.content or "").strip()
+
+                assistant_payload = {
+                    "role": "assistant",
+                    "content": msg.content or "",
+                    "tool_calls": [],
+                }
+
+                for tc in tool_calls:
+                    assistant_payload["tool_calls"].append(
+                        {
+                            "id": tc.id,
+                            "type": "function",
+                            "function": {
+                                "name": tc.function.name,
+                                "arguments": tc.function.arguments or "{}",
+                            },
+                        }
+                    )
+
+                working_messages.append(assistant_payload)
+
+                for tc in tool_calls:
+                    tool_name = tc.function.name
+                    raw_args = tc.function.arguments or "{}"
+                    try:
+                        args = json.loads(raw_args)
+                    except json.JSONDecodeError:
+                        args = {}
+
+                    if tool_name == "search_catalog_products":
+                        query = (args.get("query") or "").strip()
+                        try:
+                            limit = int(args.get("limit", 5))
+                        except (TypeError, ValueError):
+                            limit = 5
+                        limit = max(1, min(limit, 10))
+                        payload = _search_products_structured_for_chat(query=query, store=store, limit=limit)
+                    else:
+                        payload = {"error": "unknown_tool"}
+
+                    working_messages.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": tc.id,
+                            "content": json.dumps(payload, ensure_ascii=False),
+                        }
+                    )
+
+            # Fallback if model keeps asking tools without final answer.
+            fallback_response = client.chat.completions.create(
                 model=model,
-                messages=messages,
+                messages=working_messages,
                 max_tokens=512,
             )
-            return response.choices[0].message.content.strip()
+            return fallback_response.choices[0].message.content.strip()
         except Exception as e:
             err_msg = str(e).lower()
             if "rate" in err_msg or "quota" in err_msg or "429" in err_msg:
@@ -516,13 +652,68 @@ def generate_logo_image(store, brand_name: str, style: str = "minimal", colors: 
     )
 
     try:
-        response = client.images.generate(
-            model="dall-e-3",
-            prompt=prompt,
-            size="1024x1024",
-            quality="standard",
-            n=1,
-        )
-        return response.data[0].url
+        def _get_attr(obj, key):
+            if isinstance(obj, dict):
+                return obj.get(key)
+            return getattr(obj, key, None)
+
+        def _save_b64_logo(b64_value: str) -> str:
+            raw = base64.b64decode(b64_value)
+            rel_path = f"generated_logos/{store.username}/logo_{timezone.now().strftime('%Y%m%d%H%M%S%f')}.png"
+            saved = default_storage.save(rel_path, ContentFile(raw))
+            return default_storage.url(saved)
+
+        def _extract_image_url_or_file(resp):
+            # Standard Images API payload: response.data[*].url or .b64_json
+            data_items = _get_attr(resp, "data")
+            if isinstance(data_items, list):
+                for item in data_items:
+                    if not item:
+                        continue
+                    image_url = _get_attr(item, "url")
+                    if image_url:
+                        return image_url
+                    b64_json = _get_attr(item, "b64_json")
+                    if b64_json:
+                        return _save_b64_logo(b64_json)
+
+            # Some OpenAI-compatible providers return `output` blocks.
+            output_items = _get_attr(resp, "output")
+            if isinstance(output_items, list):
+                for item in output_items:
+                    if not item:
+                        continue
+                    image_url = _get_attr(item, "url")
+                    if image_url:
+                        return image_url
+                    b64_json = _get_attr(item, "b64_json") or _get_attr(item, "result")
+                    if b64_json:
+                        return _save_b64_logo(b64_json)
+
+            return ""
+
+        # Try primary model first, then fallback model for providers that don't support dall-e-3.
+        for model_name in ("dall-e-3", "gpt-image-1"):
+            try:
+                response = client.images.generate(
+                    model=model_name,
+                    prompt=prompt,
+                    size="1024x1024",
+                    quality="standard",
+                    n=1,
+                    response_format="b64_json",
+                )
+                print(f"AI logo response from model {model_name}: {response}")
+                image_ref = _extract_image_url_or_file(response)
+                if image_ref:
+                    return image_ref
+            except Exception as e:
+                print(f"Error occurred with model {model_name}: {e}")  
+                # Try next model variant.
+                continue
+
+        raise AIError("Empty logo response", user_message="خروجی تولید لوگو نامعتبر بود. لطفاً دوباره تلاش کنید.")
+    except binascii.Error as e:
+        raise AIError(str(e), user_message="داده تصویر لوگو نامعتبر است. لطفاً دوباره تلاش کنید.")
     except Exception as e:
         raise AIError(str(e), user_message=f"خطا در تولید تصویر لوگو: {e}")

@@ -1,3 +1,4 @@
+{% load number_filters %}
 <section class="mb-8">
     <h2 class="text-xl font-bold mb-4" style="color: var(--text-heading);">{{ block.settings.title|default:"محصولات" }}</h2>
     <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4" style="--cols: {{ block.settings.columns|default:4 }};">
@@ -12,7 +13,7 @@
                 {% with v=product.variants.first %}
                 {% if v %}
                 <p class="text-sm mt-1">
-                    <span class="font-bold text-primary">{{ v.price|stringformat:",.0f" }}</span>
+                    <span class="font-bold text-primary">{{ v.price|persian_number }}</span>
                     <span class="text-xs text-gray-400">ریال</span>
                 </p>
                 {% endif %}

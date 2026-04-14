@@ -1,5 +1,6 @@
 {% extends "storefront/base.html" %}
 {% load static %}
+{% load number_filters %}
 {% block title %}سفارشات من — {{ store.name }}{% endblock %}
 {% block content %}
 <div class="max-w-3xl mx-auto">
@@ -10,7 +11,7 @@
         {% for order in orders %}
         <div class="bg-white rounded-lg shadow p-5">
             <div class="flex items-center justify-between mb-3">
-                <span class="font-bold text-sm">سفارش #{{ order.pk }}</span>
+                <span class="font-bold text-sm">سفارش #{{ order.pk|persian_number }}</span>
                 <span class="text-xs text-gray-400">{{ order.created_at|date:"Y/m/d" }}</span>
             </div>
             <div class="flex items-center justify-between text-sm mb-3">
@@ -33,7 +34,7 @@
             </div>
             <div class="flex items-center justify-between text-sm">
                 <span class="text-gray-500">مبلغ کل:</span>
-                <span class="font-semibold" dir="ltr">{{ order.total_after_discount|stringformat:",.0f" }} ریال</span>
+                <span class="font-semibold">{{ order.total_after_discount|persian_number }} ریال</span>
             </div>
             <div class="mt-3 text-left">
                 <a href="{% url 'storefront:my-order-detail' store.username order.pk %}"

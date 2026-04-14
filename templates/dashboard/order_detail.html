@@ -1,6 +1,7 @@
 {% extends "dashboard/base.html" %}
 {% load static %}
 {% load theme_tags %}
+{% load number_filters %}
 {% block title %}سفارش #{{ order.pk }}{% endblock %}
 {% block content %}
 <div class="flex items-center justify-between mb-6">
@@ -22,7 +23,7 @@
         <h3 class="font-semibold mb-3">اطلاعات سفارش</h3>
         <dl class="space-y-2 text-sm">
             <div class="flex justify-between"><dt class="text-gray-500">وضعیت</dt><dd>{{ order.get_status_display }}</dd></div>
-            <div class="flex justify-between"><dt class="text-gray-500">مبلغ کل</dt><dd>{{ order.total|stringformat:",.0f" }} ریال</dd></div>
+            <div class="flex justify-between"><dt class="text-gray-500">مبلغ کل</dt><dd>{{ order.total|persian_number }} ریال</dd></div>
             <div class="flex justify-between"><dt class="text-gray-500">تاریخ ثبت</dt><dd>{{ order.created_at|date:"Y/m/d H:i" }}</dd></div>
             <div class="flex justify-between"><dt class="text-gray-500">مرجع پرداخت</dt><dd>{{ order.payment_reference|default:"—" }}</dd></div>
             <div class="flex justify-between"><dt class="text-gray-500">شناسه مالیاتی</dt><dd data-fiscal-id>{{ order.fiscal_id|default:"ثبت نشده" }}</dd></div>
@@ -69,9 +70,9 @@
         <tr class="border-t">
             <td class="px-4 py-2">{{ line.product_name }}</td>
             <td class="px-4 py-2">{{ line.variant_name }}</td>
-            <td class="px-4 py-2">{{ line.quantity }}</td>
-            <td class="px-4 py-2">{{ line.unit_price|stringformat:",.0f" }}</td>
-            <td class="px-4 py-2">{{ line.line_total|stringformat:",.0f" }}</td>
+            <td class="px-4 py-2">{{ line.quantity|persian_number }}</td>
+            <td class="px-4 py-2">{{ line.unit_price|persian_number }} ریال</td>
+            <td class="px-4 py-2">{{ line.line_total|persian_number }} ریال</td>
         </tr>
         {% endfor %}
         </tbody>

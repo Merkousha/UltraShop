@@ -102,6 +102,15 @@
         var inputEl = document.getElementById('chat-input');
         var typingEl = document.getElementById('chat-typing');
 
+        function getPageContext() {
+            var heading = document.getElementById('product-heading');
+            return {
+                path: window.location.pathname || '',
+                title: document.title || '',
+                heading: heading ? (heading.textContent || '').trim() : '',
+            };
+        }
+
         window.toggleChat = function () {
             var open = panel.style.display !== 'none';
             panel.style.display = open ? 'none' : 'flex';
@@ -140,7 +149,7 @@
                     'Content-Type': 'application/json',
                     'X-CSRFToken': getCookie('csrftoken')
                 },
-                body: JSON.stringify({ message: msg })
+                body: JSON.stringify({ message: msg, page_context: getPageContext() })
             })
             .then(function (r) {
                 return r.json().then(function (data) {

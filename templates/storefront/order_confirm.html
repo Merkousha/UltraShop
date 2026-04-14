@@ -1,5 +1,6 @@
 {% extends "storefront/base.html" %}
 {% load static %}
+{% load number_filters %}
 {% block title %}تأیید سفارش — {{ store.name }}{% endblock %}
 {% block content %}
 <div class="max-w-2xl mx-auto">
@@ -15,7 +16,7 @@
         <div class="space-y-2 text-sm mb-4">
             <div class="flex justify-between">
                 <span class="text-gray-500">شماره سفارش:</span>
-                <span class="font-bold">#{{ order.pk }}</span>
+                <span class="font-bold">#{{ order.pk|persian_number }}</span>
             </div>
             {% if order.guest_name %}
             <div class="flex justify-between">
@@ -46,15 +47,15 @@
         <div class="flex justify-between text-sm py-1 border-b last:border-0">
             <span>{{ line.product_name }}
                 {% if line.variant_name %}<span class="text-xs text-gray-400">— {{ line.variant_name }}</span>{% endif %}
-                × {{ line.quantity }}
+                × {{ line.quantity|persian_number }}
             </span>
-            <span class="ltr">{{ line.line_total|stringformat:",.0f" }} ریال</span>
+            <span>{{ line.line_total|persian_number }} ریال</span>
         </div>
         {% endfor %}
 
         <div class="flex justify-between font-bold text-base mt-3 pt-2 border-t">
             <span>جمع کل</span>
-            <span class="ltr">{{ order.total|stringformat:",.0f" }} ریال</span>
+            <span>{{ order.total|persian_number }} ریال</span>
         </div>
     </div>
 

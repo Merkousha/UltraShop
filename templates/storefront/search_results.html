@@ -1,5 +1,6 @@
 {% extends "storefront/base.html" %}
 {% load static %}
+{% load number_filters %}
 {% block title %}جستجو: {{ query }} — {{ store.name }}{% endblock %}
 {% block content %}
 <div class="flex items-center justify-between mb-2">
@@ -33,7 +34,7 @@
             {% with v=product.variants.first %}
             {% if v %}
             <p class="text-sm mt-1">
-                <span class="font-bold text-primary">{{ v.price|stringformat:",.0f" }}</span>
+                <span class="font-bold text-primary">{{ v.price|persian_number }}</span>
                 <span class="text-xs text-gray-400">ریال</span>
             </p>
             {% endif %}
