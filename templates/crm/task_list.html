@@ -1,5 +1,6 @@
 {% extends "dashboard/base.html" %}
 {% load static %}
+{% load jalali_tags %}
 {% block title %}وظایف فروش{% endblock %}
 {% block content %}
 <div class="space-y-4">
@@ -61,7 +62,7 @@
 
                 <!-- Due Date -->
                 {% if task.due_date %}
-                <span class="text-xs text-gray-400 ltr flex-shrink-0">{{ task.due_date }}</span>
+                <span class="text-xs text-gray-400 ltr flex-shrink-0">{{ task.due_date|to_jalali:'%Y/%m/%d' }}</span>
                 {% endif %}
             </li>
             {% endfor %}

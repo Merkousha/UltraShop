@@ -242,6 +242,7 @@ class DashboardHomeView(LoginRequiredMixin, TemplateView):
                 width = round((revenue / max_revenue) * 100, 1) if revenue else 0
                 trend_points.append({
                     **point,
+                    "date": to_jalali_date_string(point.get("date", "")),
                     "bar_width": width,
                 })
 
@@ -2477,6 +2478,9 @@ class FinancialHealthView(AccountingAccessMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         from accounting.financial_health_service import get_financial_health
+        from django.conf import settings
+        from django.db import connection
+        from django.db.utils import ProgrammingError
 
         ctx = super().get_context_data(**kwargs)
         days = int(self.request.GET.get("days", 30))
@@ -2484,11 +2488,36 @@ class FinancialHealthView(AccountingAccessMixin, TemplateView):
             days = 30
 
         store = self.request.current_store
-        cache_key = f"financial_health_{store.pk}_{days}"
+        schema_name = getattr(connection, "schema_name", "public")
+        cache_key = f"financial_health_{schema_name}_{store.pk}_{days}"
         health = cache.get(cache_key)
         if health is None:
-            health = get_financial_health(store, days=days)
+            try:
+                health = get_financial_health(store, days=days)
+            except ProgrammingError:
+                # Tenant apps (like accounting) may not exist on public schema.
+                # If middleware didn't switch schema, retry in the store tenant.
+                if not getattr(settings, "USE_DJANGO_TENANTS", False):
+                    raise
+                from django_tenants.utils import schema_context
+                from tenancy.models import Tenant
+
+                tenant = Tenant.objects.filter(store_slug=store.username, is_active=True).first()
+                if not tenant:
+                    raise
+                with schema_context(tenant.schema_name):
+                    health = get_financial_health(store, days=days)
             cache.set(cache_key, health, timeout=900)  # 15 minutes
+
+        # Defensive normalization: old cache payloads or partial dicts should not blank the UI.
+        health = health or {}
+        health.setdefault("days", days)
+        for key in ("revenue", "prev_revenue", "commission", "total_expense", "net_profit", "profit_margin", "growth"):
+            value = health.get(key)
+            health[key] = value if isinstance(value, (int, float)) else 0
+        for key in ("revenue_trend", "expense_by_category", "top_products", "low_stock", "alerts"):
+            value = health.get(key)
+            health[key] = value if isinstance(value, list) else []
 
         ctx["health"] = health
         ctx["selected_days"] = days

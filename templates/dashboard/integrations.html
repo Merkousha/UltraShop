@@ -1,5 +1,6 @@
 {% extends "dashboard/base.html" %}
 {% load static %}
+{% load jalali_tags %}
 {% block title %}یکپارچه‌سازی‌های خارجی{% endblock %}
 
 {% block content %}
@@ -107,7 +108,7 @@
                 <!-- Last tested info -->
                 {% if intg.last_tested_at %}
                 <p class="mt-3 text-xs text-gray-400">
-                    آخرین تست: {{ intg.last_tested_at|date:"Y/m/d H:i" }}
+                    آخرین تست: {{ intg.last_tested_at|to_jalali:'%Y/%m/%d %H:%M' }}
                     {% if intg.test_result %}— {{ intg.test_result }}{% endif %}
                 </p>
                 {% endif %}

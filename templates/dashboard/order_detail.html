@@ -2,6 +2,7 @@
 {% load static %}
 {% load theme_tags %}
 {% load number_filters %}
+{% load jalali_tags %}
 {% block title %}سفارش #{{ order.pk }}{% endblock %}
 {% block content %}
 <div class="flex items-center justify-between mb-6">
@@ -24,7 +25,7 @@
         <dl class="space-y-2 text-sm">
             <div class="flex justify-between"><dt class="text-gray-500">وضعیت</dt><dd>{{ order.get_status_display }}</dd></div>
             <div class="flex justify-between"><dt class="text-gray-500">مبلغ کل</dt><dd>{{ order.total|persian_number }} ریال</dd></div>
-            <div class="flex justify-between"><dt class="text-gray-500">تاریخ ثبت</dt><dd>{{ order.created_at|date:"Y/m/d H:i" }}</dd></div>
+            <div class="flex justify-between"><dt class="text-gray-500">تاریخ ثبت</dt><dd>{{ order.created_at|to_jalali:'%Y/%m/%d %H:%M' }}</dd></div>
             <div class="flex justify-between"><dt class="text-gray-500">مرجع پرداخت</dt><dd>{{ order.payment_reference|default:"—" }}</dd></div>
             <div class="flex justify-between"><dt class="text-gray-500">شناسه مالیاتی</dt><dd data-fiscal-id>{{ order.fiscal_id|default:"ثبت نشده" }}</dd></div>
         </dl>
@@ -87,7 +88,7 @@
             <span class="font-medium">مرسوله #{{ shipment.pk }}</span>
             <span class="px-2 py-0.5 rounded text-xs {% if shipment.status == 'delivered' %}bg-green-100 text-green-700{% elif shipment.status == 'exception' %}bg-red-100 text-red-700{% else %}bg-blue-100 text-blue-700{% endif %}">{{ shipment.get_status_display }}</span>
             {% if shipment.tracking_number %}<span class="text-gray-500" dir="ltr">کد رهگیری: {{ shipment.tracking_number }}</span>{% endif %}
-            <span class="text-gray-400 text-xs">{{ shipment.updated_at|date:"Y/m/d H:i" }}</span>
+            <span class="text-gray-400 text-xs">{{ shipment.updated_at|to_jalali:'%Y/%m/%d %H:%M' }}</span>
             {% if shipment.tracking_number %}
             <button type="button"
                 data-track-url="{% url 'dashboard:order-track-shipment' pk=order.pk %}"
@@ -154,7 +155,7 @@
     <ul class="space-y-2 text-sm">
     {% for event in order.status_events.all %}
         <li class="flex gap-3 items-start">
-            <span class="text-gray-400 text-xs whitespace-nowrap">{{ event.created_at|date:"Y/m/d H:i" }}</span>
+            <span class="text-gray-400 text-xs whitespace-nowrap">{{ event.created_at|to_jalali:'%Y/%m/%d %H:%M' }}</span>
             <span class="px-2 py-0.5 rounded text-xs bg-gray-100">{{ event.status }}</span>
             <span class="text-gray-600">{{ event.note|default:"" }}</span>
         </li>

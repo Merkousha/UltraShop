@@ -1,5 +1,6 @@
 {% extends "dashboard/base.html" %}
 {% load static %}
+{% load jalali_tags %}
 {% block title %}جستجوی مشتریان{% endblock %}
 {% block content %}
 <div class="mb-6">
@@ -48,7 +49,7 @@
                 <td class="px-4 py-3 text-gray-700" dir="ltr">{{ customer.phone }}</td>
                 <td class="px-4 py-3 text-gray-600 text-xs" dir="ltr">{{ customer.email|default:"—" }}</td>
                 <td class="px-4 py-3 text-gray-500 text-xs">
-                    {{ customer.created_at|date:"Y/m/d" }}
+                    {{ customer.created_at|to_jalali:'%Y/%m/%d' }}
                 </td>
             </tr>
             {% endfor %}

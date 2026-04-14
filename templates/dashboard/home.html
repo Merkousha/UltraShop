@@ -1,5 +1,6 @@
 {% extends "dashboard/base.html" %}
 {% load number_filters %}
+{% load jalali_tags %}
 {% block title %}داشبورد{% endblock %}
 {% block content %}
 <div class="space-y-6">
@@ -140,7 +141,7 @@
                         <p class="text-xs text-gray-500 mt-1">
                             {% if order.customer %}{{ order.customer.phone }}{% else %}{{ order.guest_phone|default:"—" }}{% endif %}
                         </p>
-                        <p class="text-xs text-gray-400 mt-1">{{ order.created_at|date:"Y/m/d H:i" }}</p>
+                        <p class="text-xs text-gray-400 mt-1">{{ order.created_at|to_jalali:'%Y/%m/%d %H:%M' }}</p>
                     </div>
                     <div class="text-left">
                         <p class="text-sm font-semibold">{{ order.total_after_discount|persian_number }} ریال</p>

@@ -1,6 +1,7 @@
 {% extends "storefront/base.html" %}
 {% load static %}
 {% load number_filters %}
+{% load jalali_tags %}
 {% block title %}سفارش #{{ order.pk }} — {{ store.name }}{% endblock %}
 {% block content %}
 <div class="max-w-2xl mx-auto">
@@ -40,7 +41,7 @@
             </div>
             <div class="flex justify-between">
                 <span>تاریخ ثبت:</span>
-                <span>{{ order.created_at|date:"Y/m/d H:i" }}</span>
+                <span>{{ order.created_at|to_jalali:'%Y/%m/%d %H:%M' }}</span>
             </div>
             {% if order.guest_name %}
             <div class="flex justify-between">

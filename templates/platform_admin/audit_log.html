@@ -1,4 +1,5 @@
 {% extends "platform_admin/base.html" %}
+{% load jalali_tags %}
 {% block title %}لاگ تغییرات{% endblock %}
 {% block content %}
 <h2 class="text-2xl font-bold mb-6">📋 لاگ تغییرات (Audit Log)</h2>
@@ -21,7 +22,7 @@
         <tbody>
         {% for log in logs %}
         <tr class="border-t">
-            <td class="px-4 py-3 text-xs text-gray-500">{{ log.created_at|date:"Y/m/d H:i:s" }}</td>
+            <td class="px-4 py-3 text-xs text-gray-500">{{ log.created_at|to_jalali:'%Y/%m/%d %H:%M:%S' }}</td>
             <td class="px-4 py-3"><code class="bg-gray-100 px-1 rounded text-xs">{{ log.action }}</code></td>
             <td class="px-4 py-3">{{ log.actor.email|default:"—" }}</td>
             <td class="px-4 py-3">{{ log.store.name|default:"—" }}</td>

@@ -1,5 +1,6 @@
 {% extends "dashboard/base.html" %}
 {% load static %}
+{% load jalali_tags %}
 {% block title %}{{ lead.name }} — جزئیات سرنخ{% endblock %}
 {% block content %}
 <div class="space-y-6">
@@ -84,7 +85,7 @@
                         </form>
                         <span class="flex-1 {% if task.is_done %}line-through text-gray-400{% endif %}">{{ task.title }}</span>
                         {% if task.due_date %}
-                        <span class="text-xs text-gray-400 ltr">{{ task.due_date }}</span>
+                        <span class="text-xs text-gray-400 ltr">{{ task.due_date|to_jalali:'%Y/%m/%d' }}</span>
                         {% endif %}
                         <span class="text-xs px-1.5 py-0.5 rounded
                             {% if task.priority == 'high' %}bg-red-100 text-red-600
@@ -107,7 +108,7 @@
                 <ul class="space-y-3">
                     {% for act in activities %}
                     <li class="flex gap-3 text-sm">
-                        <span class="text-gray-400 text-xs mt-0.5 whitespace-nowrap ltr">{{ act.created_at|date:"Y-m-d H:i" }}</span>
+                        <span class="text-gray-400 text-xs mt-0.5 whitespace-nowrap ltr">{{ act.created_at|to_jalali:'%Y/%m/%d %H:%M' }}</span>
                         <div>
                             <span class="inline-block px-2 py-0.5 rounded text-xs
                                 {% if act.activity_type == 'order' %}bg-indigo-100 text-indigo-700

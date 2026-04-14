@@ -1,5 +1,6 @@
 {% extends "dashboard/base.html" %}
 {% load static %}
+{% load jalali_tags %}
 {% block title %}ویرایشگر صفحه{% endblock %}
 {% block content %}
 <div class="max-w-4xl">
@@ -141,7 +142,7 @@
             <label for="rollback-version" class="text-sm text-gray-600">بازگشت به نسخه:</label>
             <select name="version" id="rollback-version" class="border rounded px-2 py-1 text-sm">
                 {% for snap in snapshots %}
-                <option value="{{ snap.version }}">نسخه {{ snap.version }} — {{ snap.created_at|date:"Y/m/d H:i" }}</option>
+                <option value="{{ snap.version }}">نسخه {{ snap.version }} — {{ snap.created_at|to_jalali:'%Y/%m/%d %H:%M' }}</option>
                 {% endfor %}
             </select>
             <button type="submit" class="bg-amber-600 text-white px-4 py-2 rounded text-sm hover:bg-amber-700">بازگشت</button>

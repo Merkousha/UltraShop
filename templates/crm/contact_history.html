@@ -1,5 +1,6 @@
 {% extends "dashboard/base.html" %}
 {% load static %}
+{% load jalali_tags %}
 {% block title %}تاریخچه تماس مشتریان{% endblock %}
 {% block content %}
 <div class="space-y-6">
@@ -33,7 +34,7 @@
                                 <span class="bg-indigo-50 text-indigo-600 text-xs px-2 py-0.5 rounded-full">
                                     {{ customer.activity_count }} فعالیت
                                 </span>
-                                <p class="text-xs text-gray-400 mt-1 ltr">{{ customer.created_at|date:"Y-m-d" }}</p>
+                                <p class="text-xs text-gray-400 mt-1 ltr">{{ customer.created_at|to_jalali:'%Y/%m/%d' }}</p>
                             </div>
                         </div>
 
@@ -52,7 +53,7 @@
                                     {{ act.get_activity_type_display }}
                                 </span>
                                 <span>{{ act.description|truncatechars:50 }}</span>
-                                <span class="ltr">{{ act.created_at|date:"m-d H:i" }}</span>
+                                <span class="ltr">{{ act.created_at|to_jalali:'%m/%d %H:%M' }}</span>
                             </div>
                             {% endfor %}
                         </div>
@@ -104,7 +105,7 @@
                                 {% else %}bg-gray-100 text-gray-500{% endif %}">
                                 {{ act.get_activity_type_display }}
                             </span>
-                            <span class="text-gray-400 ltr">{{ act.created_at|date:"m-d H:i" }}</span>
+                            <span class="text-gray-400 ltr">{{ act.created_at|to_jalali:'%m/%d %H:%M' }}</span>
                         </div>
                         {% if act.customer %}
                         <p class="text-gray-600">{{ act.customer.name|default:act.customer.phone }}</p>

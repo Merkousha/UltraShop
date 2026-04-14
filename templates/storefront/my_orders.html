@@ -1,6 +1,7 @@
 {% extends "storefront/base.html" %}
 {% load static %}
 {% load number_filters %}
+{% load jalali_tags %}
 {% block title %}سفارشات من — {{ store.name }}{% endblock %}
 {% block content %}
 <div class="max-w-3xl mx-auto">
@@ -12,7 +13,7 @@
         <div class="bg-white rounded-lg shadow p-5">
             <div class="flex items-center justify-between mb-3">
                 <span class="font-bold text-sm">سفارش #{{ order.pk|persian_number }}</span>
-                <span class="text-xs text-gray-400">{{ order.created_at|date:"Y/m/d" }}</span>
+                <span class="text-xs text-gray-400">{{ order.created_at|to_jalali:'%Y/%m/%d' }}</span>
             </div>
             <div class="flex items-center justify-between text-sm mb-3">
                 <span class="text-gray-500">وضعیت:</span>

@@ -1,5 +1,6 @@
 {% extends "dashboard/base.html" %}
 {% load static %}
+{% load jalali_tags %}
 {% block title %}عامل هوشمند CFO{% endblock %}
 
 {% block content %}
@@ -29,7 +30,7 @@
     <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
       <div>
         <h3 class="font-semibold text-gray-800">📋 آخرین گزارش</h3>
-        <p class="text-xs text-gray-400 mt-0.5">تولید شده در: {{ latest_report.generated_at|date:"Y/m/d H:i" }}</p>
+        <p class="text-xs text-gray-400 mt-0.5">تولید شده در: {{ latest_report.generated_at|to_jalali:'%Y/%m/%d %H:%M' }}</p>
       </div>
       <span class="px-3 py-1 rounded-full bg-indigo-100 text-indigo-700 text-xs font-semibold">تازه‌ترین</span>
     </div>
@@ -120,7 +121,7 @@
             {% endif %}
           </div>
           <span class="flex-shrink-0 text-xs text-gray-400 whitespace-nowrap">
-            {{ report.generated_at|date:"Y/m/d H:i" }}
+            {{ report.generated_at|to_jalali:'%Y/%m/%d %H:%M' }}
           </span>
         </div>
       </div>

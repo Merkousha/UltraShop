@@ -1,5 +1,6 @@
 {% extends "dashboard/base.html" %}
 {% load static %}
+{% load jalali_tags %}
 {% block title %}لاگ موجودی انبار{% endblock %}
 {% block content %}
 <div class="flex items-center justify-between mb-6">
@@ -66,7 +67,7 @@
             <tr class="border-t hover:bg-gray-50">
                 <!-- زمان -->
                 <td class="px-4 py-3 text-gray-500 text-xs whitespace-nowrap" dir="ltr">
-                    {{ log.created_at|date:"Y/m/d H:i" }}
+                    {{ log.created_at|to_jalali:'%Y/%m/%d %H:%M' }}
                 </td>
                 <!-- انبار -->
                 <td class="px-4 py-3 font-medium">{{ log.warehouse.name }}</td>

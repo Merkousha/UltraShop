@@ -1,4 +1,5 @@
 {% extends "dashboard/base.html" %}
+{% load jalali_tags %}
 {% block title %}سبدهای رها شده{% endblock %}
 {% block content %}
 <div class="flex items-center justify-between mb-6">
@@ -56,14 +57,14 @@
                 {% endif %}
             </td>
             <td class="px-4 py-3 text-xs text-gray-500">
-                {{ ac.updated_at|date:"Y/m/d H:i" }}
+                {{ ac.updated_at|to_jalali:'%Y/%m/%d %H:%M' }}
                 {% if ac.recovery_sent_at %}
-                <span class="block text-blue-500">📩 ارسال: {{ ac.recovery_sent_at|date:"Y/m/d H:i" }}</span>
+                <span class="block text-blue-500">📩 ارسال: {{ ac.recovery_sent_at|to_jalali:'%Y/%m/%d %H:%M' }}</span>
                 {% endif %}
             </td>
             <td class="px-4 py-3 text-xs">
                 {% if ac.recovery_sent_at %}
-                    <span class="text-blue-600">📩 ارسال شده<br><span class="text-gray-400">{{ ac.recovery_sent_at|date:"Y/m/d H:i" }}</span></span>
+                    <span class="text-blue-600">📩 ارسال شده<br><span class="text-gray-400">{{ ac.recovery_sent_at|to_jalali:'%Y/%m/%d %H:%M' }}</span></span>
                 {% elif ac.recovered %}
                     <span class="text-gray-400">—</span>
                 {% else %}

@@ -1,4 +1,5 @@
 {% extends "platform_admin/base.html" %}
+{% load jalali_tags %}
 {% block title %}مرسوله #{{ shipment.pk }}{% endblock %}
 {% block content %}
 <div class="flex items-center gap-3 mb-6">
@@ -23,8 +24,8 @@
                 {{ shipment.get_status_display }}
             </span>
         </div>
-        <div><span class="text-gray-500 text-sm">ایجاد:</span> {{ shipment.created_at|date:"Y/m/d H:i" }}</div>
-        <div><span class="text-gray-500 text-sm">آخرین بروزرسانی:</span> {{ shipment.updated_at|date:"Y/m/d H:i" }}</div>
+        <div><span class="text-gray-500 text-sm">ایجاد:</span> {{ shipment.created_at|to_jalali:'%Y/%m/%d %H:%M' }}</div>
+        <div><span class="text-gray-500 text-sm">آخرین بروزرسانی:</span> {{ shipment.updated_at|to_jalali:'%Y/%m/%d %H:%M' }}</div>
         {% if shipment.note %}
         <div><span class="text-gray-500 text-sm">یادداشت:</span> {{ shipment.note }}</div>
         {% endif %}
