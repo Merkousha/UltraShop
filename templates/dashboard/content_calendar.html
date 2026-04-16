@@ -1,5 +1,6 @@
 {% extends "dashboard/base.html" %}
 {% load static %}
+{% load jalali_tags %}
 
 {% block content %}
 <div dir="rtl" class="space-y-6">
@@ -12,11 +13,11 @@
     </div>
     <!-- Export CSV -->
     {% if entries %}
-    <a href="{% url 'dashboard:content-calendar-export' %}?month={{ month_label }}"
+    <a href="{% url 'dashboard:content-calendar-export' %}?month={{ target_month|date:'Y-m' }}"
        class="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition">
       ⬇️ دانلود CSV
     </a>
-    <a href="{% url 'dashboard:content-calendar-print' %}?month={{ month_label }}"
+    <a href="{% url 'dashboard:content-calendar-print' %}?month={{ target_month|date:'Y-m' }}"
        target="_blank" rel="noopener"
        class="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition">
       🖨️ چاپ / PDF
@@ -28,7 +29,7 @@
   <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
     <div class="flex flex-wrap items-center gap-3 justify-between">
       <!-- Current month indicator -->
-      <p class="text-gray-700 font-semibold text-lg">📆 ماه هدف: <span class="text-indigo-600">{{ month_label }}</span></p>
+      <p class="text-gray-700 font-semibold text-lg">📆 ماه هدف: <span class="text-indigo-600">{{ target_month|to_jalali:'%Y/%m' }}</span></p>
 
       <!-- Generate buttons -->
       <div class="flex flex-wrap gap-3">
@@ -52,13 +53,44 @@
     </div>
 
     <!-- Month tabs -->
-    <div class="flex gap-2 mt-4 text-sm">
+    <div class="flex gap-2 mt-4 text-sm overflow-x-auto pb-2">
+      {% if all_months %}
+        {% for month_date in all_months %}
+        <a href="?month={{ month_date|date:'Y-m' }}"
+           class="px-3 py-1 rounded-full whitespace-nowrap transition {% if request.GET.month == month_date|date:'Y-m' or not request.GET.month and month_date == target_month %}bg-indigo-100 text-indigo-700 font-semibold{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">
+          {{ month_date|to_jalali:'%Y/%m' }}
+        </a>
+        {% endfor %}
+      {% else %}
       <a href="?month={{ target_month|date:'Y-m' }}"
-         class="px-3 py-1 rounded-full {% if request.GET.month == target_month|date:'Y-m' or not request.GET.month %}bg-indigo-100 text-indigo-700 font-semibold{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">
-        {{ month_label }}
+         class="px-3 py-1 rounded-full bg-indigo-100 text-indigo-700 font-semibold">
+        {{ target_month|to_jalali:'%Y/%m' }}
       </a>
+      {% endif %}
     </div>
   </div>
+
+  <!-- Summary stats -->
+  {% if entries %}
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-4 text-center">
+      <p class="text-2xl font-bold text-indigo-700">{{ entries|length }}</p>
+      <p class="text-sm text-indigo-500 mt-1">پست تولیدشده</p>
+    </div>
+    <div class="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
+      <p class="text-2xl font-bold text-green-700">{{ days_in_month }}</p>
+      <p class="text-sm text-green-500 mt-1">روز در ماه</p>
+    </div>
+    <div class="bg-purple-50 border border-purple-200 rounded-xl p-4 text-center">
+      <p class="text-2xl font-bold text-purple-700">{{ target_month|to_jalali:'%Y/%m' }}</p>
+      <p class="text-sm text-purple-500 mt-1">ماه هدف</p>
+    </div>
+    <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-center">
+      <p class="text-2xl font-bold text-yellow-700">✨</p>
+      <p class="text-sm text-yellow-600 mt-1">تولید با AI</p>
+    </div>
+  </div>
+  {% endif %}
 
   <!-- Calendar table -->
   {% if entries %}
@@ -128,26 +160,6 @@
         {% endfor %}
       </tbody>
     </table>
-  </div>
-
-  <!-- Summary stats -->
-  <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-    <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-4 text-center">
-      <p class="text-2xl font-bold text-indigo-700">{{ entries|length }}</p>
-      <p class="text-sm text-indigo-500 mt-1">پست تولیدشده</p>
-    </div>
-    <div class="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
-      <p class="text-2xl font-bold text-green-700">{{ days_in_month }}</p>
-      <p class="text-sm text-green-500 mt-1">روز در ماه</p>
-    </div>
-    <div class="bg-purple-50 border border-purple-200 rounded-xl p-4 text-center">
-      <p class="text-2xl font-bold text-purple-700">{{ month_label }}</p>
-      <p class="text-sm text-purple-500 mt-1">ماه هدف</p>
-    </div>
-    <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-center">
-      <p class="text-2xl font-bold text-yellow-700">✨</p>
-      <p class="text-sm text-yellow-600 mt-1">تولید با AI</p>
-    </div>
   </div>
 
   {% else %}

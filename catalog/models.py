@@ -240,3 +240,31 @@ class InventoryLog(models.Model):
             f"[{self.get_action_display()}] {self.variant} @ {self.warehouse.name}: "
             f"{self.quantity_before} → {self.quantity_after}"
         )
+
+
+# ─── Content Calendar ───────────────────────────────────────────
+class ContentCalendarEntry(models.Model):
+    """
+    یک آیتم تقویم محتوایی AI برای یک روز خاص۔
+    مدل این scheduler میں scheme tenant ذخیره می‌شود (نه public schema).
+    """
+
+    store = models.ForeignKey(
+        "core.Store",
+        on_delete=models.CASCADE,
+        related_name="calendar_entries",
+    )
+    date = models.DateField()
+    topic = models.CharField(max_length=300)
+    caption = models.TextField(blank=True, default="")
+    hashtags = models.CharField(max_length=500, blank=True, default="")
+    suggested_time = models.CharField(max_length=50, blank=True, default="")
+    is_ai_generated = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "content_calendar_entries"
+        ordering = ["date"]
+
+    def __str__(self):
+        return f"Day {self.date.day}: {self.topic[:50]}"

@@ -10,6 +10,7 @@ gunicorn==23.0.0
 psycopg[binary]==3.2.10
 django-tenants
 django-jalali-date
+requests==2.32.3
 
 # git config --global http.proxy socks5h://127.0.0.1:10808                              
 # git config --global https.proxy socks5h://127.0.0.1:10808

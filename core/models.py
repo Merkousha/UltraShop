@@ -407,31 +407,6 @@ class StoreIntegration(models.Model):
         return f"{self.integration_id} @ {self.store.name}"
 
 
-# ─── SO-18: Content Calendar ──────────────────────────────────
-class ContentCalendarEntry(models.Model):
-    """یک آیتم تقویم محتوایی AI برای یک روز خاص."""
-
-    store = models.ForeignKey(
-        "core.Store",
-        on_delete=models.CASCADE,
-        related_name="calendar_entries",
-    )
-    date = models.DateField()
-    topic = models.CharField(max_length=300)
-    caption = models.TextField(blank=True, default="")
-    hashtags = models.CharField(max_length=500, blank=True, default="")
-    suggested_time = models.CharField(max_length=50, blank=True, default="")
-    is_ai_generated = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        db_table = "content_calendar_entries"
-        ordering = ["date"]
-
-    def __str__(self):
-        return f"{self.date} — {self.topic[:50]}"
-
-
 # ─── SO-47: CRO Optimizer ─────────────────────────────────────
 class CROSuggestion(models.Model):
     """پیشنهاد بهینه‌سازی نرخ تبدیل (CRO) تولیدشده توسط AI."""

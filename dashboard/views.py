@@ -17,7 +17,14 @@ from django.utils.text import slugify
 from django.views import View
 from django.views.generic import ListView, TemplateView
 
-from catalog.models import Category, Product, ProductImage, ProductVariant, WarehouseStock
+from catalog.models import (
+    Category,
+    ContentCalendarEntry,
+    Product,
+    ProductImage,
+    ProductVariant,
+    WarehouseStock,
+)
 from core.date_utils import parse_jalali_or_gregorian_date, to_jalali_date_string
 from core.blocks import (
     BLOCK_REGISTRY,
@@ -28,7 +35,6 @@ from core.blocks import (
     next_instance_id,
 )
 from core.models import (
-    ContentCalendarEntry,
     CROSuggestion,
     LayoutConfiguration,
     LayoutConfigurationSnapshot,
@@ -2623,6 +2629,8 @@ class ContentCalendarView(StoreAccessMixin, TemplateView):
         ctx = super().get_context_data(**kwargs)
         import calendar
         from datetime import date
+        from django.db.models import Value, F
+        from django.db.models.functions import ExtractYear, ExtractMonth
 
         month_str = self.request.GET.get("month", "")
         today = date.today()
@@ -2641,9 +2649,15 @@ class ContentCalendarView(StoreAccessMixin, TemplateView):
             date__month=target.month,
         ).order_by("date")
 
+        # Get all unique months with entries for this store
+        all_months = ContentCalendarEntry.objects.filter(
+            store=self.request.current_store
+        ).dates('date', 'month', order='DESC')
+
         ctx["entries"] = entries
         ctx["target_month"] = target
         ctx["month_label"] = target.strftime("%Y/%m")
+        ctx["all_months"] = all_months
         ctx["days_in_month"] = calendar.monthrange(target.year, target.month)[1]
         return ctx
 
@@ -2653,13 +2667,24 @@ class ContentCalendarView(StoreAccessMixin, TemplateView):
         month_offset = int(request.POST.get("month_offset", 0))
         entries, target_month = generate_content_calendar(request.current_store, month_offset)
         if entries:
-            messages.success(request, f"تقویم محتوایی {len(entries)} روزه با موفقیت تولید شد.")
+            ai_count = sum(1 for entry in entries if entry.is_ai_generated)
+            if ai_count == len(entries):
+                messages.success(request, f"تقویم محتوایی {len(entries)} روزه با موفقیت توسط AI تولید شد.")
+            elif ai_count == 0:
+                messages.warning(
+                    request,
+                    f"تقویم {len(entries)} روزه تولید شد، اما AI در دسترس نبود و محتوا با الگوی جایگزین ساخته شد.",
+                )
+            else:
+                messages.warning(
+                    request,
+                    f"تقویم {len(entries)} روزه تولید شد. {ai_count} روز با AI و بقیه با الگوی جایگزین تکمیل شدند.",
+                )
         else:
             messages.error(request, "خطا در تولید تقویم محتوا. لطفاً دوباره امتحان کنید.")
         return redirect(
             reverse("dashboard:content-calendar") + f"?month={target_month.strftime('%Y-%m')}"
         )
-
 
 class ContentCalendarExportView(StoreAccessMixin, View):
     """SO-18: خروجی CSV تقویم محتوایی."""
