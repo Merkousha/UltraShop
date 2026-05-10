@@ -14,6 +14,8 @@ Provides get_store_analytics(store, days=30) returning a dict with:
 
 from datetime import timedelta
 
+from django.conf import settings
+from django.db import connection
 from django.db.models import Count, ExpressionWrapper, F, Sum, fields
 from django.utils import timezone
 
@@ -36,11 +38,22 @@ def get_store_analytics(store, days=30):
 
     All monetary values are in IRR (integer).
     """
+    # Set tenant context if using django-tenants
+    if getattr(settings, 'USE_DJANGO_TENANTS', False):
+        from tenancy.models import Tenant
+        # Get the tenant associated with this store by store username
+        try:
+            tenant = Tenant.objects.get(store_slug=store.username)
+            connection.set_tenant(tenant)
+        except Tenant.DoesNotExist:
+            # If tenant doesn't exist for this store, still proceed
+            pass
+    
     now = timezone.now()
     period_start = now - timedelta(days=days)
 
     # ── Paid orders (all time, for LTV/CAC) ─────────────────────────────
-    paid_qs = Order.objects.filter(store=store, status__in=PAID_STATUSES)
+    paid_qs = Order.objects.filter(status__in=PAID_STATUSES)
 
     # ── LTV: avg order value × avg orders per unique customer ────────────
     ltv = _compute_ltv(paid_qs)
